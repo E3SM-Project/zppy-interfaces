@@ -1,6 +1,7 @@
 # Script to plot some global atmosphere and ocean time series
 import glob
 import math
+import os
 import traceback
 from typing import Any, Dict, List, Tuple
 
@@ -186,14 +187,11 @@ class TS(object):
             data_array = 1.0e3 * (PRECC + PRECL)
         else:
             # Non-derived variables
-            if (metric == Metric.AVERAGE) or (metric == Metric.TOTAL):
+            if (metric == Metric.AVERAGE):
                 annual_average_dataset_for_var: xarray.core.dataset.Dataset = (
                     self.f.temporal.group_average(var, "year")
                 )
                 data_array = annual_average_dataset_for_var.data_vars[var]
-            # elif metric == Metric.TOTAL:
-            #     # TODO: Implement this!
-            #     raise NotImplementedError()
             else:
                 # This shouldn't be possible
                 raise ValueError(f"Invalid Enum option for metric={metric}")
@@ -265,7 +263,12 @@ def set_var(
     rgn: str,
 ) -> None:
     if exp[exp_key] != "":
-        ts_object: TS = TS(exp[exp_key])
+        try:
+            ts_object: TS = TS(exp[exp_key])
+        except Exception as e:
+            print(e)
+            print(f"TS object could not be created for {exp_key}={exp[exp_key]}")
+            raise e
         for var in var_list:
             var_str: str = var.variable_name
             try:
@@ -907,9 +910,10 @@ def make_plot_pdfs(  # noqa: C901
     num_pages = math.ceil(num_plots / plots_per_page)
 
     counter = 0
+    os.makedirs(parameters.results_dir, exist_ok=True)
     # https://stackoverflow.com/questions/58738992/save-multiple-figures-with-subplots-into-a-pdf-with-multiple-pages
     pdf = matplotlib.backends.backend_pdf.PdfPages(
-        f"{parameters.figstr}_{rgn}_{component}.pdf"
+        f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.pdf"
     )
     for page in range(num_pages):
         if plots_per_page == 1:
@@ -964,12 +968,12 @@ def make_plot_pdfs(  # noqa: C901
         pdf.savefig(1)
         if plots_per_page == 1:
             fig.savefig(
-                f"{parameters.figstr}_{rgn}_{component}_{plot_name}.png", dpi=150
+                f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}_{plot_name}.png", dpi=150
             )
         elif num_pages > 1:
-            fig.savefig(f"{parameters.figstr}_{rgn}_{component}_{page}.png", dpi=150)
+            fig.savefig(f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}_{page}.png", dpi=150)
         else:
-            fig.savefig(f"{parameters.figstr}_{rgn}_{component}.png", dpi=150)
+            fig.savefig(f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.png", dpi=150)
         plt.clf()
     pdf.close()
 

@@ -52,6 +52,7 @@ class Parameters(object):
         self.plots_ocn: List[str] = param_get_list(args["plots_ocn"])
         self.nrows: int = int(args["nrows"])
         self.ncols: int = int(args["ncols"])
+        self.results_dir: str = args["results_dir"]
         # These regions are used often as strings,
         # so making an Enum Region={GLOBAL, NORTH, SOUTH} would be limiting.
         self.regions: List[str] = list(
@@ -113,6 +114,7 @@ def _get_args() -> Parameters:
     parser.add_argument("plots_ocn", type=str, help="Plots ocean")
     parser.add_argument("nrows", type=str, help="Number of rows in pdf")
     parser.add_argument("ncols", type=str, help="Number of columns in pdf")
+    parser.add_argument("results_dir", type=str, help="Results directory")
     parser.add_argument("regions", type=str, help="Regions")
 
     # For both
@@ -153,6 +155,7 @@ if __name__ == "__main__":
         "plots_ocn": "None",
         "nrows": "4",
         "ncols": "2",
+        "results_dir": "results",
         "regions": "glb,n,s",
         "start_yr": "1985",
         "end_yr": "1994",
