@@ -22,6 +22,7 @@ def get_var_names(vars: List[Variable]):
     return list(map(lambda v: v.variable_name, vars))
 
 
+# Run with `python -u -m unittest tests/global_time_series/test_global_time_series.py`
 class TestGlobalTimeSeries(unittest.TestCase):
 
     # Useful classes and their helper functions ###############################

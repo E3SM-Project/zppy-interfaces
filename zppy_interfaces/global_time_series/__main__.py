@@ -3,9 +3,8 @@ import os
 import shutil
 import sys
 
-import coupled_global
-import ocean_month
-
+from zppy_interfaces.global_time_series.coupled_global import coupled_global
+from zppy_interfaces.global_time_series.ocean_month import ocean_month
 from zppy_interfaces.global_time_series.utils import Parameters
 
 
@@ -22,7 +21,7 @@ def main(parameters=None):
         )
         input: str = f"{parameters.input}/{parameters.input_subdir}"
         # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir)
-        ocean_month.ocean_month(
+        ocean_month(
             input,
             parameters.case_dir,
             parameters.year1,
@@ -39,7 +38,7 @@ def main(parameters=None):
 
     print("Update time series figures")
     # NOTE: PRODUCES OUTPUT IN THE CURRENT DIRECTORY
-    coupled_global.coupled_global(parameters)
+    coupled_global(parameters)
 
 
 # TODO: replace command line arguments with _get_cfg_parameters, like https://github.com/E3SM-Project/e3sm_diags/blob/main/e3sm_diags/parser/core_parser.py#L809
