@@ -1,6 +1,52 @@
-# This config file is required for Black.
-# Unforunately, black does not support setup.cfg (refer to link).
-# https://github.com/psf/black/issues/683#issuecomment-490236406
+[project]
+name = "zppy-interfaces"
+dynamic = ["version"]
+authors = [
+    { name="Ryan Forsyth", email="forsyth2@llnl.gov" }
+]
+description = "A package for providing extra functionality on top of external packages"
+license = {file = "LICENSE"}
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    # these are only for searching/browsing projects on PyPI
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "importlib_resources",
+    "jinja2",
+    "lxml",
+    "pyyaml",
+    "progressbar2",
+]
+
+[project.optional-dependencies]
+docs = [
+    # building documentation
+    "sphinx >=7.0.0",
+    "sphinx_rtd_theme",
+    "myst-parser",
+    "sphinx-multiversion",
+]
+
+dev = [
+    # linting and testing
+    "pip",
+    "pytest",
+    "isort",
+    "flynt",
+    "flake8",
+    "mypy",
+    "pre-commit",
+]
 
 [tool.black]
 line-length = 88
@@ -16,3 +62,21 @@ exclude = '''
     | docs
  )/
 '''
+
+[build-system]
+requires = ["setuptools>=60"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+exclude = ["docs*", "conda*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "zppy_interfaces.version.__version__" }
+
+# evolution of options.entry-points
+[project.scripts]
+zi-global-time-series = "zppy_interfaces.global_time_series.__main__:main"
+
+[project.urls]
+Documentation = "https://docs.e3sm.org/zppy-interfaces"
+"Bug Tracker" = "https://github.com/E3SM-Project/zppy-interfaces/issues"
