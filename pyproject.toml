@@ -20,26 +20,40 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-dependencies = []
+dependencies = [
+    "matplotlib-base >=3.8.2,<3.10",
+    "netcdf4",
+    "numpy >=2.0,<3.0",
+    "xarray >=2023.02.0",
+    "xcdat >=0.7.0,<1.0",
+]
 
 [project.optional-dependencies]
+
+testing = [
+    "pytest",
+    "pytest-cov",
+]
+
 docs = [
-    # building documentation
-    "sphinx >=7.0.0",
+    "sphinx",
     "sphinx_rtd_theme",
-    "myst-parser",
     "sphinx-multiversion",
 ]
 
+qa = [
+    "black==23.9.1",
+    "flake8==6.1.0",
+    "flake8-isort==6.1.0",
+    "isort==5.12.0",
+    "mypy==1.5.1",
+    "pre-commit >=3.0.0",
+    "types-PyYAML >=6.0.0",
+]
+
 dev = [
-    # linting and testing
-    "pip",
-    "pytest",
-    "isort",
-    "flynt",
-    "flake8",
-    "mypy",
-    "pre-commit",
+    "tbump==6.9.0",
+    "ipykernel",
 ]
 
 [tool.black]
