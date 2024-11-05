@@ -21,7 +21,7 @@ For help with a specific interface
     args: argparse.Namespace = parser.parse_args(sys.argv[1:2])
 
     if args.interface == "global_time_series":
-        global_time_series.global_time_series()
+        global_time_series.main()
     else:
         print("Unrecognized interface")
         parser.print_help()

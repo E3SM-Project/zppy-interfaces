@@ -1,7 +1,6 @@
 # Script to plot some global atmosphere and ocean time series
 import glob
 import math
-import sys
 import traceback
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -13,6 +12,8 @@ import numpy as np
 import xarray
 from netCDF4 import Dataset
 from readTS import TS
+
+from global_time_series import Parameters
 
 mpl.use("Agg")
 
@@ -710,22 +711,20 @@ def run(parameters, rgn):  # noqa: C901
     # --- Atmos data ---
 
     # Experiments
-    case_dir = parameters["case_dir"]
-    experiment_name = parameters["experiment_name"]
-    figstr = parameters["figstr"]
-    year1 = int(parameters["year1"])
-    year2 = int(parameters["year2"])
-    color = parameters["color"]
-    ts_num_years = parameters["ts_num_years"]
-    plots_original = param_get_list(parameters["plots_original"])
-    if parameters["atmosphere_only"].lower() == "false":
-        atmosphere_only = False
-    else:
-        atmosphere_only = True
-    plots_atm = param_get_list(parameters["plots_atm"])
-    plots_ice = param_get_list(parameters["plots_ice"])
-    plots_lnd = param_get_list(parameters["plots_lnd"])
-    plots_ocn = param_get_list(parameters["plots_ocn"])
+    # TODO: propagate parameters.<name> throughout file.
+    case_dir = parameters.case_dir
+    experiment_name = parameters.experiment_name
+    figstr = parameters.figstr
+    year1 = parameters.year1
+    year2 = parameters.year2
+    color = parameters.color
+    ts_num_years = parameters.ts_num_years_str
+    plots_original = parameters.plots_original
+    atmosphere_only = parameters.atmosphere_only
+    plots_atm = parameters.plots_atm
+    plots_ice = parameters.plots_ice
+    plots_lnd = parameters.plots_lnd
+    plots_ocn = parameters.plots_ocn
     vars_original = []
     if "net_toa_flux_restom" or "net_atm_energy_imbalance" in plots_original:
         vars_original.append("RESTOM")
@@ -854,8 +853,8 @@ def run(parameters, rgn):  # noqa: C901
     )
 
 
-def run_by_region(parameters):
-    regions = parameters["regions"].split(",")
+def run_by_region(parameters: Parameters):
+    regions = parameters.regions
     for rgn in regions:
         if rgn.lower() in ["glb", "global"]:
             rgn = "glb"
@@ -868,5 +867,5 @@ def run_by_region(parameters):
         run(parameters, rgn)
 
 
-def coupled_global(parameters):
+def coupled_global(parameters: Parameters):
     run_by_region(parameters)

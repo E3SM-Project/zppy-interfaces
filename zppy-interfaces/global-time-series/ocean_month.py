@@ -1,7 +1,6 @@
 # Compute time series of ocean heat content (ohc) using MPAS-O output
 
 import glob
-import sys
 from datetime import datetime
 
 import numpy as np
