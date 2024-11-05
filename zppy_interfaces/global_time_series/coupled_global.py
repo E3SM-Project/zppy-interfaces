@@ -3,6 +3,7 @@ import glob
 import math
 import os
 import traceback
+from enum import Enum
 from typing import Any, Dict, List, Tuple
 
 import cftime
@@ -12,16 +13,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray
 import xcdat
+from global_time_series import Parameters
 from netCDF4 import Dataset
 
-from enum import Enum
-from global_time_series import Parameters
-
 mpl.use("Agg")
+
 
 # Useful classes and their helper functions ###################################
 class Metric(Enum):
     AVERAGE = 1
+
 
 class Variable(object):
     def __init__(
@@ -53,7 +54,9 @@ class Variable(object):
         # Descriptive text to add to the plot page to help users identify the variable
         self.long_name: str = long_name
 
+
 def get_vars_original(plots_original: List[str]) -> List[Variable]:
+    # NOTE: These are ALL atmosphere variables
     vars_original: List[Variable] = []
     if ("net_toa_flux_restom" in plots_original) or (
         "net_atm_energy_imbalance" in plots_original
@@ -72,11 +75,13 @@ def get_vars_original(plots_original: List[str]) -> List[Variable]:
         vars_original.append(Variable("QFLX"))
     return vars_original
 
+
 def construct_generic_variables(requested_vars: List[str]) -> List[Variable]:
     var_list: List[Variable] = []
     for var_name in requested_vars:
         var_list.append(Variable(var_name))
     return var_list
+
 
 class RequestedVariables(object):
     def __init__(self, parameters: Parameters):
@@ -95,6 +100,7 @@ class RequestedVariables(object):
         self.vars_ocn: List[Variable] = construct_generic_variables(
             parameters.plots_ocn
         )
+
 
 class TS(object):
     def __init__(self, directory):
@@ -187,7 +193,7 @@ class TS(object):
             data_array = 1.0e3 * (PRECC + PRECL)
         else:
             # Non-derived variables
-            if (metric == Metric.AVERAGE):
+            if metric == Metric.AVERAGE:
                 annual_average_dataset_for_var: xarray.core.dataset.Dataset = (
                     self.f.temporal.group_average(var, "year")
                 )
@@ -215,6 +221,7 @@ class TS(object):
             var.original_units,
             var.final_units,
         )
+
 
 # Setup #######################################################################
 def get_data_dir(parameters: Parameters, component: str, conditional: bool) -> str:
@@ -335,6 +342,7 @@ def process_data(
         set_var(
             exp, "land", requested_variables.vars_land, valid_vars, invalid_vars, rgn
         )
+        # TODO: Fails here when atmosphere_only="false"
         set_var(
             exp, "ocean", requested_variables.vars_ocn, valid_vars, invalid_vars, rgn
         )
@@ -362,7 +370,9 @@ def process_data(
     )
     return exps
 
+
 ###############################################################################
+
 
 # ---additional function to get moc time series
 def getmoc(dir_in):
@@ -968,14 +978,22 @@ def make_plot_pdfs(  # noqa: C901
         pdf.savefig(1)
         if plots_per_page == 1:
             fig.savefig(
-                f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}_{plot_name}.png", dpi=150
+                f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}_{plot_name}.png",
+                dpi=150,
             )
         elif num_pages > 1:
-            fig.savefig(f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}_{page}.png", dpi=150)
+            fig.savefig(
+                f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}_{page}.png",
+                dpi=150,
+            )
         else:
-            fig.savefig(f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.png", dpi=150)
+            fig.savefig(
+                f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.png",
+                dpi=150,
+            )
         plt.clf()
     pdf.close()
+
 
 # Run coupled_global ##########################################################
 def run(parameters: Parameters, requested_variables: RequestedVariables, rgn: str):
@@ -1010,6 +1028,7 @@ def run(parameters: Parameters, requested_variables: RequestedVariables, rgn: st
     print(
         f"These {rgn} regions plots could not be generated successfully: {invalid_plots}"
     )
+
 
 def coupled_global(parameters: Parameters) -> None:
     requested_variables = RequestedVariables(parameters)

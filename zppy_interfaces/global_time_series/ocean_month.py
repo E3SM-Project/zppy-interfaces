@@ -7,8 +7,11 @@ import numpy as np
 from mpas_tools.cime.constants import constants
 from netCDF4 import Dataset, chartostring, date2num
 
-def ocean_month(path_in: str, case_dir: str, start_yr: int, end_yr: int, ts_num_years: int):
-    path_out = "{}/post/ocn/glb/ts/monthly/{}yr".format(case_dir, ts_num_years)
+
+def ocean_month(
+    path_in: str, case_dir: str, start_yr: int, end_yr: int, ts_num_years: int
+):
+    path_out = f"{case_dir}/post/ocn/glb/ts/monthly/{ts_num_years}yr"
 
     # Ocean constants
     # specific heat [J/(kg*degC)]
@@ -30,12 +33,11 @@ def ocean_month(path_in: str, case_dir: str, start_yr: int, end_yr: int, ts_num_
         files = []
         for year in range(year1, year2 + 1):
             print("year=", year)
-            inFiles = "%s/*mpaso.hist.am.timeSeriesStatsMonthly.%04d-??-??.nc" % (
-                path_in,
-                year,
+            inFiles = (
+                f"{path_in}/*mpaso.hist.am.timeSeriesStatsMonthly.{year:04d}-??-??.nc"
             )
             files.extend(sorted(glob.glob(inFiles)))
-        out = "%s/mpaso.glb.%04d01-%04d12.nc" % (path_out, year1, year2)
+        out = f"{path_out}/mpaso.glb.{year1:04d}01-{year2:04d}12.nc"
 
         # Create output file
         fout = Dataset(out, "w", format="NETCDF4_CLASSIC")
@@ -114,8 +116,7 @@ def ocean_month(path_in: str, case_dir: str, start_yr: int, end_yr: int, ts_num_
             # Diagnostics printout
             for i in range(len(date_start)):
                 print(
-                    "Start, End, OHC = %s (%s), %s (%s), %e"
-                    % (date_start[i], tstart[i], date_end[i], tend[i], ohc_tot[i])
+                    f"Start, End, OHC = {date_start[i]} ({tstart[i]}), {date_end[i]} ({tend[i]}), {ohc_tot[i]:.2e}"
                 )
 
             # Write data
