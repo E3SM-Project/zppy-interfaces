@@ -10,7 +10,7 @@ from zppy_interfaces.global_time_series.coupled_global import (
     get_vars_original,
     get_ylim,
 )
-from zppy_interfaces.global_time_series.global_time_series import (
+from zppy_interfaces.global_time_series.utils import (
     Parameters,
     get_region,
     param_get_list,

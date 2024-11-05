@@ -8,6 +8,7 @@ dependencies:
   # =======================
   - python >=3.9
   - pip
+  - setuptools >= 60
   # Base
   # =================
   - matplotlib-base >=3.8.2,<3.10

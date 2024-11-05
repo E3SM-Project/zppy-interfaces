@@ -2,6 +2,7 @@
 import glob
 import math
 import os
+import sys
 import traceback
 from enum import Enum
 from typing import Any, Dict, List, Tuple
@@ -13,8 +14,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray
 import xcdat
-from global_time_series import Parameters
 from netCDF4 import Dataset
+
+from zppy_interfaces.global_time_series.utils import Parameters
 
 mpl.use("Agg")
 
@@ -108,6 +110,12 @@ class TS(object):
         self.directory: str = directory
 
         # `directory` will be of the form `{case_dir}/post/<component>/glb/ts/monthly/{ts_num_years_str}yr/`
+        # TODO: run this print statement here and in zppy main, and compare.
+        # TODO: double check we have the same xcdat version in the 2 cases.
+        # TODO: can we open these 3 folders from a tiny script?
+        # TODO: put in file names manually rather than using `*`?
+        print(f"error is here: {directory}*.nc")
+        sys.exit(0)
         self.f: xarray.core.dataset.Dataset = xcdat.open_mfdataset(
             f"{directory}*.nc", center_times=True
         )

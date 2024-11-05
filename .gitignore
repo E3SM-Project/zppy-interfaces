@@ -1,6 +1,6 @@
 build/
 dist/
-zppy.egg-info/
+zppy_interfaces.egg-info/
 *.pyc
 *~
 \#*

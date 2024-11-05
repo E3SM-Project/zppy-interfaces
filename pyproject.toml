@@ -1,5 +1,5 @@
 [project]
-name = "zppy-interfaces"
+name = "zppy_interfaces"
 dynamic = ["version"]
 authors = [
     { name="Ryan Forsyth", email="forsyth2@llnl.gov" }
@@ -20,13 +20,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-dependencies = [
-    "importlib_resources",
-    "jinja2",
-    "lxml",
-    "pyyaml",
-    "progressbar2",
-]
+dependencies = []
 
 [project.optional-dependencies]
 docs = [
