@@ -2,7 +2,7 @@
 import glob
 import math
 import traceback
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import cftime
 import matplotlib as mpl
@@ -10,13 +10,356 @@ import matplotlib.backends.backend_pdf
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray
+import xcdat
 from netCDF4 import Dataset
-from readTS import TS
 
+from enum import Enum
 from global_time_series import Parameters
 
 mpl.use("Agg")
 
+# Useful classes and their helper functions ###################################
+class Metric(Enum):
+    AVERAGE = 1
+
+class Variable(object):
+    def __init__(
+        self,
+        variable_name,
+        metric=Metric.AVERAGE,
+        scale_factor=1.0,
+        original_units="",
+        final_units="",
+        group="",
+        long_name="",
+    ):
+        # The name of the EAM/ELM/etc. variable on the monthly h0 history file
+        self.variable_name: str = variable_name
+
+        # These fields are used for computation
+        # Global average over land area or global total
+        self.metric: Metric = metric
+        # The factor that should convert from original_units to final_units, after standard processing with nco
+        self.scale_factor: float = scale_factor
+        # Test string for the units as given on the history file (included here for possible testing)
+        self.original_units: str = original_units
+        # The units that should be reported in time series plots, based on metric and scale_factor
+        self.final_units: str = final_units
+
+        # These fields are used for plotting
+        # A name used to cluster variables together, to be separated in groups within the output web pages
+        self.group: str = group
+        # Descriptive text to add to the plot page to help users identify the variable
+        self.long_name: str = long_name
+
+def get_vars_original(plots_original: List[str]) -> List[Variable]:
+    vars_original: List[Variable] = []
+    if ("net_toa_flux_restom" in plots_original) or (
+        "net_atm_energy_imbalance" in plots_original
+    ):
+        vars_original.append(Variable("RESTOM"))
+    if "net_atm_energy_imbalance" in plots_original:
+        vars_original.append(Variable("RESSURF"))
+    if "global_surface_air_temperature" in plots_original:
+        vars_original.append(Variable("TREFHT"))
+    if "toa_radiation" in plots_original:
+        vars_original.append(Variable("FSNTOA"))
+        vars_original.append(Variable("FLUT"))
+    if "net_atm_water_imbalance" in plots_original:
+        vars_original.append(Variable("PRECC"))
+        vars_original.append(Variable("PRECL"))
+        vars_original.append(Variable("QFLX"))
+    return vars_original
+
+def construct_generic_variables(requested_vars: List[str]) -> List[Variable]:
+    var_list: List[Variable] = []
+    for var_name in requested_vars:
+        var_list.append(Variable(var_name))
+    return var_list
+
+class RequestedVariables(object):
+    def __init__(self, parameters: Parameters):
+        self.vars_original: List[Variable] = get_vars_original(
+            parameters.plots_original
+        )
+        self.vars_atm: List[Variable] = construct_generic_variables(
+            parameters.plots_atm
+        )
+        self.vars_land: List[Variable] = construct_generic_variables(
+            parameters.plots_lnd
+        )
+        self.vars_ice: List[Variable] = construct_generic_variables(
+            parameters.plots_ice
+        )
+        self.vars_ocn: List[Variable] = construct_generic_variables(
+            parameters.plots_ocn
+        )
+
+class TS(object):
+    def __init__(self, directory):
+
+        self.directory: str = directory
+
+        # `directory` will be of the form `{case_dir}/post/<component>/glb/ts/monthly/{ts_num_years_str}yr/`
+        self.f: xarray.core.dataset.Dataset = xcdat.open_mfdataset(
+            f"{directory}*.nc", center_times=True
+        )
+
+    def __del__(self):
+
+        self.f.close()
+
+    def globalAnnualHelper(
+        self,
+        var: str,
+        metric: Metric,
+        scale_factor: float,
+        original_units: str,
+        final_units: str,
+    ) -> Tuple[xarray.core.dataarray.DataArray, str]:
+
+        data_array: xarray.core.dataarray.DataArray
+        units: str = ""
+
+        # Constants, from AMWG diagnostics
+        Lv = 2.501e6
+        Lf = 3.337e5
+
+        # Is this a derived variable?
+        if var == "RESTOM":
+            FSNT, _ = self.globalAnnualHelper(
+                "FSNT", metric, scale_factor, original_units, final_units
+            )
+            FLNT, _ = self.globalAnnualHelper(
+                "FLNT", metric, scale_factor, original_units, final_units
+            )
+            data_array = FSNT - FLNT
+        elif var == "RESTOA":
+            print("NOT READY")
+            FSNTOA, _ = self.globalAnnualHelper(
+                "FSNTOA", metric, scale_factor, original_units, final_units
+            )
+            FLUT, _ = self.globalAnnualHelper(
+                "FLUT", metric, scale_factor, original_units, final_units
+            )
+            data_array = FSNTOA - FLUT
+        elif var == "LHFLX":
+            QFLX, _ = self.globalAnnualHelper(
+                "QFLX", metric, scale_factor, original_units, final_units
+            )
+            PRECC, _ = self.globalAnnualHelper(
+                "PRECC", metric, scale_factor, original_units, final_units
+            )
+            PRECL, _ = self.globalAnnualHelper(
+                "PRECL", metric, scale_factor, original_units, final_units
+            )
+            PRECSC, _ = self.globalAnnualHelper(
+                "PRECSC", metric, scale_factor, original_units, final_units
+            )
+            PRECSL, _ = self.globalAnnualHelper(
+                "PRECSL", metric, scale_factor, original_units, final_units
+            )
+            data_array = (Lv + Lf) * QFLX - Lf * 1.0e3 * (
+                PRECC + PRECL - PRECSC - PRECSL
+            )
+        elif var == "RESSURF":
+            FSNS, _ = self.globalAnnualHelper(
+                "FSNS", metric, scale_factor, original_units, final_units
+            )
+            FLNS, _ = self.globalAnnualHelper(
+                "FLNS", metric, scale_factor, original_units, final_units
+            )
+            SHFLX, _ = self.globalAnnualHelper(
+                "SHFLX", metric, scale_factor, original_units, final_units
+            )
+            LHFLX, _ = self.globalAnnualHelper(
+                "LHFLX", metric, scale_factor, original_units, final_units
+            )
+            data_array = FSNS - FLNS - SHFLX - LHFLX
+        elif var == "PREC":
+            PRECC, _ = self.globalAnnualHelper(
+                "PRECC", metric, scale_factor, original_units, final_units
+            )
+            PRECL, _ = self.globalAnnualHelper(
+                "PRECL", metric, scale_factor, original_units, final_units
+            )
+            data_array = 1.0e3 * (PRECC + PRECL)
+        else:
+            # Non-derived variables
+            if (metric == Metric.AVERAGE) or (metric == Metric.TOTAL):
+                annual_average_dataset_for_var: xarray.core.dataset.Dataset = (
+                    self.f.temporal.group_average(var, "year")
+                )
+                data_array = annual_average_dataset_for_var.data_vars[var]
+            # elif metric == Metric.TOTAL:
+            #     # TODO: Implement this!
+            #     raise NotImplementedError()
+            else:
+                # This shouldn't be possible
+                raise ValueError(f"Invalid Enum option for metric={metric}")
+            units = data_array.units
+            # `units` will be "1" if it's a dimensionless quantity
+            if (units != "1") and (original_units != "") and original_units != units:
+                raise ValueError(
+                    f"Units don't match up: Have {units} but expected {original_units}. This renders the supplied scale_factor ({scale_factor}) unusable."
+                )
+            data_array *= scale_factor
+            units = final_units
+        return data_array, units
+
+    def globalAnnual(
+        self, var: Variable
+    ) -> Tuple[xarray.core.dataarray.DataArray, str]:
+        return self.globalAnnualHelper(
+            var.variable_name,
+            var.metric,
+            var.scale_factor,
+            var.original_units,
+            var.final_units,
+        )
+
+# Setup #######################################################################
+def get_data_dir(parameters: Parameters, component: str, conditional: bool) -> str:
+    return (
+        f"{parameters.case_dir}/post/{component}/glb/ts/monthly/{parameters.ts_num_years_str}yr/"
+        if conditional
+        else ""
+    )
+
+
+def get_exps(parameters: Parameters) -> List[Dict[str, Any]]:
+    # Experiments
+    use_atmos: bool = (parameters.plots_atm != []) or (parameters.plots_original != [])
+    # Use set intersection: check if any of these 3 plots were requested
+    set_intersection: set = set(["change_ohc", "max_moc", "change_sea_level"]) & set(
+        parameters.plots_original
+    )
+    has_original_ocn_plots: bool = set_intersection != set()
+    use_ocn: bool = (parameters.plots_ocn != []) or (
+        (not parameters.atmosphere_only) and has_original_ocn_plots
+    )
+    ocean_dir = get_data_dir(parameters, "ocn", use_ocn)
+    exps: List[Dict[str, Any]] = [
+        {
+            "atmos": get_data_dir(parameters, "atm", use_atmos),
+            "ice": get_data_dir(parameters, "ice", parameters.plots_ice != []),
+            "land": get_data_dir(parameters, "lnd", parameters.plots_lnd != []),
+            "ocean": ocean_dir,
+            "moc": ocean_dir,
+            "vol": ocean_dir,
+            "name": parameters.experiment_name,
+            "yoffset": 0.0,
+            "yr": ([parameters.year1, parameters.year2],),
+            "color": f"{parameters.color}",
+        }
+    ]
+    return exps
+
+
+def set_var(
+    exp: Dict[str, Any],
+    exp_key: str,
+    var_list: List[Variable],
+    valid_vars: List[str],
+    invalid_vars: List[str],
+    rgn: str,
+) -> None:
+    if exp[exp_key] != "":
+        ts_object: TS = TS(exp[exp_key])
+        for var in var_list:
+            var_str: str = var.variable_name
+            try:
+                data_array: xarray.core.dataarray.DataArray
+                units: str
+                data_array, units = ts_object.globalAnnual(var)
+                valid_vars.append(str(var_str))
+            except Exception as e:
+                print(e)
+                print(f"globalAnnual failed for {var_str}")
+                invalid_vars.append(str(var_str))
+                continue
+            if data_array.sizes["rgn"] > 1:
+                # number of years x 3 regions = data_array.shape
+                # 3 regions = global, northern hemisphere, southern hemisphere
+                # We get here if we used the updated `ts` task
+                # (using `rgn_avg` rather than `glb_avg`).
+                if rgn == "glb":
+                    n = 0
+                elif rgn == "n":
+                    n = 1
+                elif rgn == "s":
+                    n = 2
+                else:
+                    raise RuntimeError(f"Invalid rgn={rgn}")
+                data_array = data_array.isel(rgn=n)  # Just use nth region
+            elif rgn != "glb":
+                # data_array only has one dimension -- glb.
+                # Therefore it is not possible to get n or s plots.
+                raise RuntimeError(
+                    f"var={var_str} only has global data. Cannot process rgn={rgn}"
+                )
+            exp["annual"][var_str] = (data_array, units)
+            if "year" not in exp["annual"]:
+                years: np.ndarray[cftime.DatetimeNoLeap] = data_array.coords[
+                    "time"
+                ].values
+                exp["annual"]["year"] = [x.year for x in years]
+        del ts_object
+
+
+def process_data(
+    parameters: Parameters, requested_variables: RequestedVariables, rgn: str
+) -> List[Dict[str, Any]]:
+    exps: List[Dict[str, Any]] = get_exps(parameters)
+    valid_vars: List[str] = []
+    invalid_vars: List[str] = []
+    exp: Dict[str, Any]
+    for exp in exps:
+        exp["annual"] = {}
+
+        set_var(
+            exp,
+            "atmos",
+            requested_variables.vars_original,
+            valid_vars,
+            invalid_vars,
+            rgn,
+        )
+        set_var(
+            exp, "atmos", requested_variables.vars_atm, valid_vars, invalid_vars, rgn
+        )
+        set_var(exp, "ice", requested_variables.vars_ice, valid_vars, invalid_vars, rgn)
+        set_var(
+            exp, "land", requested_variables.vars_land, valid_vars, invalid_vars, rgn
+        )
+        set_var(
+            exp, "ocean", requested_variables.vars_ocn, valid_vars, invalid_vars, rgn
+        )
+
+        # Optionally read ohc
+        if exp["ocean"] != "":
+            ts = TS(exp["ocean"])
+            exp["annual"]["ohc"], _ = ts.globalAnnual(Variable("ohc"))
+            # anomalies with respect to first year
+            exp["annual"]["ohc"][:] = exp["annual"]["ohc"][:] - exp["annual"]["ohc"][0]
+
+        if exp["vol"] != "":
+            ts = TS(exp["vol"])
+            exp["annual"]["volume"], _ = ts.globalAnnual(Variable("volume"))
+            # annomalies with respect to first year
+            exp["annual"]["volume"][:] = (
+                exp["annual"]["volume"][:] - exp["annual"]["volume"][0]
+            )
+
+    print(
+        f"{rgn} region globalAnnual was computed successfully for these variables: {valid_vars}"
+    )
+    print(
+        f"{rgn} region globalAnnual could not be computed for these variables: {invalid_vars}"
+    )
+    return exps
+
+###############################################################################
 
 # ---additional function to get moc time series
 def getmoc(dir_in):
@@ -451,13 +794,13 @@ def plot(ax, xlim, exps, param_dict, rgn):  # noqa: C901
     extreme_values = []
     for exp in exps:
         # Relevant to "Plot 5: plot_change_ohc"
-        if param_dict["check_exp_ocean"] and (exp["ocean"] is None):
+        if param_dict["check_exp_ocean"] and (exp["ocean"] == ""):
             continue
         # Relevant to "Plot 7: plot_change_sea_level"
         # This must be checked before plot 6,
         # otherwise, `param_dict["var"]` will be run,
         # but `exp["annual"]["volume"]` won't exist.
-        if param_dict["check_exp_vol"] and (exp["vol"] is None):
+        if param_dict["check_exp_vol"] and (exp["vol"] == ""):
             continue
         # Relevant to "Plot 6: plot_max_moc"
         if param_dict["use_getmoc"]:
@@ -546,83 +889,39 @@ PLOT_DICT = {
 }
 
 
-def param_get_list(param_value):
-    if param_value == "None":
-        return []
-    else:
-        return param_value.split(",")
-
-
-def set_var(
-    exp: Dict[str, Any],
-    exp_key: str,
-    var_list: List[str],
-    valid_vars: List[str],
-    invalid_vars: List[str],
-    rgn: str,
-) -> None:
-    if exp[exp_key] is not None:
-        ts = TS(exp[exp_key])
-        for var in var_list:
-            try:
-                v: xarray.core.dataarray.DataArray
-                units: Optional[str]
-                v, units = ts.globalAnnual(var)
-                valid_vars.append(str(var))
-            except Exception as e:
-                print(e)
-                print(f"globalAnnual failed. Invalid var = {var}")
-                invalid_vars.append(str(var))
-                continue
-            if v.sizes["rgn"] > 1:
-                # number of years x 3 regions = v.shape
-                # 3 regions = global, northern hemisphere, southern hemisphere
-                # We get here if we used the updated `ts` task
-                # (using `rgn_avg` rather than `glb_avg`).
-                if rgn == "glb":
-                    n = 0
-                elif rgn == "n":
-                    n = 1
-                elif rgn == "s":
-                    n = 2
-                else:
-                    raise RuntimeError(f"Invalid rgn={rgn}")
-                v = v.isel(rgn=n)  # Just use nth region
-            elif rgn != "glb":
-                # v only has one dimension -- glb.
-                # Therefore it is not possible to get n or s plots.
-                raise RuntimeError(
-                    f"var={var} only has global data. Cannot process rgn={rgn}"
-                )
-            exp["annual"][var] = (v, units)
-            if "year" not in exp["annual"]:
-                years: np.ndarray[cftime.DatetimeNoLeap] = v.coords["time"].values
-                exp["annual"]["year"] = [x.year for x in years]
-        del ts
-
-
-def make_plot_pdfs(
-    figstr, rgn, component, xlim, exps, plot_list, valid_plots, invalid_plots
+# FIXME: C901 'make_plot_pdfs' is too complex (20)
+def make_plot_pdfs(  # noqa: C901
+    parameters: Parameters,
+    rgn,
+    component,
+    xlim,
+    exps,
+    plot_list,
+    valid_plots,
+    invalid_plots,
 ):
     num_plots = len(plot_list)
     if num_plots == 0:
         return
-    nrows = 4
-    ncols = 2
-    plots_per_page = nrows * ncols
+    plots_per_page = parameters.nrows * parameters.ncols
     num_pages = math.ceil(num_plots / plots_per_page)
 
     counter = 0
     # https://stackoverflow.com/questions/58738992/save-multiple-figures-with-subplots-into-a-pdf-with-multiple-pages
-    pdf = matplotlib.backends.backend_pdf.PdfPages(f"{figstr}_{rgn}_{component}.pdf")
+    pdf = matplotlib.backends.backend_pdf.PdfPages(
+        f"{parameters.figstr}_{rgn}_{component}.pdf"
+    )
     for page in range(num_pages):
-        fig = plt.figure(1, figsize=[13.5, 16.5])
-        fig.suptitle(f"{figstr}_{rgn}_{component}")
+        if plots_per_page == 1:
+            fig = plt.figure(1, figsize=[13.5 / 2, 16.5 / 4])
+        else:
+            fig = plt.figure(1, figsize=[13.5, 16.5])
+        fig.suptitle(f"{parameters.figstr}_{rgn}_{component}")
         for j in range(plots_per_page):
             # The final page doesn't need to be filled out with plots.
             if counter >= num_plots:
                 break
-            ax = plt.subplot(nrows, ncols, j + 1)
+            ax = plt.subplot(parameters.nrows, parameters.ncols, j + 1)
             if component == "original":
                 try:
                     plot_function = PLOT_DICT[plot_list[counter]]
@@ -663,209 +962,52 @@ def make_plot_pdfs(
 
         fig.tight_layout()
         pdf.savefig(1)
-        if num_pages > 1:
-            fig.savefig(f"{figstr}_{rgn}_{component}_{page}.png", dpi=150)
+        if plots_per_page == 1:
+            fig.savefig(
+                f"{parameters.figstr}_{rgn}_{component}_{plot_name}.png", dpi=150
+            )
+        elif num_pages > 1:
+            fig.savefig(f"{parameters.figstr}_{rgn}_{component}_{page}.png", dpi=150)
         else:
-            fig.savefig(f"{figstr}_{rgn}_{component}.png", dpi=150)
+            fig.savefig(f"{parameters.figstr}_{rgn}_{component}.png", dpi=150)
         plt.clf()
     pdf.close()
 
-
-# -----------------------------------------------------------------------------
-# FIXME: C901 'run' is too complex (19)
-def run(parameters, rgn):  # noqa: C901
-    # These are the "Tableau 20" colors as RGB.
-    t20: List[Tuple[float, float, float]] = [
-        (31, 119, 180),
-        (174, 199, 232),
-        (255, 127, 14),
-        (255, 187, 120),
-        (44, 160, 44),
-        (152, 223, 138),
-        (214, 39, 40),
-        (255, 152, 150),
-        (148, 103, 189),
-        (197, 176, 213),
-        (140, 86, 75),
-        (196, 156, 148),
-        (227, 119, 194),
-        (247, 182, 210),
-        (127, 127, 127),
-        (199, 199, 199),
-        (188, 189, 34),
-        (219, 219, 141),
-        (23, 190, 207),
-        (158, 218, 229),
-    ]
-    # Scale the RGB values to the [0, 1] range, which is the format matplotlib accepts.
-    for i in range(len(t20)):
-        r, g, b = t20[i]
-        t20[i] = (r / 255.0, g / 255.0, b / 255.0)
-
-    # "Tableau 10" uses every other color
-    t10 = []
-    for i in range(0, len(t20), 2):
-        t10.append(t20[i])
-
-    # -----------------------------------------------------------------------------
-    # --- Atmos data ---
-
+# Run coupled_global ##########################################################
+def run(parameters: Parameters, requested_variables: RequestedVariables, rgn: str):
     # Experiments
-    # TODO: propagate parameters.<name> throughout file.
-    case_dir = parameters.case_dir
-    experiment_name = parameters.experiment_name
-    figstr = parameters.figstr
-    year1 = parameters.year1
-    year2 = parameters.year2
-    color = parameters.color
-    ts_num_years = parameters.ts_num_years_str
-    plots_original = parameters.plots_original
-    atmosphere_only = parameters.atmosphere_only
-    plots_atm = parameters.plots_atm
-    plots_ice = parameters.plots_ice
-    plots_lnd = parameters.plots_lnd
-    plots_ocn = parameters.plots_ocn
-    vars_original = []
-    if "net_toa_flux_restom" or "net_atm_energy_imbalance" in plots_original:
-        vars_original.append("RESTOM")
-    if "net_atm_energy_imbalance" in plots_original:
-        vars_original.append("RESSURF")
-    if "global_surface_air_temperature" in plots_original:
-        vars_original.append("TREFHT")
-    if "toa_radiation" in plots_original:
-        vars_original.append("FSNTOA")
-        vars_original.append("FLUT")
-    if "net_atm_water_imbalance" in plots_original:
-        vars_original.append("PRECC")
-        vars_original.append("PRECL")
-        vars_original.append("QFLX")
-    use_atmos = plots_atm or plots_original
-    has_original_ocn_plots = (
-        ("change_ohc" in plots_original)
-        or ("max_moc" in plots_original)
-        or ("change_sea_level" in plots_original)
-    )
-    use_ocn = plots_ocn or (not atmosphere_only and has_original_ocn_plots)
-    exps: List[Dict[str, Any]] = [
-        {
-            "atmos": (
-                f"{case_dir}/post/atm/glb/ts/monthly/{ts_num_years}yr/"
-                if use_atmos
-                else None
-            ),
-            "ice": (
-                f"{case_dir}/post/ice/glb/ts/monthly/{ts_num_years}yr/"
-                if plots_ice
-                else None
-            ),
-            "land": (
-                f"{case_dir}/post/lnd/glb/ts/monthly/{ts_num_years}yr/"
-                if plots_lnd
-                else None
-            ),
-            "ocean": (
-                f"{case_dir}/post/ocn/glb/ts/monthly/{ts_num_years}yr/"
-                if use_ocn
-                else None
-            ),
-            "moc": (
-                f"{case_dir}/post/ocn/glb/ts/monthly/{ts_num_years}yr/"
-                if use_ocn
-                else None
-            ),
-            "vol": (
-                f"{case_dir}/post/ocn/glb/ts/monthly/{ts_num_years}yr/"
-                if use_ocn
-                else None
-            ),
-            "name": experiment_name,
-            "yoffset": 0.0,
-            "yr": ([year1, year2],),
-            "color": f"{color}",
-        }
-    ]
+    exps: List[Dict[str, Any]] = process_data(parameters, requested_variables, rgn)
 
-    valid_vars: List[str] = []
-    invalid_vars: List[str] = []
-
-    # Read data
-    exp: Dict[str, Any]
-    for exp in exps:
-        exp["annual"] = {}
-
-        # Use vars_original rather than plots_original,
-        # since the plots have different names than the variables
-        set_var(exp, "atmos", vars_original, valid_vars, invalid_vars, rgn)
-        set_var(exp, "atmos", plots_atm, valid_vars, invalid_vars, rgn)
-        set_var(exp, "ice", plots_ice, valid_vars, invalid_vars, rgn)
-        set_var(exp, "land", plots_lnd, valid_vars, invalid_vars, rgn)
-        set_var(exp, "ocean", plots_ocn, valid_vars, invalid_vars, rgn)
-
-        # Optionally read ohc
-        if exp["ocean"] is not None:
-            ts = TS(exp["ocean"])
-            exp["annual"]["ohc"], _ = ts.globalAnnual("ohc")
-            # annomalies with respect to first year
-            exp["annual"]["ohc"][:] = exp["annual"]["ohc"][:] - exp["annual"]["ohc"][0]
-
-        if exp["vol"] is not None:
-            ts = TS(exp["vol"])
-            exp["annual"]["volume"], _ = ts.globalAnnual("volume")
-            # annomalies with respect to first year
-            exp["annual"]["volume"][:] = (
-                exp["annual"]["volume"][:] - exp["annual"]["volume"][0]
-            )
-
-    print(
-        f"{rgn} region globalAnnual was computed successfully for these variables: {valid_vars}"
-    )
-    print(
-        f"{rgn} region globalAnnual could not be computed for these variables: {invalid_vars}"
-    )
-
-    # -----------------------------------------------------------------------------
-    # --- Generate plots ---
-
-    xlim = [float(year1), float(year2)]
+    xlim: List[float] = [float(parameters.year1), float(parameters.year2)]
 
     valid_plots: List[str] = []
     invalid_plots: List[str] = []
 
-    make_plot_pdfs(
-        figstr, rgn, "original", xlim, exps, plots_original, valid_plots, invalid_plots
-    )
-    make_plot_pdfs(
-        figstr, rgn, "atm", xlim, exps, plots_atm, valid_plots, invalid_plots
-    )
-    make_plot_pdfs(
-        figstr, rgn, "ice", xlim, exps, plots_ice, valid_plots, invalid_plots
-    )
-    make_plot_pdfs(
-        figstr, rgn, "lnd", xlim, exps, plots_lnd, valid_plots, invalid_plots
-    )
-    make_plot_pdfs(
-        figstr, rgn, "ocn", xlim, exps, plots_ocn, valid_plots, invalid_plots
-    )
-
+    # Use list of tuples rather than a dict, to keep order
+    mapping: List[Tuple[str, List[str]]] = [
+        ("original", parameters.plots_original),
+        ("atm", parameters.plots_atm),
+        ("ice", parameters.plots_ice),
+        ("lnd", parameters.plots_lnd),
+        ("ocn", parameters.plots_ocn),
+    ]
+    for component, plot_list in mapping:
+        make_plot_pdfs(
+            parameters,
+            rgn,
+            component,
+            xlim,
+            exps,
+            plot_list,
+            valid_plots,
+            invalid_plots,
+        )
     print(f"These {rgn} region plots generated successfully: {valid_plots}")
     print(
-        f"These {rgn} region plots could not be generated successfully: {invalid_plots}"
+        f"These {rgn} regions plots could not be generated successfully: {invalid_plots}"
     )
 
-
-def run_by_region(parameters: Parameters):
-    regions = parameters.regions
-    for rgn in regions:
-        if rgn.lower() in ["glb", "global"]:
-            rgn = "glb"
-        elif rgn.lower() in ["n", "north", "northern"]:
-            rgn = "n"
-        elif rgn.lower() in ["s", "south", "southern"]:
-            rgn = "s"
-        else:
-            raise RuntimeError(f"Invalid rgn={rgn}")
-        run(parameters, rgn)
-
-
-def coupled_global(parameters: Parameters):
-    run_by_region(parameters)
+def coupled_global(parameters: Parameters) -> None:
+    requested_variables = RequestedVariables(parameters)
+    for rgn in parameters.regions:
+        run(parameters, requested_variables, rgn)

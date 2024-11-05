@@ -6,8 +6,9 @@ import sys
 import coupled_global
 import ocean_month
 
-from typing import Any, Dict, List
+from typing import Dict, List
 
+# Useful classes and their helper functions ###################################
 def param_get_list(param_value: str) -> List[str]:
     if param_value == "None":
         return []
@@ -49,6 +50,8 @@ class Parameters(object):
         self.plots_ice: List[str] = param_get_list(args["plots_ice"])
         self.plots_lnd: List[str] = param_get_list(args["plots_lnd"])
         self.plots_ocn: List[str] = param_get_list(args["plots_ocn"])
+        self.nrows: int = int(args["nrows"])
+        self.ncols: int = int(args["ncols"])
         # These regions are used often as strings,
         # so making an Enum Region={GLOBAL, NORTH, SOUTH} would be limiting.
         self.regions: List[str] = list(
@@ -58,6 +61,8 @@ class Parameters(object):
         # For both
         self.year1: int = int(args["start_yr"])
         self.year2: int = int(args["end_yr"])
+
+###############################################################################
 
 def main(parameters = None):
     if not parameters:
@@ -84,7 +89,7 @@ def main(parameters = None):
 def _get_args() -> Parameters:
     # Parser
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
-        usage="zppy-interfaces global-time-series <args>", description="Generate Global Time Series plots"
+        usage="zi-global-time-series <args>", description="Generate Global Time Series plots"
     )
 
     # For ocean_month
@@ -106,15 +111,17 @@ def _get_args() -> Parameters:
     parser.add_argument("plots_ice", type=str, help="Plots ice")
     parser.add_argument("plots_lnd", type=str, help="Plots land")
     parser.add_argument("plots_ocn", type=str, help="Plots ocean")
+    parser.add_argument("nrows", type=str, help="Number of rows in pdf")
+    parser.add_argument("ncols", type=str, help="Number of columns in pdf")
     parser.add_argument("regions", type=str, help="Regions")
 
     # For both
     parser.add_argument("start_yr", type=str, help="Start year")
     parser.add_argument("end_yr", type=str, help="End year")  
 
-    # Now that we're inside a subcommand, ignore the first two argvs
-    # (zppy-interfaces global-time-series)
-    args: argparse.Namespace = parser.parse_args(sys.argv[2:])
+    # Ignore the first arg
+    # (zi-global-time-series)
+    args: argparse.Namespace = parser.parse_args(sys.argv[1:])
 
     return Parameters(vars(args))
 
@@ -126,8 +133,7 @@ if __name__ == "__main__":
     # Run off results from `zppy -c tests/integration/generated/test_min_case_global_time_series_setup_only_chrysalis.cfg`
 
     # TODO: fix readTS errors
-    # TODO: change to setup_only once that job finishes
-    case_dir = "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_original_8_output/test-642-2024-1104/v3.LR.historical_0051"
+    case_dir = "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_setup_only_output/test-642-2024-1105/v3.LR.historical_0051"
     parameters: Parameters = Parameters({
         "use_ocn": "True",
         #"global_ts_dir": dir,
@@ -145,6 +151,8 @@ if __name__ == "__main__":
         "plots_ice": "None",
         "plots_lnd": "None",
         "plots_ocn": "None",
+        "nrows": "4",
+        "ncols": "2",
         "regions": "glb,n,s",
         "start_yr": "1985",
         "end_yr": "1994",
