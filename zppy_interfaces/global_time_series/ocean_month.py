@@ -7,6 +7,10 @@ import numpy as np
 from mpas_tools.cime.constants import constants
 from netCDF4 import Dataset, chartostring, date2num
 
+from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+
+logger = _setup_custom_logger(__name__)
+
 
 def ocean_month(
     path_in: str, case_dir: str, start_yr: int, end_yr: int, ts_num_years: int
@@ -32,7 +36,7 @@ def ocean_month(
         year2 = y + ts_num_years - 1
         files = []
         for year in range(year1, year2 + 1):
-            print("year=", year)
+            logger.info(f"year={year}")
             inFiles = (
                 f"{path_in}/*mpaso.hist.am.timeSeriesStatsMonthly.{year:04d}-??-??.nc"
             )
@@ -66,7 +70,7 @@ def ocean_month(
         for file in files:
 
             # Open current input file
-            print(file)
+            logger.info(f"mpaso file: {file}")
             f = Dataset(file, "r")
 
             # Time variables
@@ -115,7 +119,7 @@ def ocean_month(
 
             # Diagnostics printout
             for i in range(len(date_start)):
-                print(
+                logger.info(
                     f"Start, End, OHC = {date_start[i]} ({tstart[i]}), {date_end[i]} ({tend[i]}), {ohc_tot[i]:.2e}"
                 )
 

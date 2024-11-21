@@ -6,6 +6,9 @@ import sys
 from zppy_interfaces.global_time_series.coupled_global import coupled_global
 from zppy_interfaces.global_time_series.ocean_month import ocean_month
 from zppy_interfaces.global_time_series.utils import Parameters
+from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+
+logger = _setup_custom_logger(__name__)
 
 
 def main(parameters=None):
@@ -13,7 +16,7 @@ def main(parameters=None):
         parameters = _get_args()
 
     if parameters.use_ocn:
-        print("Create ocean time series")
+        logger.info("Create ocean time series")
         # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
         os.makedirs(
             f"{parameters.case_dir}/post/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr",
@@ -29,14 +32,14 @@ def main(parameters=None):
             int(parameters.ts_num_years_str),
         )
 
-        print("Copy moc file")
+        logger.info("Copy moc file")
         # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
         shutil.copy(
             f"{parameters.case_dir}/post/analysis/mpas_analysis/cache/timeseries/moc/{parameters.moc_file}",
             f"{parameters.case_dir}/post/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr/",
         )
 
-    print("Update time series figures")
+    logger.info("Update time series figures")
     # NOTE: PRODUCES OUTPUT IN THE CURRENT DIRECTORY
     coupled_global(parameters)
 

@@ -1,0 +1,53 @@
+name: Bug Report
+description: File a bug report to help us improve zppy-interfaces
+title: "[Bug]: "
+labels: ["semver: bug"]
+assignees: []
+body:
+    - type: textarea
+      id: what-happened
+      attributes:
+          label: What happened?
+          description: |
+              Thanks for reporting a bug! Please describe what you were trying to get done.
+              Tell us what happened and what went wrong.
+      validations:
+          required: true
+
+    - type: textarea
+      id: machine
+      attributes:
+          label: What machine were you running on?
+          description: |
+              List the machine(s) you encounter the issue on (e.g., Chrysalis, Compy, Perlmutter).
+      validations:
+          required: true
+
+    - type: textarea
+      id: zi-version
+      attributes:
+          label: Environment
+          description: |
+              Paste your zppy-interfaces version here (e.g., `zppy-interfaces v0.0.1`).
+      validations:
+          required: true
+
+    - type: textarea
+      id: zi-command
+      attributes:
+          label: What command did you run?
+          description: |
+              Copy the command causing the issue (e.g., `zi-global-time-series ...`). This will be automatically formatted into code, so no need for markdown backticks.
+          render: bash
+      validations:
+          required: true
+
+    - type: textarea
+      id: stack-trace
+      attributes:
+          label: What stack trace are you encountering?
+          description: |
+              Copy a stack trace from one of your failing jobs. This will be automatically formatted into code, so no need for markdown backticks.
+          render: bash
+      validations:
+          required: false

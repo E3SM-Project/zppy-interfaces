@@ -16,6 +16,10 @@ import xcdat
 from netCDF4 import Dataset
 
 from zppy_interfaces.global_time_series.utils import Parameters
+from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+
+logger = _setup_custom_logger(__name__)
+
 
 mpl.use("Agg")
 
@@ -143,7 +147,7 @@ class TS(object):
             )
             data_array = FSNT - FLNT
         elif var == "RESTOA":
-            print("NOT READY")
+            logger.warning("NOT READY")
             FSNTOA, _ = self.globalAnnualHelper(
                 "FSNTOA", metric, scale_factor, original_units, final_units
             )
@@ -274,8 +278,10 @@ def set_var(
         try:
             ts_object: TS = TS(exp[exp_key])
         except Exception as e:
-            print(e)
-            print(f"TS object could not be created for {exp_key}={exp[exp_key]}")
+            logger.critical(e)
+            logger.critical(
+                f"TS object could not be created for {exp_key}={exp[exp_key]}"
+            )
             raise e
         for var in var_list:
             var_str: str = var.variable_name
@@ -285,8 +291,8 @@ def set_var(
                 data_array, units = ts_object.globalAnnual(var)
                 valid_vars.append(str(var_str))
             except Exception as e:
-                print(e)
-                print(f"globalAnnual failed for {var_str}")
+                logger.error(e)
+                logger.error(f"globalAnnual failed for {var_str}")
                 invalid_vars.append(str(var_str))
                 continue
             if data_array.sizes["rgn"] > 1:
@@ -362,10 +368,10 @@ def process_data(
                 exp["annual"]["volume"][:] - exp["annual"]["volume"][0]
             )
 
-    print(
+    logger.info(
         f"{rgn} region globalAnnual was computed successfully for these variables: {valid_vars}"
     )
-    print(
+    logger.error(
         f"{rgn} region globalAnnual could not be computed for these variables: {invalid_vars}"
     )
     return exps
@@ -378,7 +384,7 @@ def process_data(
 def getmoc(dir_in):
     files = sorted(glob.glob(dir_in + "mocTimeSeries*.nc"))
     nfiles = len(files)
-    print(dir_in, nfiles, "moc files in total")
+    logger.info(f"{dir_in} {nfiles} moc files in total")
     var = np.array([])
     time = np.array([])
     for i in range(nfiles):
@@ -388,13 +394,8 @@ def getmoc(dir_in):
         var0 = fin["mocAtlantic26"][:]
         for iyear in range(int(time0[0]), int(time0[-1]) + 1):
             if i > 0 and iyear <= time[-1]:
-                print(
-                    "the amoc value for year",
-                    iyear,
-                    "has been included in the moc time series from another moc file",
-                    files[i - 1],
-                    time[-1],
-                    "Skipping...",
+                logger.info(
+                    f"the amoc value for year {iyear} has been included in the moc time series from another moc file {files[i - 1]} {time[-1]} Skipping..."
                 )
             else:
                 imon = np.where(time0 == iyear)[0]
@@ -402,7 +403,7 @@ def getmoc(dir_in):
                     var = np.append(var, np.mean(var0[imon]))
                     time = np.append(time, iyear)
                 else:
-                    print("error in input file :", files[i])
+                    logger.error(f"error in input file : {files[i]}")
 
     return time, var
 
@@ -444,7 +445,7 @@ def add_trend(
 
     fit = np.polyfit(x, y, 1)
     if verbose:
-        print(fit)
+        logger.info(fit)
     fit_fn = np.poly1d(fit)
     ax.plot(x, fit_fn(x), lw=lw, ls="--", c=color, label="trend")
     if ohc:
@@ -516,7 +517,7 @@ def get_ylim(standard_range, extreme_values):
 
 # 1
 def plot_net_toa_flux_restom(ax, xlim, exps, rgn):
-    print("Plot 1: plot_net_toa_flux_restom")
+    logger.info("Plot 1: plot_net_toa_flux_restom")
     param_dict = {
         "2nd_var": False,
         "axhline_y": 0,
@@ -545,7 +546,7 @@ def plot_net_toa_flux_restom(ax, xlim, exps, rgn):
 
 # 2
 def plot_global_surface_air_temperature(ax, xlim, exps, rgn):
-    print("Plot 2: plot_global_surface_air_temperature")
+    logger.info("Plot 2: plot_global_surface_air_temperature")
     if rgn == "glb":
         region_title = "Global"
     elif rgn == "n":
@@ -582,7 +583,7 @@ def plot_global_surface_air_temperature(ax, xlim, exps, rgn):
 
 # 3
 def plot_toa_radiation(ax, xlim, exps, rgn):
-    print("Plot 3: plot_toa_radiation")
+    logger.info("Plot 3: plot_toa_radiation")
     param_dict = {
         "2nd_var": True,
         "axhline_y": None,
@@ -611,7 +612,7 @@ def plot_toa_radiation(ax, xlim, exps, rgn):
 
 # 4
 def plot_net_atm_energy_imbalance(ax, xlim, exps, rgn):
-    print("Plot 4: plot_net_atm_energy_imbalance")
+    logger.info("Plot 4: plot_net_atm_energy_imbalance")
     param_dict = {
         "2nd_var": False,
         "axhline_y": None,
@@ -641,7 +642,7 @@ def plot_net_atm_energy_imbalance(ax, xlim, exps, rgn):
 
 # 5
 def plot_change_ohc(ax, xlim, exps, rgn):
-    print("Plot 5: plot_change_ohc")
+    logger.info("Plot 5: plot_change_ohc")
     param_dict = {
         "2nd_var": False,
         "axhline_y": 0,
@@ -670,7 +671,7 @@ def plot_change_ohc(ax, xlim, exps, rgn):
 
 # 6
 def plot_max_moc(ax, xlim, exps, rgn):
-    print("Plot 6: plot_max_moc")
+    logger.info("Plot 6: plot_max_moc")
     param_dict = {
         "2nd_var": False,
         "axhline_y": 10,
@@ -699,7 +700,7 @@ def plot_max_moc(ax, xlim, exps, rgn):
 
 # 7
 def plot_change_sea_level(ax, xlim, exps, rgn):
-    print("Plot 7: plot_change_sea_level")
+    logger.info("Plot 7: plot_change_sea_level")
     param_dict = {
         "2nd_var": False,
         "axhline_y": None,
@@ -732,7 +733,7 @@ def plot_change_sea_level(ax, xlim, exps, rgn):
 
 # 8
 def plot_net_atm_water_imbalance(ax, xlim, exps, rgn):
-    print("Plot 8: plot_net_atm_water_imbalance")
+    logger.info("Plot 8: plot_net_atm_water_imbalance")
     param_dict = {
         "2nd_var": False,
         "axhline_y": None,
@@ -772,7 +773,7 @@ def plot_net_atm_water_imbalance(ax, xlim, exps, rgn):
 
 # Generic plot function
 def plot_generic(ax, xlim, exps, var_name, rgn):
-    print(f"plot_generic for {var_name}")
+    logger.info(f"plot_generic for {var_name}")
     param_dict = {
         "2nd_var": False,
         "axhline_y": 0,
@@ -958,7 +959,7 @@ def make_plot_pdfs(  # noqa: C901
                         required_vars = ["FSNTOA", "FLUT"]
                     elif plot_name == "net_atm_water_imbalance":
                         required_vars = ["PRECC", "PRECL", "QFLX"]
-                    print(
+                    logger.error(
                         f"Failed plot_function for {plot_name}. Check that {required_vars} are available."
                     )
                     invalid_plots.append(plot_name)
@@ -970,7 +971,7 @@ def make_plot_pdfs(  # noqa: C901
                     valid_plots.append(plot_name)
                 except Exception:
                     traceback.print_exc()
-                    print(f"plot_generic failed. Invalid plot={plot_name}")
+                    logger.error(f"plot_generic failed. Invalid plot={plot_name}")
                     invalid_plots.append(plot_name)
                 counter += 1
 
@@ -1024,8 +1025,8 @@ def run(parameters: Parameters, requested_variables: RequestedVariables, rgn: st
             valid_plots,
             invalid_plots,
         )
-    print(f"These {rgn} region plots generated successfully: {valid_plots}")
-    print(
+    logger.info(f"These {rgn} region plots generated successfully: {valid_plots}")
+    logger.error(
         f"These {rgn} regions plots could not be generated successfully: {invalid_plots}"
     )
 

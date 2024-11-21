@@ -1,0 +1,84 @@
+name: CI/CD Release Workflow
+
+on:
+  # This is run on release, meaning it is run when these steps are followed:
+  # https://e3sm-project.github.io/zppy-interfaces/_build/html/main/dev_guide/release.html#releasing-on-github-production-releases
+  # That means this workflow is not run for release candidates.
+  release:
+    types: [published]
+
+jobs:
+
+  # On a release, the docs should always be published.
+  publish-docs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Cache Conda
+        uses: actions/cache@v3
+        env:
+          CACHE_NUMBER: 0
+        with:
+          path: ~/conda_pkgs_dir
+          key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
+            hashFiles('conda/dev.yml') }}
+
+      - name: Build Conda Environment
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: zppy_interfaces_dev
+          miniforge-variant: Miniforge3
+          miniforge-version: latest
+          environment-file: conda/dev.yml
+          channel-priority: strict
+          auto-update-conda: true
+
+      - if: ${{ needs.check-jobs-to-skip.outputs.should_skip != 'true' }}
+        name: Show Conda Environment Info
+        run: |
+          conda config --set anaconda_upload no
+          conda info
+          conda list
+
+      - name: Install `zppy-interfaces` Package
+        run: pip install .
+
+      # sphinx-multiversion allows for version docs.
+      - name: Build Sphinx Docs
+        run: |
+          cd docs
+          sphinx-multiversion source _build/html
+
+      - name: Copy Docs and Commit
+        run: |
+          # gh-pages branch must already exist
+          git clone https://github.com/E3SM-Project/zppy-interfaces.git --branch gh-pages --single-branch gh-pages
+          cd gh-pages
+
+          # Replace main docs to populate dropdown with latest tags
+          rm -r _build/html/main
+
+          # Only copy docs for main and current tag
+          cp -r -n ../docs/_build/html _build/
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # The below command will fail if no changes were present, so we ignore it
+          git add .
+          git commit -m "Update documentation" -a || true
+
+      - name: Push Changes
+        uses: ad-m/github-push-action@master
+        with:
+          branch: gh-pages
+          directory: gh-pages
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          force: true
