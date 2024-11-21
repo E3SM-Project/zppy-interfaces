@@ -88,10 +88,6 @@ if __name__ == "__main__":
     # TODO: fix readTS errors
     parameters: Parameters = Parameters(
         {
-            """
-            zi-global-time-series: error: unrecognized arguments: --use_ocn --input --input_subdir --moc_file --case_dir --experiment_name --figstr --color --ts_num_years --plots_original --atmosphere_only --plots_atm --plots_ice --\
-            plots_lnd --plots_ocn --nrows --ncols --results_dir --regions --start_yr --end_yr
-            """
             "use_ocn": "True",
             "input": "/lcrc/group/e3sm2/ac.wlin/E3SMv3/v3.LR.historical_0051",
             "input_subdir": "archive/ocn/hist",

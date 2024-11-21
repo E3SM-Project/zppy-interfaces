@@ -2,7 +2,6 @@
 import glob
 import math
 import os
-import sys
 import traceback
 from enum import Enum
 from typing import Any, Dict, List, Tuple
@@ -114,8 +113,8 @@ class TS(object):
         # TODO: double check we have the same xcdat version in the 2 cases.
         # TODO: can we open these 3 folders from a tiny script?
         # TODO: put in file names manually rather than using `*`?
-        print(f"error is here: {directory}*.nc")
-        sys.exit(0)
+        print(f"error was here: {directory}*.nc")
+        print(f"XCDAT version={xcdat.__version__}")
         self.f: xarray.core.dataset.Dataset = xcdat.open_mfdataset(
             f"{directory}*.nc", center_times=True
         )
