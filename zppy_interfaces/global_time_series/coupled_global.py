@@ -109,12 +109,6 @@ class TS(object):
         self.directory: str = directory
 
         # `directory` will be of the form `{case_dir}/post/<component>/glb/ts/monthly/{ts_num_years_str}yr/`
-        # TODO: run this print statement here and in zppy main, and compare.
-        # TODO: double check we have the same xcdat version in the 2 cases.
-        # TODO: can we open these 3 folders from a tiny script?
-        # TODO: put in file names manually rather than using `*`?
-        print(f"error was here: {directory}*.nc")
-        print(f"XCDAT version={xcdat.__version__}")
         self.f: xarray.core.dataset.Dataset = xcdat.open_mfdataset(
             f"{directory}*.nc", center_times=True
         )
@@ -349,7 +343,6 @@ def process_data(
         set_var(
             exp, "land", requested_variables.vars_land, valid_vars, invalid_vars, rgn
         )
-        # TODO: Fails here when atmosphere_only="false"
         set_var(
             exp, "ocean", requested_variables.vars_ocn, valid_vars, invalid_vars, rgn
         )

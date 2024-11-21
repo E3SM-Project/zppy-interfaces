@@ -14,13 +14,13 @@ def main(parameters=None):
 
     if parameters.use_ocn:
         print("Create ocean time series")
-        # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir)
+        # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
         os.makedirs(
             f"{parameters.case_dir}/post/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr",
             exist_ok=True,
         )
         input: str = f"{parameters.input}/{parameters.input_subdir}"
-        # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir)
+        # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
         ocean_month(
             input,
             parameters.case_dir,
@@ -30,7 +30,7 @@ def main(parameters=None):
         )
 
         print("Copy moc file")
-        # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir)
+        # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
         shutil.copy(
             f"{parameters.case_dir}/post/analysis/mpas_analysis/cache/timeseries/moc/{parameters.moc_file}",
             f"{parameters.case_dir}/post/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr/",
@@ -41,7 +41,6 @@ def main(parameters=None):
     coupled_global(parameters)
 
 
-# TODO: replace command line arguments with _get_cfg_parameters, like https://github.com/E3SM-Project/e3sm_diags/blob/main/e3sm_diags/parser/core_parser.py#L809
 def _get_args() -> Parameters:
     # Parser
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
@@ -85,7 +84,6 @@ def _get_args() -> Parameters:
 
 # Run with `python __main__.py`
 if __name__ == "__main__":
-    # TODO: fix readTS errors
     parameters: Parameters = Parameters(
         {
             "use_ocn": "True",
