@@ -83,7 +83,7 @@ def _get_args() -> Parameters:
     return Parameters(vars(args))
 
 
-# Run with `python global_time_series.py`
+# Run with `python __main__.py`
 if __name__ == "__main__":
     # Run off results from `zppy -c tests/integration/generated/test_min_case_global_time_series_setup_only_chrysalis.cfg`
 

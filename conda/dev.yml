@@ -16,7 +16,7 @@ dependencies:
   - netcdf4
   - numpy >=2.0,<3.0
   - xarray >=2023.02.0
-  - xcdat >=0.7.0,<1.0
+  - xcdat >=0.7.3,<1.0
   # Testing
   # =======================
   - pytest
