@@ -50,31 +50,31 @@ def _get_args() -> Parameters:
     )
 
     # For ocean_month
-    parser.add_argument("use_ocn", type=str, help="Use ocean")
-    parser.add_argument("input", type=str, help="Input directory")
-    parser.add_argument("input_subdir", type=str, help="Input subdirectory")
-    parser.add_argument("moc_file", type=str, help="MOC file")
+    parser.add_argument("--use_ocn", type=str, help="Use ocean")
+    parser.add_argument("--input", type=str, help="Input directory")
+    parser.add_argument("--input_subdir", type=str, help="Input subdirectory")
+    parser.add_argument("--moc_file", type=str, help="MOC file")
 
     # For coupled_global
-    parser.add_argument("case_dir", type=str, help="Case directory")
-    parser.add_argument("experiment_name", type=str, help="Experiment name")
-    parser.add_argument("figstr", type=str, help="Figure string")
-    parser.add_argument("color", type=str, help="Color")
-    parser.add_argument("ts_num_years", type=str, help="Time series number of years")
-    parser.add_argument("plots_original", type=str, help="Plots original")
-    parser.add_argument("atmosphere_only", type=str, help="Atmosphere only")
-    parser.add_argument("plots_atm", type=str, help="Plots atmosphere")
-    parser.add_argument("plots_ice", type=str, help="Plots ice")
-    parser.add_argument("plots_lnd", type=str, help="Plots land")
-    parser.add_argument("plots_ocn", type=str, help="Plots ocean")
-    parser.add_argument("nrows", type=str, help="Number of rows in pdf")
-    parser.add_argument("ncols", type=str, help="Number of columns in pdf")
-    parser.add_argument("results_dir", type=str, help="Results directory")
-    parser.add_argument("regions", type=str, help="Regions")
+    parser.add_argument("--case_dir", type=str, help="Case directory")
+    parser.add_argument("--experiment_name", type=str, help="Experiment name")
+    parser.add_argument("--figstr", type=str, help="Figure string")
+    parser.add_argument("--color", type=str, help="Color")
+    parser.add_argument("--ts_num_years", type=str, help="Time series number of years")
+    parser.add_argument("--plots_original", type=str, help="Plots original")
+    parser.add_argument("--atmosphere_only", type=str, help="Atmosphere only")
+    parser.add_argument("--plots_atm", type=str, help="Plots atmosphere")
+    parser.add_argument("--plots_ice", type=str, help="Plots ice")
+    parser.add_argument("--plots_lnd", type=str, help="Plots land")
+    parser.add_argument("--plots_ocn", type=str, help="Plots ocean")
+    parser.add_argument("--nrows", type=str, help="Number of rows in pdf")
+    parser.add_argument("--ncols", type=str, help="Number of columns in pdf")
+    parser.add_argument("--results_dir", type=str, help="Results directory")
+    parser.add_argument("--regions", type=str, help="Regions")
 
     # For both
-    parser.add_argument("start_yr", type=str, help="Start year")
-    parser.add_argument("end_yr", type=str, help="End year")
+    parser.add_argument("--start_yr", type=str, help="Start year")
+    parser.add_argument("--end_yr", type=str, help="End year")
 
     # Ignore the first arg
     # (zi-global-time-series)
@@ -85,17 +85,18 @@ def _get_args() -> Parameters:
 
 # Run with `python __main__.py`
 if __name__ == "__main__":
-    # Run off results from `zppy -c tests/integration/generated/test_min_case_global_time_series_setup_only_chrysalis.cfg`
-
     # TODO: fix readTS errors
-    case_dir = "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_setup_only_output/test-642-2024-1105/v3.LR.historical_0051"
     parameters: Parameters = Parameters(
         {
+            """
+            zi-global-time-series: error: unrecognized arguments: --use_ocn --input --input_subdir --moc_file --case_dir --experiment_name --figstr --color --ts_num_years --plots_original --atmosphere_only --plots_atm --plots_ice --\
+            plots_lnd --plots_ocn --nrows --ncols --results_dir --regions --start_yr --end_yr
+            """
             "use_ocn": "True",
             "input": "/lcrc/group/e3sm2/ac.wlin/E3SMv3/v3.LR.historical_0051",
-            "input_subdir": "archive/atm/hist",
+            "input_subdir": "archive/ocn/hist",
             "moc_file": "mocTimeSeries_1985-1995.nc",
-            "case_dir": case_dir,
+            "case_dir": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_original_8_output/test-642-working-env-20241121/v3.LR.historical_0051",
             "experiment_name": "v3.LR.historical_0051",
             "figstr": "v3.LR.historical_0051",
             "color": "Blue",
@@ -108,10 +109,10 @@ if __name__ == "__main__":
             "plots_ocn": "None",
             "nrows": "4",
             "ncols": "2",
-            "results_dir": "results",
+            "results_dir": "global_time_series_1985-1995_results",
             "regions": "glb,n,s",
             "start_yr": "1985",
-            "end_yr": "1994",
+            "end_yr": "1995",
         }
     )
     main(parameters)
