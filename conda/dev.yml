@@ -24,8 +24,8 @@ dependencies:
   # Documentation
   # =======================
   - sphinx
-  - sphinx_rtd_theme
   - sphinx-multiversion
+  - sphinx_rtd_theme
   # Quality Assurance Tools
   # =======================
   # Run `pre-commit autoupdate` to get the latest pinned versions of 'rev' in
