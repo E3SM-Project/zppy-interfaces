@@ -108,7 +108,7 @@ requires = ["setuptools>=60"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-exclude = ["docs*", "conda*"]
+exclude = [ "conda*", "docs*",  "tests*"]
 
 [tool.setuptools.dynamic]
 version = { attr = "zppy_interfaces.version.__version__" }
