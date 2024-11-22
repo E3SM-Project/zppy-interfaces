@@ -1,0 +1,10 @@
+build/
+dist/
+zppy_interfaces.egg-info/
+*.pyc
+*~
+\#*
+__pycache__/
+
+# Sphinx documentation
+docs/_build/

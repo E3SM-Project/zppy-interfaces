@@ -1,0 +1,43 @@
+# Conda development environment for testing local source code changes to zppy-interfaces before merging them to production (main branch).
+name: zppy-interfaces-dev
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Build
+  # =======================
+  - python >=3.9
+  - pip
+  - setuptools >= 60
+  # Base
+  # =================
+  - matplotlib-base >=3.8.2,<3.10
+  - mpas_tools >=0.21.0
+  - netcdf4
+  - numpy >=2.0,<3.0
+  - xarray >=2023.02.0
+  - xcdat >=0.7.3,<1.0
+  # Testing
+  # =======================
+  - pytest
+  - pytest-cov
+  # Documentation
+  # =======================
+  - sphinx
+  - sphinx-multiversion
+  - sphinx_rtd_theme
+  # Quality Assurance Tools
+  # =======================
+  # Run `pre-commit autoupdate` to get the latest pinned versions of 'rev' in
+  # `.pre-commit.config.yaml`, then update the pinned versions here.
+  - black=24.10.0
+  - flake8=7.1.1
+  - flake8-isort=6.1.0
+  - isort=5.13.2
+  - mypy=1.11.2
+  - pre-commit >=3.0.0
+  - types-PyYAML >=6.0.0
+  # Developer Tools
+  # =======================
+  - tbump=6.9.0
+  - ipykernel
