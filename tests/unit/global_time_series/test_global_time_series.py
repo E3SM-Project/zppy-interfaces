@@ -17,7 +17,7 @@ from zppy_interfaces.global_time_series.utils import (
     param_get_list,
 )
 
-# Run tests with `pytest tests/global_time_series`
+# Run tests with `pytest tests/unit/global_time_series/test_*.py`
 
 
 # Helper function
