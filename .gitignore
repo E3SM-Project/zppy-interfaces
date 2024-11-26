@@ -8,3 +8,6 @@ __pycache__/
 
 # Sphinx documentation
 docs/_build/
+
+# Testing
+tests/integration/global_time_series/global_time_series_1985-1995_results*
