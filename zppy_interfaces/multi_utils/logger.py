@@ -63,5 +63,6 @@ def _setup_custom_logger(name, propagate=True) -> logging.Logger:
     """
     logger = logging.getLogger(name)
     logger.propagate = propagate
+    logger.setLevel(logging.DEBUG)
 
     return logger
