@@ -212,8 +212,9 @@ class TS(object):
                 raise ValueError(
                     f"Units don't match up: Have {units} but expected {original_units}. This renders the supplied scale_factor ({scale_factor}) unusable."
                 )
-            data_array *= scale_factor
-            units = final_units
+            if (scale_factor != 1) and (final_units != ""):
+                data_array *= scale_factor
+                units = final_units
         return data_array, units
 
     def globalAnnual(

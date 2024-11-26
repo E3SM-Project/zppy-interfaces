@@ -9,7 +9,11 @@ class Parameters(object):
         self.use_ocn: bool = _str2bool(args["use_ocn"])
         self.input: str = args["input"]
         self.input_subdir: str = args["input_subdir"]
-        self.moc_file: str = args["moc_file"]
+        self.moc_file: str
+        if args["moc_file"] == "None":
+            self.moc_file = ""
+        else:
+            self.moc_file = args["moc_file"]
 
         # For coupled_global
         self.case_dir: str = args["case_dir"]
