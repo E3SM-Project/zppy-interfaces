@@ -12,6 +12,7 @@ dependencies:
   # Base
   # =================
   - beautifulsoup4
+  - lxml
   - matplotlib-base >=3.8.2,<3.10
   - mpas_tools >=0.21.0
   - netcdf4
