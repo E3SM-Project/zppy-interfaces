@@ -3,16 +3,17 @@ from typing import Any, Dict, List
 import pytest
 
 from zppy_interfaces.global_time_series.coupled_global import (
-    Metric,
-    Variable,
-    VariableGroup,
     construct_generic_variables,
     get_data_dir,
     get_exps,
-    get_variable_groups,
     get_vars_original,
-    get_ylim,
     land_csv_row_to_var,
+)
+from zppy_interfaces.global_time_series.coupled_global_plotting import get_ylim
+from zppy_interfaces.global_time_series.coupled_global_utils import Metric, Variable
+from zppy_interfaces.global_time_series.coupled_global_viewer import (
+    VariableGroup,
+    get_variable_groups,
 )
 from zppy_interfaces.global_time_series.utils import (
     Parameters,
