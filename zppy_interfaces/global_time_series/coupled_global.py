@@ -1175,7 +1175,7 @@ def create_viewer_index(
 
     logger.info("Creating viewer index")
 
-    def insert_data_in_row(row_obj, name, url):
+    def insert_data_in_row(row_obj, name: str, url: str):
         """
         Given a row object, insert the name and url.
         """
@@ -1186,9 +1186,10 @@ def create_viewer_index(
         td.append(a)
         row_obj.append(td)
 
-    install_path = ""  # TODO: figure this out
-    path = os.path.join(install_path, "viewer", "index_template.html")
-    output = os.path.join(root_dir, "index.html")
+    # TODO: figure out install_path
+    install_path: str = "/home/ac.forsyth2/ez/zppy-interfaces/zppy_interfaces/global_time_series/"  
+    path: str = os.path.join(install_path, "index_template.html")
+    output: str = os.path.join(root_dir, "index.html")
 
     soup = BeautifulSoup(open(path), "lxml")
 
@@ -1242,5 +1243,5 @@ def coupled_global(parameters: Parameters) -> None:
             url = create_viewer(parameters, vars, component)
             logger.info(f"Viewer URL for {component}: {url}")
             title_and_url_list.append((component, url))
-        # index_url: str = create_viewer_index(parameters.results_dir, title_and_url_list)
-        # print(f"Viewer index URL: {index_url}")
+        index_url: str = create_viewer_index(parameters.results_dir, title_and_url_list)
+        logger.info(f"Viewer index URL: {index_url}")
