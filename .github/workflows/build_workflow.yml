@@ -47,6 +47,7 @@ jobs:
       # since the action is run on a branch in detached head state.
       # This is the equivalent of running "pre-commit run --all-files" locally.
       # If you commit with the `--no-verify` flag, this check may fail.
+      # TODO: this doesn't seem to run when I run `git commit` locally. I always have to run `pre-commit run --all-files` manually.
       - name: Install and Run Pre-commit
         uses: pre-commit/action@v3.0.0
 

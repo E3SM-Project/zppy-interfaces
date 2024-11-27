@@ -1,0 +1,2 @@
+recursive-include zppy_interfaces *.csv
+recursive-include zppy_interfaces *.html

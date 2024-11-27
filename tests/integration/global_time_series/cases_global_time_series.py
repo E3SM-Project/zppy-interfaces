@@ -24,7 +24,7 @@ parameters_viewers: Parameters = Parameters(
         "plots_atm": "TREFHT",
         "plots_ice": "None",
         # "plots_lnd": "FSH,RH2M,LAISHA,LAISUN,QINTR,QOVER,QRUNOFF,QSOIL,QVEGE,QVEGT,SOILWATER_10CM,TSA,H2OSNO,TOTLITC,CWDC,SOIL1C,SOIL2C,SOIL3C,SOIL4C,WOOD_HARVESTC,TOTVEGC,NBP,GPP,AR,HR",
-        "plots_lnd": "FSH",
+        "plots_lnd": "AR",
         "plots_ocn": "None",
         "nrows": "1",
         "ncols": "1",
