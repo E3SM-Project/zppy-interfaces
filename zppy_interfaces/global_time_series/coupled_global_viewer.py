@@ -3,7 +3,10 @@ from typing import List, Tuple
 
 from bs4 import BeautifulSoup
 
-from zppy_interfaces.global_time_series.coupled_global_utils import Variable
+from zppy_interfaces.global_time_series.coupled_global_utils import (
+    INCLUSIONS_DIR,
+    Variable,
+)
 from zppy_interfaces.global_time_series.utils import Parameters
 from zppy_interfaces.multi_utils.logger import _setup_custom_logger
 from zppy_interfaces.multi_utils.viewer import OutputViewer
@@ -69,7 +72,6 @@ def create_viewer(parameters: Parameters, vars: List[Variable], component: str) 
     return url
 
 
-# TODO: looks like we need to modify this (and have a index_template.html to use) to include all component viewers on the index
 # Copied from E3SM Diags and modified
 def create_viewer_index(
     root_dir: str, title_and_url_list: List[Tuple[str, str]]
@@ -93,13 +95,10 @@ def create_viewer_index(
         td.append(a)
         row_obj.append(td)
 
+    # import sys
+    # logger.debug(f"sys.prefix: {sys.prefix}, ls sys.prefix: {os.listdir(sys.prefix)}")
     # TODO: figure out install_path
-    import sys
-
-    logger.debug(f"sys.prefix: {sys.prefix}, ls sys.prefix: {os.listdir(sys.prefix)}")
-    install_path: str = (
-        "/home/ac.forsyth2/ez/zppy-interfaces/zppy_interfaces/global_time_series/"
-    )
+    install_path: str = INCLUSIONS_DIR
     path: str = os.path.join(install_path, "index_template.html")
     output: str = os.path.join(root_dir, "index.html")
 

@@ -1,5 +1,10 @@
 from enum import Enum
 
+# TODO: how to determine this automatically?
+INCLUSIONS_DIR = (
+    "/home/ac.forsyth2/ez/zppy-interfaces/zppy_interfaces/global_time_series/"
+)
+
 
 class Metric(Enum):
     AVERAGE = 1

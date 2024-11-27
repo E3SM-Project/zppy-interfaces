@@ -8,7 +8,11 @@ import xarray
 import xcdat
 
 from zppy_interfaces.global_time_series.coupled_global_plotting import make_plot_pdfs
-from zppy_interfaces.global_time_series.coupled_global_utils import Metric, Variable
+from zppy_interfaces.global_time_series.coupled_global_utils import (
+    INCLUSIONS_DIR,
+    Metric,
+    Variable,
+)
 from zppy_interfaces.global_time_series.coupled_global_viewer import (
     create_viewer,
     create_viewer_index,
@@ -66,13 +70,9 @@ def land_csv_row_to_var(csv_row: List[str]) -> Variable:
 def construct_land_variables(requested_vars: List[str]) -> List[Variable]:
     var_list: List[Variable] = []
     header = True
-    # If this file is being run stand-alone, then
-    # it will search the directory above the git directory
     # TODO: how do we make sure the csv is actually accessible????
     # The current directory is where we ran the code from, which is not necessarily where the csv is.
-    csv_path = (
-        "/home/ac.forsyth2/ez/zppy-interfaces/zppy_interfaces/global_time_series/"
-    )
+    csv_path = INCLUSIONS_DIR
     with open(f"{csv_path}/zppy_land_fields.csv", newline="") as csv_file:
         logger.debug("Reading zppy_land_fields.csv")
         var_reader = csv.reader(csv_file)
@@ -221,13 +221,13 @@ class TS(object):
                     var, "year"
                 )
                 data_array = annual_average_dataset_for_var.data_vars[var]
-                import pprint
-
-                pprint.pprint(
-                    f"annual_average_dataset_for_var attributes={annual_average_dataset_for_var.attrs}"
-                )
-                pprint.pprint(f"data_array attributes={data_array.attrs}")
+                # import pprint
+                # pprint.pprint(
+                #     f"annual_average_dataset_for_var attributes={annual_average_dataset_for_var.attrs}"
+                # )
+                # pprint.pprint(f"data_array attributes={data_array.attrs}")
                 # data_array *= area*landfrac
+                # TODO: Determine how to get area and landfrac
             else:
                 # This shouldn't be possible
                 raise ValueError(f"Invalid Enum option for metric={metric}")
