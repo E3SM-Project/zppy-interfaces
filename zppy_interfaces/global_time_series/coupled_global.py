@@ -41,7 +41,7 @@ class Variable(object):
         scale_factor=1.0,
         original_units="",
         final_units="",
-        group="",
+        group="All Variables",
         long_name="",
     ):
         # The name of the EAM/ELM/etc. variable on the monthly h0 history file
@@ -1128,11 +1128,12 @@ def get_vars(requested_variables: RequestedVariables, component: str) -> List[Va
 
 
 def create_viewer(parameters: Parameters, vars: List[Variable], component: str) -> str:
-    logger.info("Creating viewer")
+    logger.info(f"Creating viewer for {component}")
     viewer = OutputViewer(path=parameters.results_dir)
-    viewer.add_page("Table", parameters.regions)
+    viewer.add_page(f"table_{component}", parameters.regions)
     groups: List[VariableGroup] = get_variable_groups(vars)
     for group in groups:
+        logger.info(f"Adding group {group.group_name}")
         # Only groups that have at least one variable will be returned by `get_variable_groups`
         # So, we know this group will be non-empty and should therefore be added to the viewer.
         viewer.add_group(group.group_name)
@@ -1145,8 +1146,6 @@ def create_viewer(parameters: Parameters, vars: List[Variable], component: str) 
                 row_title = plot_name
             viewer.add_row(row_title)
             for rgn in parameters.regions:
-                # v3.LR.historical_0051_glb_lnd_SOIL4C.png
-                # viewer/c-state/glb_lnd_soil4c.html
                 viewer.add_col(
                     f"{parameters.figstr}_{rgn}_{component}_{plot_name}.png",
                     is_file=True,
@@ -1155,13 +1154,15 @@ def create_viewer(parameters: Parameters, vars: List[Variable], component: str) 
 
     url = viewer.generate_page()
     viewer.generate_viewer()
-    # Example paths:
+    # Example links:
+    # Viewer is expecting the actual images to be in the directory above `table`.
     # table/index.html links to previews with: ../v3.LR.historical_0051_glb_lnd_FSH.png
-    # table/<group>/fsh/glb_lnd_fsh.html links to: ../../../v3.LR.historical_0051_glb_lnd_FSH.png
-    # Viewer is expecting the actual images to be in the directory above `table`
+    # Viewer is expecting individual image html pages to be under both group and var subdirectories.
+    # table/energy-flux/fsh-sensible-heat/glb_lnd_fsh.html links to: ../../../v3.LR.historical_0051_glb_lnd_FSH.png
     return url
 
 
+# TODO: looks like we need to modify this (and have a index_template.html to use) to include all component viewers on the index
 # Copied from E3SM Diags and modified
 def create_viewer_index(
     root_dir: str, title_and_url_list: List[Tuple[str, str]]
@@ -1236,10 +1237,10 @@ def coupled_global(parameters: Parameters) -> None:
         # TODO: include "original"?
         # for component in ["original", "atm", "ice", "lnd", "ocn"]:
         title_and_url_list: List[Tuple[str, str]] = []
-        for component in ["lnd"]:
+        for component in ["atm", "lnd"]:
             vars = get_vars(requested_variables, component)
             url = create_viewer(parameters, vars, component)
             logger.info(f"Viewer URL for {component}: {url}")
             title_and_url_list.append((component, url))
-        # index_url: str = create_viewer_index(parameters.case_dir, title_and_url_list)
+        # index_url: str = create_viewer_index(parameters.results_dir, title_and_url_list)
         # print(f"Viewer index URL: {index_url}")
