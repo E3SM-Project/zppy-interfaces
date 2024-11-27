@@ -1,10 +1,8 @@
 # Script to plot some global atmosphere and ocean time series
 import csv
-import distutils.dir_util
 import glob
 import math
 import os
-import stat
 import traceback
 from enum import Enum
 from typing import Any, Dict, List, Tuple
@@ -18,18 +16,10 @@ import xarray
 import xcdat
 from bs4 import BeautifulSoup
 from netCDF4 import Dataset
-from output_viewer.build import build_page, build_viewer
-from output_viewer.index import (
-    OutputFile,
-    OutputGroup,
-    OutputIndex,
-    OutputPage,
-    OutputRow,
-)
-from output_viewer.utils import rechmod
 
 from zppy_interfaces.global_time_series.utils import Parameters
 from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.multi_utils.viewer import OutputViewer
 
 logger = _setup_custom_logger(__name__)
 
@@ -120,11 +110,16 @@ def construct_land_variables(requested_vars: List[str]) -> List[Variable]:
     header = True
     # If this file is being run stand-alone, then
     # it will search the directory above the git directory
-    with open("zppy_land_fields.csv", newline="") as csv_file:
-        print("In File")
+    # TODO: how do we make sure the csv is actually accessible????
+    # The current directory is where we ran the code from, which is not necessarily where the csv is.
+    csv_path = (
+        "/home/ac.forsyth2/ez/zppy-interfaces/zppy_interfaces/global_time_series/"
+    )
+    with open(f"{csv_path}/zppy_land_fields.csv", newline="") as csv_file:
+        logger.debug("Reading zppy_land_fields.csv")
         var_reader = csv.reader(csv_file)
         for row in var_reader:
-            print(f"row={row}")
+            logger.debug(f"row={row}")
             # Skip the header row
             if header:
                 header = False
@@ -152,11 +147,11 @@ class RequestedVariables(object):
         self.vars_original: List[Variable] = get_vars_original(
             parameters.plots_original
         )
+        self.vars_land: List[Variable] = construct_land_variables(parameters.plots_lnd)
+
+        # Use generic constructor
         self.vars_atm: List[Variable] = construct_generic_variables(
             parameters.plots_atm
-        )
-        self.vars_land: List[Variable] = construct_generic_variables(
-            parameters.plots_lnd
         )
         self.vars_ice: List[Variable] = construct_generic_variables(
             parameters.plots_ice
@@ -295,116 +290,6 @@ class TS(object):
             var.original_units,
             var.final_units,
         )
-
-
-# TODO: Move these to multi_utils so that PMP can use them too
-# Copied from e3sm_diags
-class OutputViewer(object):
-    def __init__(self, path=".", index_name="Results"):
-        self.path = os.path.abspath(path)
-        self.index = OutputIndex(index_name)
-        self.cache = {}  # dict of { OutputPage: { OutputGroup: [OutputRow] } }
-        self.page = None
-        self.group = None
-        self.row = None
-
-    def add_page(self, page_title, *args, **kwargs):
-        """Add a page to the viewer's index"""
-        self.page = OutputPage(page_title, *args, **kwargs)
-        self.cache[self.page] = {}
-        self.index.addPage(self.page)
-
-    def set_page(self, page_title):
-        """Sets the page with the title name as the current page"""
-        for output_page in self.cache:
-            if page_title == output_page.title:
-                self.page = output_page
-                return
-        raise RuntimeError("There is no page titled: %s" % page_title)
-
-    def add_group(self, group_name):
-        """Add a group to the current page"""
-        if self.page is None:
-            raise RuntimeError("You must first insert a page with add_page()")
-        self.group = OutputGroup(group_name)
-        if self.group not in self.cache[self.page]:
-            self.cache[self.page][self.group] = []  # group doesn't have any rows yet
-        self.page.addGroup(self.group)
-
-    def set_group(self, group_name):
-        """Sets the group with the title name as the current group"""
-        for output_group in self.cache[self.page]:
-            if group_name == output_group.title:
-                self.group = output_group
-                return
-        raise RuntimeError("There is no group titled: %s" % group_name)
-
-    def add_row(self, row_name):
-        """Add a row with the title name to the current group"""
-        if self.group is None:
-            raise RuntimeError("You must first insert a group with add_group()")
-        self.row = OutputRow(row_name, [])
-        if self.row not in self.cache[self.page][self.group]:
-            self.cache[self.page][self.group].append(self.row)
-        self.page.addRow(self.row, len(self.page.groups) - 1)  # type: ignore
-
-    def set_row(self, row_name):
-        """Sets the row with the title name as the current row"""
-        for output_row in self.cache[self.page][self.group]:
-            if row_name == output_row.title:
-                self.row = output_row
-                return
-        raise RuntimeError("There is no row titled: %s" % row_name)
-
-    def add_cols(self, cols):
-        """Add multiple string cols to the current row"""
-        self.row.columns.append(cols)  # type: ignore
-
-    def add_col(self, col, is_file=False, **kwargs):
-        """Add a single col to the current row. Set is_file to True if the col is a file path."""
-        if is_file:
-            self.row.columns.append(OutputFile(col, **kwargs))  # type: ignore
-        else:
-            self.row.columns.append(col)  # type: ignore
-
-    def generate_page(self) -> str:
-        """
-        Generate and return the location of the current HTML page.
-        """
-        self.index.toJSON(os.path.join(self.path, "index.json"))
-
-        default_mask = stat.S_IMODE(os.stat(self.path).st_mode)
-        rechmod(self.path, default_mask)
-
-        if os.access(self.path, os.W_OK):
-            default_mask = stat.S_IMODE(
-                os.stat(self.path).st_mode
-            )  # mode of files to be included
-            url = build_page(
-                self.page,
-                os.path.join(self.path, "index.json"),
-                default_mask=default_mask,
-            )
-            return url
-
-        raise RuntimeError("Error geneating the page.")
-
-    def generate_viewer(self):
-        """Generate the webpage"""
-        self.index.toJSON(os.path.join(self.path, "index.json"))
-
-        default_mask = stat.S_IMODE(os.stat(self.path).st_mode)
-        rechmod(self.path, default_mask)
-
-        if os.access(self.path, os.W_OK):
-            default_mask = stat.S_IMODE(
-                os.stat(self.path).st_mode
-            )  # mode of files to be included
-            build_viewer(
-                os.path.join(self.path, "index.json"),
-                diag_name="Global Time Series",
-                default_mask=default_mask,
-            )
 
 
 # Setup #######################################################################
@@ -1245,7 +1130,8 @@ def get_vars(requested_variables: RequestedVariables, component: str) -> List[Va
 
 
 def create_viewer(parameters: Parameters, vars: List[Variable], component: str) -> str:
-    viewer = OutputViewer(path=".")
+    logger.info("Creating viewer")
+    viewer = OutputViewer(path=parameters.results_dir)
     viewer.add_page("Table", parameters.regions)
     groups: List[VariableGroup] = get_variable_groups(vars)
     for group in groups:
@@ -1271,18 +1157,10 @@ def create_viewer(parameters: Parameters, vars: List[Variable], component: str) 
 
     url = viewer.generate_page()
     viewer.generate_viewer()
-    # Copy the contents of `table` into the `viewer` directory
-    # (which initially only has `css` and `js` subdirectories)
-    # Because `viewer` already exists,
-    # `shutil.copytree` will not work.
-    distutils.dir_util.copy_tree("table", "viewer")
-    print(
-        os.getcwd()
-    )  # /lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_viewers_output/test-pr616-20241022v2/v3.LR.historical_0051/post/scripts/global_time_series_1985-1995_dir
-    # shutil.rmtree("table")
-    # new_url = f"viewer_{component}"
-    # # shutil.move("viewer", new_url)
-    # distutils.dir_util.copy_tree("viewer", new_url)
+    # Example paths:
+    # table/index.html links to previews with: ../v3.LR.historical_0051_glb_lnd_FSH.png
+    # table/<group>/fsh/glb_lnd_fsh.html links to: ../../../v3.LR.historical_0051_glb_lnd_FSH.png
+    # Viewer is expecting the actual images to be in the directory above `table`
     return url
 
 
@@ -1295,6 +1173,8 @@ def create_viewer_index(
     joins the individual viewers.
     Each tuple is on its own row.
     """
+
+    logger.info("Creating viewer index")
 
     def insert_data_in_row(row_obj, name, url):
         """
@@ -1345,8 +1225,7 @@ def create_viewer_index(
     return output
 
 
-def run_by_region(command_line_arguments):
-    parameters: Parameters = Parameters(command_line_arguments)
+def coupled_global(parameters: Parameters) -> None:
     requested_variables = RequestedVariables(parameters)
     for rgn in parameters.regions:
         run(parameters, requested_variables, rgn)
@@ -1362,13 +1241,7 @@ def run_by_region(command_line_arguments):
         for component in ["lnd"]:
             vars = get_vars(requested_variables, component)
             url = create_viewer(parameters, vars, component)
-            print(url)
+            logger.info(f"Viewer URL for {component}: {url}")
             title_and_url_list.append((component, url))
         # index_url: str = create_viewer_index(parameters.case_dir, title_and_url_list)
         # print(f"Viewer index URL: {index_url}")
-
-
-def coupled_global(parameters: Parameters) -> None:
-    requested_variables = RequestedVariables(parameters)
-    for rgn in parameters.regions:
-        run(parameters, requested_variables, rgn)

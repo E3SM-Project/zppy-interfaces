@@ -23,7 +23,8 @@ parameters_viewers: Parameters = Parameters(
         "atmosphere_only": "False",
         "plots_atm": "TREFHT",
         "plots_ice": "None",
-        "plots_lnd": "FSH,RH2M,LAISHA,LAISUN,QINTR,QOVER,QRUNOFF,QSOIL,QVEGE,QVEGT,SOILWATER_10CM,TSA,H2OSNO,TOTLITC,CWDC,SOIL1C,SOIL2C,SOIL3C,SOIL4C,WOOD_HARVESTC,TOTVEGC,NBP,GPP,AR,HR",
+        # "plots_lnd": "FSH,RH2M,LAISHA,LAISUN,QINTR,QOVER,QRUNOFF,QSOIL,QVEGE,QVEGT,SOILWATER_10CM,TSA,H2OSNO,TOTLITC,CWDC,SOIL1C,SOIL2C,SOIL3C,SOIL4C,WOOD_HARVESTC,TOTVEGC,NBP,GPP,AR,HR",
+        "plots_lnd": "FSH",
         "plots_ocn": "None",
         "nrows": "1",
         "ncols": "1",
@@ -166,10 +167,10 @@ def generate_results(parameters: Parameters):
 
 def run_all_cases():
     generate_results(parameters_viewers)
-    generate_results(parameters_custom)
-    generate_results(parameters_original_8_no_ocn)
-    generate_results(parameters_original_8)
-    generate_results(parameters_comprehensive_v3)
+    # generate_results(parameters_custom)
+    # generate_results(parameters_original_8_no_ocn)
+    # generate_results(parameters_original_8)
+    # generate_results(parameters_comprehensive_v3)
 
 
 if __name__ == "__main__":
