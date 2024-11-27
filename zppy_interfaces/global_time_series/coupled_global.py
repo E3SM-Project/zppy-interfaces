@@ -258,14 +258,24 @@ class TS(object):
             data_array = 1.0e3 * (PRECC + PRECL)
         else:
             # Non-derived variables
-            if (metric == Metric.AVERAGE) or (metric == Metric.TOTAL):
-                annual_average_dataset_for_var: xarray.core.dataset.Dataset = (
-                    self.f.temporal.group_average(var, "year")
+            annual_average_dataset_for_var: xarray.core.dataset.Dataset
+            if metric == Metric.AVERAGE:
+                annual_average_dataset_for_var = self.f.temporal.group_average(
+                    var, "year"
                 )
                 data_array = annual_average_dataset_for_var.data_vars[var]
-            # elif metric == Metric.TOTAL:
-            #     # TODO: Implement this!
-            #     raise NotImplementedError()
+            elif metric == Metric.TOTAL:
+                annual_average_dataset_for_var = self.f.temporal.group_average(
+                    var, "year"
+                )
+                data_array = annual_average_dataset_for_var.data_vars[var]
+                import pprint
+
+                pprint.pprint(
+                    f"annual_average_dataset_for_var attributes={annual_average_dataset_for_var.attrs}"
+                )
+                pprint.pprint(f"data_array attributes={data_array.attrs}")
+                # data_array *= area*landfrac
             else:
                 # This shouldn't be possible
                 raise ValueError(f"Invalid Enum option for metric={metric}")
@@ -1189,7 +1199,12 @@ def create_viewer_index(
         row_obj.append(td)
 
     # TODO: figure out install_path
-    install_path: str = "/home/ac.forsyth2/ez/zppy-interfaces/zppy_interfaces/global_time_series/"  
+    import sys
+
+    logger.debug(f"sys.prefix: {sys.prefix}, ls sys.prefix: {os.listdir(sys.prefix)}")
+    install_path: str = (
+        "/home/ac.forsyth2/ez/zppy-interfaces/zppy_interfaces/global_time_series/"
+    )
     path: str = os.path.join(install_path, "index_template.html")
     output: str = os.path.join(root_dir, "index.html")
 
