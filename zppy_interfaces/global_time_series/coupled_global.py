@@ -70,10 +70,7 @@ def land_csv_row_to_var(csv_row: List[str]) -> Variable:
 def construct_land_variables(requested_vars: List[str]) -> List[Variable]:
     var_list: List[Variable] = []
     header = True
-    # TODO: how do we make sure the csv is actually accessible????
-    # The current directory is where we ran the code from, which is not necessarily where the csv is.
-    csv_path = INCLUSIONS_DIR
-    with open(f"{csv_path}/zppy_land_fields.csv", newline="") as csv_file:
+    with open(f"{INCLUSIONS_DIR}/zppy_land_fields.csv", newline="") as csv_file:
         logger.debug("Reading zppy_land_fields.csv")
         var_reader = csv.reader(csv_file)
         for row in var_reader:

@@ -1,9 +1,7 @@
 from enum import Enum
 
-# TODO: how to determine this automatically?
-INCLUSIONS_DIR = (
-    "/home/ac.forsyth2/ez/zppy-interfaces/zppy_interfaces/global_time_series/"
-)
+# Relies on MANIFEST.in to include files
+INCLUSIONS_DIR = "zppy_interfaces/global_time_series"
 
 
 class Metric(Enum):

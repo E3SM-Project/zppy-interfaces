@@ -1,0 +1,2 @@
+recursive-include zppy-interfaces zppy_interfaces/global_time_series/zppy_land_fields.csv
+recursive-include zppy-interfaces zppy_interfaces/global_time_series/index_template.html

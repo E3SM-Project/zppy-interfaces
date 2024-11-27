@@ -95,11 +95,7 @@ def create_viewer_index(
         td.append(a)
         row_obj.append(td)
 
-    # import sys
-    # logger.debug(f"sys.prefix: {sys.prefix}, ls sys.prefix: {os.listdir(sys.prefix)}")
-    # TODO: figure out install_path
-    install_path: str = INCLUSIONS_DIR
-    path: str = os.path.join(install_path, "index_template.html")
+    path: str = os.path.join(INCLUSIONS_DIR, "index_template.html")
     output: str = os.path.join(root_dir, "index.html")
 
     soup = BeautifulSoup(open(path), "lxml")
