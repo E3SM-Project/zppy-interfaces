@@ -1,18 +1,17 @@
 # Script to plot some global atmosphere and ocean time series
 import csv
+import importlib.resources as imp_res
 from typing import Any, Dict, List, Tuple
 
 import cftime
 import numpy as np
 import xarray
-import xcdat
 
-from zppy_interfaces.global_time_series.coupled_global_plotting import make_plot_pdfs
-from zppy_interfaces.global_time_series.coupled_global_utils import (
-    INCLUSIONS_DIR,
-    Metric,
-    Variable,
+from zppy_interfaces.global_time_series.coupled_global_dataset_wrapper import (
+    DatasetWrapper,
 )
+from zppy_interfaces.global_time_series.coupled_global_plotting import make_plot_pdfs
+from zppy_interfaces.global_time_series.coupled_global_utils import Metric, Variable
 from zppy_interfaces.global_time_series.coupled_global_viewer import (
     create_viewer,
     create_viewer_index,
@@ -70,7 +69,10 @@ def land_csv_row_to_var(csv_row: List[str]) -> Variable:
 def construct_land_variables(requested_vars: List[str]) -> List[Variable]:
     var_list: List[Variable] = []
     header = True
-    with open(f"{INCLUSIONS_DIR}/zppy_land_fields.csv", newline="") as csv_file:
+    csv_filename = str(
+        imp_res.files("zppy_interfaces.global_time_series") / "zppy_land_fields.csv"
+    )
+    with open(csv_filename, newline="") as csv_file:
         logger.debug("Reading zppy_land_fields.csv")
         var_reader = csv.reader(csv_file)
         for row in var_reader:
@@ -113,141 +115,6 @@ class RequestedVariables(object):
         )
         self.vars_ocn: List[Variable] = construct_generic_variables(
             parameters.plots_ocn
-        )
-
-
-class TS(object):
-    def __init__(self, directory):
-
-        self.directory: str = directory
-
-        # `directory` will be of the form `{case_dir}/post/<component>/glb/ts/monthly/{ts_num_years_str}yr/`
-        self.f: xarray.core.dataset.Dataset = xcdat.open_mfdataset(
-            f"{directory}*.nc", center_times=True
-        )
-
-    def __del__(self):
-
-        self.f.close()
-
-    def globalAnnualHelper(
-        self,
-        var: str,
-        metric: Metric,
-        scale_factor: float,
-        original_units: str,
-        final_units: str,
-    ) -> Tuple[xarray.core.dataarray.DataArray, str]:
-
-        data_array: xarray.core.dataarray.DataArray
-        units: str = ""
-
-        # Constants, from AMWG diagnostics
-        Lv = 2.501e6
-        Lf = 3.337e5
-
-        # Is this a derived variable?
-        if var == "RESTOM":
-            FSNT, _ = self.globalAnnualHelper(
-                "FSNT", metric, scale_factor, original_units, final_units
-            )
-            FLNT, _ = self.globalAnnualHelper(
-                "FLNT", metric, scale_factor, original_units, final_units
-            )
-            data_array = FSNT - FLNT
-        elif var == "RESTOA":
-            logger.warning("NOT READY")
-            FSNTOA, _ = self.globalAnnualHelper(
-                "FSNTOA", metric, scale_factor, original_units, final_units
-            )
-            FLUT, _ = self.globalAnnualHelper(
-                "FLUT", metric, scale_factor, original_units, final_units
-            )
-            data_array = FSNTOA - FLUT
-        elif var == "LHFLX":
-            QFLX, _ = self.globalAnnualHelper(
-                "QFLX", metric, scale_factor, original_units, final_units
-            )
-            PRECC, _ = self.globalAnnualHelper(
-                "PRECC", metric, scale_factor, original_units, final_units
-            )
-            PRECL, _ = self.globalAnnualHelper(
-                "PRECL", metric, scale_factor, original_units, final_units
-            )
-            PRECSC, _ = self.globalAnnualHelper(
-                "PRECSC", metric, scale_factor, original_units, final_units
-            )
-            PRECSL, _ = self.globalAnnualHelper(
-                "PRECSL", metric, scale_factor, original_units, final_units
-            )
-            data_array = (Lv + Lf) * QFLX - Lf * 1.0e3 * (
-                PRECC + PRECL - PRECSC - PRECSL
-            )
-        elif var == "RESSURF":
-            FSNS, _ = self.globalAnnualHelper(
-                "FSNS", metric, scale_factor, original_units, final_units
-            )
-            FLNS, _ = self.globalAnnualHelper(
-                "FLNS", metric, scale_factor, original_units, final_units
-            )
-            SHFLX, _ = self.globalAnnualHelper(
-                "SHFLX", metric, scale_factor, original_units, final_units
-            )
-            LHFLX, _ = self.globalAnnualHelper(
-                "LHFLX", metric, scale_factor, original_units, final_units
-            )
-            data_array = FSNS - FLNS - SHFLX - LHFLX
-        elif var == "PREC":
-            PRECC, _ = self.globalAnnualHelper(
-                "PRECC", metric, scale_factor, original_units, final_units
-            )
-            PRECL, _ = self.globalAnnualHelper(
-                "PRECL", metric, scale_factor, original_units, final_units
-            )
-            data_array = 1.0e3 * (PRECC + PRECL)
-        else:
-            # Non-derived variables
-            annual_average_dataset_for_var: xarray.core.dataset.Dataset
-            if metric == Metric.AVERAGE:
-                annual_average_dataset_for_var = self.f.temporal.group_average(
-                    var, "year"
-                )
-                data_array = annual_average_dataset_for_var.data_vars[var]
-            elif metric == Metric.TOTAL:
-                annual_average_dataset_for_var = self.f.temporal.group_average(
-                    var, "year"
-                )
-                data_array = annual_average_dataset_for_var.data_vars[var]
-                # import pprint
-                # pprint.pprint(
-                #     f"annual_average_dataset_for_var attributes={annual_average_dataset_for_var.attrs}"
-                # )
-                # pprint.pprint(f"data_array attributes={data_array.attrs}")
-                # data_array *= area*landfrac
-                # TODO: Determine how to get area and landfrac
-            else:
-                # This shouldn't be possible
-                raise ValueError(f"Invalid Enum option for metric={metric}")
-            units = data_array.units
-            # `units` will be "1" if it's a dimensionless quantity
-            if (units != "1") and (original_units != "") and original_units != units:
-                raise ValueError(
-                    f"Units don't match up: Have {units} but expected {original_units}. This renders the supplied scale_factor ({scale_factor}) unusable."
-                )
-            if (scale_factor != 1) and (final_units != ""):
-                data_array *= scale_factor
-                units = final_units
-        return data_array, units
-
-    def globalAnnual(
-        self, var: Variable
-    ) -> Tuple[xarray.core.dataarray.DataArray, str]:
-        return self.globalAnnualHelper(
-            var.variable_name,
-            var.metric,
-            var.scale_factor,
-            var.original_units,
-            var.final_units,
         )
 
 
@@ -299,11 +166,11 @@ def set_var(
 ) -> None:
     if exp[exp_key] != "":
         try:
-            ts_object: TS = TS(exp[exp_key])
+            ts_object: DatasetWrapper = DatasetWrapper(exp[exp_key])
         except Exception as e:
             logger.critical(e)
             logger.critical(
-                f"TS object could not be created for {exp_key}={exp[exp_key]}"
+                f"DatasetWrapper object could not be created for {exp_key}={exp[exp_key]}"
             )
             raise e
         for var in var_list:
@@ -378,13 +245,13 @@ def process_data(
 
         # Optionally read ohc
         if exp["ocean"] != "":
-            ts = TS(exp["ocean"])
+            ts = DatasetWrapper(exp["ocean"])
             exp["annual"]["ohc"], _ = ts.globalAnnual(Variable("ohc"))
             # anomalies with respect to first year
             exp["annual"]["ohc"][:] = exp["annual"]["ohc"][:] - exp["annual"]["ohc"][0]
 
         if exp["vol"] != "":
-            ts = TS(exp["vol"])
+            ts = DatasetWrapper(exp["vol"])
             exp["annual"]["volume"], _ = ts.globalAnnual(Variable("volume"))
             # annomalies with respect to first year
             exp["annual"]["volume"][:] = (

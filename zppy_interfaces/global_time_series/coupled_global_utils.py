@@ -1,8 +1,5 @@
 from enum import Enum
 
-# Relies on MANIFEST.in to include files
-INCLUSIONS_DIR = "zppy_interfaces/global_time_series"
-
 
 class Metric(Enum):
     AVERAGE = 1

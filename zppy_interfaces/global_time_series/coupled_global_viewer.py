@@ -1,12 +1,10 @@
+import importlib.resources as imp_res
 import os
 from typing import List, Tuple
 
 from bs4 import BeautifulSoup
 
-from zppy_interfaces.global_time_series.coupled_global_utils import (
-    INCLUSIONS_DIR,
-    Variable,
-)
+from zppy_interfaces.global_time_series.coupled_global_utils import Metric, Variable
 from zppy_interfaces.global_time_series.utils import Parameters
 from zppy_interfaces.multi_utils.logger import _setup_custom_logger
 from zppy_interfaces.multi_utils.viewer import OutputViewer
@@ -50,10 +48,17 @@ def create_viewer(parameters: Parameters, vars: List[Variable], component: str) 
         for var in group.variables:
             plot_name: str = var.variable_name
             row_title: str
-            if var.long_name != "":
-                row_title = f"{plot_name}: {var.long_name}"
+            if var.metric == Metric.AVERAGE:
+                metric_name = "AVERAGE"
+            elif var.metric == Metric.TOTAL:
+                metric_name = "TOTAL"
             else:
-                row_title = plot_name
+                # This shouldn't be possible
+                raise ValueError(f"Invalid Enum option for metric={var.metric}")
+            if var.long_name != "":
+                row_title = f"{plot_name}: {var.long_name}, metric={metric_name}"
+            else:
+                row_title = f"{plot_name}, metric={metric_name}"
             viewer.add_row(row_title)
             for rgn in parameters.regions:
                 viewer.add_col(
@@ -95,7 +100,9 @@ def create_viewer_index(
         td.append(a)
         row_obj.append(td)
 
-    path: str = os.path.join(INCLUSIONS_DIR, "index_template.html")
+    path: str = str(
+        imp_res.files("zppy_interfaces.global_time_series") / "index_template.html"
+    )
     output: str = os.path.join(root_dir, "index.html")
 
     soup = BeautifulSoup(open(path), "lxml")
