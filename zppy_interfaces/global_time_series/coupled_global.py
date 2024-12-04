@@ -76,7 +76,7 @@ def construct_land_variables(requested_vars: List[str]) -> List[Variable]:
         logger.debug("Reading zppy_land_fields.csv")
         var_reader = csv.reader(csv_file)
         for row in var_reader:
-            logger.debug(f"row={row}")
+            # logger.debug(f"row={row}")
             # Skip the header row
             if header:
                 header = False
@@ -161,10 +161,13 @@ def set_var(
     valid_vars: List[str],
     invalid_vars: List[str],
     rgn: str,
+    extra_vars_dict=None,
 ) -> None:
     if exp[exp_key] != "":
         try:
-            ts_object: DatasetWrapper = DatasetWrapper(exp[exp_key])
+            dataset_wrapper: DatasetWrapper = DatasetWrapper(
+                exp[exp_key], extra_vars_dict
+            )
         except Exception as e:
             logger.critical(e)
             logger.critical(
@@ -176,7 +179,7 @@ def set_var(
             try:
                 data_array: xarray.core.dataarray.DataArray
                 units: str
-                data_array, units = ts_object.globalAnnual(var)
+                data_array, units = dataset_wrapper.globalAnnual(var)
                 valid_vars.append(str(var_str))
             except Exception as e:
                 logger.error(e)
@@ -209,7 +212,7 @@ def set_var(
                     "time"
                 ].values
                 exp["annual"]["year"] = [x.year for x in years]
-        del ts_object
+        del dataset_wrapper
 
 
 def process_data(
@@ -235,7 +238,13 @@ def process_data(
         )
         set_var(exp, "ice", requested_variables.vars_ice, valid_vars, invalid_vars, rgn)
         set_var(
-            exp, "land", requested_variables.vars_land, valid_vars, invalid_vars, rgn
+            exp,
+            "land",
+            requested_variables.vars_land,
+            valid_vars,
+            invalid_vars,
+            rgn,
+            extra_vars_dict=exp["land"].replace("glb", "180x360_aave"),
         )
         set_var(
             exp, "ocean", requested_variables.vars_ocn, valid_vars, invalid_vars, rgn
@@ -243,14 +252,16 @@ def process_data(
 
         # Optionally read ohc
         if exp["ocean"] != "":
-            ts = DatasetWrapper(exp["ocean"])
-            exp["annual"]["ohc"], _ = ts.globalAnnual(Variable("ohc"))
+            dataset_wrapper = DatasetWrapper(exp["ocean"])
+            exp["annual"]["ohc"], _ = dataset_wrapper.globalAnnual(Variable("ohc"))
             # anomalies with respect to first year
             exp["annual"]["ohc"][:] = exp["annual"]["ohc"][:] - exp["annual"]["ohc"][0]
 
         if exp["vol"] != "":
-            ts = DatasetWrapper(exp["vol"])
-            exp["annual"]["volume"], _ = ts.globalAnnual(Variable("volume"))
+            dataset_wrapper = DatasetWrapper(exp["vol"])
+            exp["annual"]["volume"], _ = dataset_wrapper.globalAnnual(
+                Variable("volume")
+            )
             # annomalies with respect to first year
             exp["annual"]["volume"][:] = (
                 exp["annual"]["volume"][:] - exp["annual"]["volume"][0]

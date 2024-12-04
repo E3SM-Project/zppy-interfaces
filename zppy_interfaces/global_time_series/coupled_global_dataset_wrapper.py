@@ -10,7 +10,7 @@ logger = _setup_custom_logger(__name__)
 
 
 class DatasetWrapper(object):
-    def __init__(self, directory):
+    def __init__(self, directory, extra_vars_directory=None):
 
         self.directory: str = directory
 
@@ -18,6 +18,17 @@ class DatasetWrapper(object):
         self.dataset: xarray.core.dataset.Dataset = xcdat.open_mfdataset(
             f"{directory}*.nc", center_times=True
         )
+
+        self.extra_var_dataset: xarray.core.dataset.Dataset
+        if extra_vars_directory:
+            # If an extra_vars_directory is provided, we'll use that to open a new dataset
+            self.extra_var_dataset = xcdat.open_mfdataset(
+                f"{extra_vars_directory}*.nc",
+                center_times=True,
+            )
+        else:
+            # Otherwise, we'll use the same dataset.
+            self.extra_var_dataset = self.dataset
 
     def __del__(self):
 
@@ -105,12 +116,25 @@ class DatasetWrapper(object):
             )
             data_array = annual_average_dataset_for_var.data_vars[var]
             if metric == Metric.TOTAL:
-                # ['AR', 'time_bounds', 'CWDC', 'FSH', 'GPP', 'H2OSNO', 'HR', 'LAISHA', 'LAISUN', 'NBP', 'QINTR', 'QOVER', 'QRUNOFF', 'QSOIL', 'QVEGE', 'QVEGT', 'RH2M', 'SOIL1C', 'SOIL2C', 'SOIL3C', 'SOIL4C', 'SOILWATER_10CM', 'TOTLITC', 'TOTVEGC', 'TSA', 'WOOD_HARVESTC', 'lon_bnds', 'lat_bnds']
-                # TODO: looks like we don't actually have area or landfrac in the dataset
-                logger.debug(f"self.dataset.keys()={list(self.dataset.keys())}")
-                area = self.dataset["area"]
-                landfrac = self.dataset["landfrac"]
-                data_array *= area * landfrac
+                keys = list(self.extra_var_dataset.keys())
+                logger.debug(f"self.extra_var_dataset.keys()={keys}")
+                if "area_times_landfrac" in keys:
+                    total_land_area = self.extra_var_dataset["area_times_landfrac"]
+                else:
+                    area: xarray.core.dataarray.DataArray = self.extra_var_dataset[
+                        "area"
+                    ]
+                    landfrac: xarray.core.dataarray.DataArray = self.extra_var_dataset[
+                        "landfrac"
+                    ]
+                    # area.shape() = (180, 360)
+                    # landfrac.shape() =(180, 360)
+                    total_land_area = (area * landfrac).sum()  # Sum over all dimensions
+                # data_array.shape = (number of years, number of regions)
+                data_array *= total_land_area
+                logger.info(
+                    f"for Metric.TOTAL, data_array has been scaled by total_land_area={total_land_area}"
+                )
             units = data_array.units
             # `units` will be "1" if it's a dimensionless quantity
             if (units != "1") and (original_units != "") and original_units != units:
