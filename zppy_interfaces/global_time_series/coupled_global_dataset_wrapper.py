@@ -19,6 +19,12 @@ class DatasetWrapper(object):
             f"{directory}*.nc", center_times=True
         )
 
+        # TODO: going to need to get the alternative mapping_file and pass in an extra_vars specific directory to this function.
+        self.extra_var_dataset: xarray.core.dataset.Dataset = xcdat.open_mfdataset(
+            "/lcrc/group/e3sm/ac.forsyth2/zi-test-input-data/post/lnd/180x360_aave/ts/monthly/5yr/*nc",
+            center_times=True,
+        )
+
     def __del__(self):
 
         self.dataset.close()
@@ -107,10 +113,28 @@ class DatasetWrapper(object):
             if metric == Metric.TOTAL:
                 # ['AR', 'time_bounds', 'CWDC', 'FSH', 'GPP', 'H2OSNO', 'HR', 'LAISHA', 'LAISUN', 'NBP', 'QINTR', 'QOVER', 'QRUNOFF', 'QSOIL', 'QVEGE', 'QVEGT', 'RH2M', 'SOIL1C', 'SOIL2C', 'SOIL3C', 'SOIL4C', 'SOILWATER_10CM', 'TOTLITC', 'TOTVEGC', 'TSA', 'WOOD_HARVESTC', 'lon_bnds', 'lat_bnds']
                 # TODO: looks like we don't actually have area or landfrac in the dataset
-                logger.debug(f"self.dataset.keys()={list(self.dataset.keys())}")
-                area = self.dataset["area"]
-                landfrac = self.dataset["landfrac"]
-                data_array *= area * landfrac
+                logger.debug(
+                    f"self.extra_var_dataset.keys()={list(self.extra_var_dataset.keys())}"
+                )
+                area = self.extra_var_dataset["area"]
+                landfrac = self.extra_var_dataset["landfrac"]
+                try:
+                    data_array *= area * landfrac
+                except ValueError as e:
+                    logger.error(f"area={area}")
+                    logger.error(f"landfrac={landfrac}")
+                    logger.error(f"area.shape={area.shape}")  # area.shape=(180, 360)
+                    logger.error(
+                        f"landfrac.shape={landfrac.shape}"
+                    )  # landfrac.shape=(180, 360)
+                    logger.error(
+                        f"data_array.shape={data_array.shape}"
+                    )  # data_array.shape=(10, 3)
+                    # e: dimensions cannot change for in-place operations
+                    raise e
+                logger.info(
+                    "for Metric.TOTAL, data_array has been scaled by area*landfrac"
+                )
             units = data_array.units
             # `units` will be "1" if it's a dimensionless quantity
             if (units != "1") and (original_units != "") and original_units != units:

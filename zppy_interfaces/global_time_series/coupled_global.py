@@ -76,7 +76,7 @@ def construct_land_variables(requested_vars: List[str]) -> List[Variable]:
         logger.debug("Reading zppy_land_fields.csv")
         var_reader = csv.reader(csv_file)
         for row in var_reader:
-            logger.debug(f"row={row}")
+            # logger.debug(f"row={row}")
             # Skip the header row
             if header:
                 header = False
