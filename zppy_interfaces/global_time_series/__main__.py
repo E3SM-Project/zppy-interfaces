@@ -76,6 +76,7 @@ def _get_args() -> Parameters:
     parser.add_argument("--ncols", type=str, help="Number of columns in pdf")
     parser.add_argument("--results_dir", type=str, help="Results directory")
     parser.add_argument("--regions", type=str, help="Regions")
+    parser.add_argument("--make_viewer", type=str, help="Make viewer")
 
     # For both
     parser.add_argument("--start_yr", type=str, help="Start year")

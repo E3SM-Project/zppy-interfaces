@@ -332,16 +332,11 @@ def coupled_global(parameters: Parameters) -> None:
     requested_variables = RequestedVariables(parameters)
     for rgn in parameters.regions:
         run(parameters, requested_variables, rgn)
-    plots_per_page = parameters.nrows * parameters.ncols
-    # TODO: Is this how we want to determine when to make a viewer or should we have a `make_viewer` parameter in the cfg?
-    if plots_per_page == 1:
+    if parameters.make_viewer:
         # In this case, we don't want the summary PDF.
         # Rather, we want to construct a viewer similar to E3SM Diags.
-        # TODO: determine directory paths for each viewer
-        # TODO: include "original"?
-        # for component in ["original", "atm", "ice", "lnd", "ocn"]:
         title_and_url_list: List[Tuple[str, str]] = []
-        for component in ["atm", "lnd"]:
+        for component in ["original", "atm", "ice", "lnd", "ocn"]:
             vars = get_vars(requested_variables, component)
             url = create_viewer(parameters, vars, component)
             logger.info(f"Viewer URL for {component}: {url}")

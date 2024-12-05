@@ -29,6 +29,7 @@ parameters_viewers: Parameters = Parameters(
         "ncols": "1",
         "results_dir": f"{RESULTS_DIR_PREFIX}_viewers",
         "regions": "glb,n,s",
+        "make_viewer": "True",
         "start_yr": "1985",
         "end_yr": "1995",
     }
@@ -54,6 +55,7 @@ parameters_custom: Parameters = Parameters(
         "ncols": "2",
         "results_dir": f"{RESULTS_DIR_PREFIX}_custom",
         "regions": "glb,n,s",
+        "make_viewer": "False",
         "start_yr": "1985",
         "end_yr": "1995",
     }
@@ -80,6 +82,7 @@ parameters_original_8_no_ocn: Parameters = Parameters(
         "ncols": "2",
         "results_dir": f"{RESULTS_DIR_PREFIX}_original_8_no_ocn",
         "regions": "glb,n,s",
+        "make_viewer": "False",
         "start_yr": "1985",
         "end_yr": "1995",
     }
@@ -105,6 +108,7 @@ parameters_original_8: Parameters = Parameters(
         "ncols": "2",
         "results_dir": f"{RESULTS_DIR_PREFIX}_original_8",
         "regions": "glb,n,s",
+        "make_viewer": "False",
         "start_yr": "1985",
         "end_yr": "1995",
     }
@@ -130,6 +134,7 @@ parameters_comprehensive_v3: Parameters = Parameters(
         "ncols": "2",
         "results_dir": f"{RESULTS_DIR_PREFIX}_comprehensive_v3",
         "regions": "glb,n,s",
+        "make_viewer": "False",
         "start_yr": "1985",
         "end_yr": "1995",
     }
