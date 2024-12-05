@@ -19,12 +19,16 @@ class DatasetWrapper(object):
             f"{directory}*.nc", center_times=True
         )
 
-        self.extra_var_dataset: xarray.core.dataset.Dataset = None
+        self.extra_var_dataset: xarray.core.dataset.Dataset
         if extra_vars_directory:
+            # If an extra_vars_directory is provided, we'll use that to open a new dataset
             self.extra_var_dataset = xcdat.open_mfdataset(
                 f"{extra_vars_directory}*.nc",
                 center_times=True,
             )
+        else:
+            # Otherwise, we'll use the same dataset.
+            self.extra_var_dataset = self.dataset
 
     def __del__(self):
 
@@ -112,22 +116,24 @@ class DatasetWrapper(object):
             )
             data_array = annual_average_dataset_for_var.data_vars[var]
             if metric == Metric.TOTAL:
-                logger.debug(
-                    f"self.extra_var_dataset.keys()={list(self.extra_var_dataset.keys())}"
-                )
-                area: xarray.core.dataarray.DataArray = self.extra_var_dataset["area"]
-                landfrac: xarray.core.dataarray.DataArray = self.extra_var_dataset[
-                    "landfrac"
-                ]
-                # area.shape() = (180, 360)
-                total_area = area.sum()  # Sum over all dimensions
-                # landfrac.shape=(180, 360)
-                average_landfrac = landfrac.mean()  # Mean over all dimensions
-                total_land_area = total_area * average_landfrac
+                keys = list(self.extra_var_dataset.keys())
+                logger.debug(f"self.extra_var_dataset.keys()={keys}")
+                if "area_times_landfrac" in keys:
+                    total_land_area = self.extra_var_dataset["area_times_landfrac"]
+                else:
+                    area: xarray.core.dataarray.DataArray = self.extra_var_dataset[
+                        "area"
+                    ]
+                    landfrac: xarray.core.dataarray.DataArray = self.extra_var_dataset[
+                        "landfrac"
+                    ]
+                    # area.shape() = (180, 360)
+                    # landfrac.shape() =(180, 360)
+                    total_land_area = (area * landfrac).sum()  # Sum over all dimensions
                 # data_array.shape = (number of years, number of regions)
                 data_array *= total_land_area
                 logger.info(
-                    "for Metric.TOTAL, data_array has been scaled by total land area"
+                    f"for Metric.TOTAL, data_array has been scaled by total_land_area={total_land_area}"
                 )
             units = data_array.units
             # `units` will be "1" if it's a dimensionless quantity
