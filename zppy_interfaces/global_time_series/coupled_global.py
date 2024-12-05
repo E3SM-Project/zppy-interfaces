@@ -338,8 +338,9 @@ def coupled_global(parameters: Parameters) -> None:
         title_and_url_list: List[Tuple[str, str]] = []
         for component in ["original", "atm", "ice", "lnd", "ocn"]:
             vars = get_vars(requested_variables, component)
-            url = create_viewer(parameters, vars, component)
-            logger.info(f"Viewer URL for {component}: {url}")
-            title_and_url_list.append((component, url))
+            if vars:
+                url = create_viewer(parameters, vars, component)
+                logger.info(f"Viewer URL for {component}: {url}")
+                title_and_url_list.append((component, url))
         index_url: str = create_viewer_index(parameters.results_dir, title_and_url_list)
         logger.info(f"Viewer index URL: {index_url}")
