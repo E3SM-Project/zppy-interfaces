@@ -85,6 +85,7 @@ def test_Parameters_and_related_functions():
         "ncols": "1",
         "results_dir": "results",
         "regions": "glb,n,s",
+        "make_viewer": "True",
         "start_yr": "1985",
         "end_yr": "1989",
     }

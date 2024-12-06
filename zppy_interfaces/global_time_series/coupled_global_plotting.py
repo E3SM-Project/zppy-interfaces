@@ -410,7 +410,7 @@ def plot_net_atm_water_imbalance(ax, xlim, exps, rgn):
 
 # Generic plot function
 def plot_generic(ax, xlim, exps, var_name, rgn):
-    logger.info(f"plot_generic for {var_name}")
+    logger.info(f"plot_generic for {var_name}, rgn={rgn}")
     param_dict = {
         "2nd_var": False,
         "axhline_y": 0,
@@ -608,7 +608,9 @@ def make_plot_pdfs(  # noqa: C901
                     valid_plots.append(plot_name)
                 except Exception:
                     traceback.print_exc()
-                    logger.error(f"plot_generic failed. Invalid plot={plot_name}")
+                    logger.error(
+                        f"plot_generic failed. Invalid plot={plot_name}, rgn={rgn}"
+                    )
                     invalid_plots.append(plot_name)
                 counter += 1
 

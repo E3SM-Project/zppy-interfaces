@@ -17,7 +17,6 @@ console_handler.setFormatter(logFormatter)
 logging.getLogger().addHandler(console_handler)
 
 
-# TODO: Why are logging messages printing 3x?
 # Following the example of https://github.com/xCDAT/xcdat/blob/27396e510185fddfe04921427ce2d67618a93709/xcdat/_logger.py#L20
 def _setup_custom_logger(name, propagate=True) -> logging.Logger:
     """Sets up a custom logger.
@@ -65,6 +64,6 @@ def _setup_custom_logger(name, propagate=True) -> logging.Logger:
     """
     logger = logging.getLogger(name)
     logger.propagate = propagate
-    logger.setLevel("DEBUG")
+    # logger.setLevel("DEBUG")
 
     return logger
