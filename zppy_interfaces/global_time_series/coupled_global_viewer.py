@@ -37,7 +37,8 @@ def get_variable_groups(variables: List[Variable]) -> List[VariableGroup]:
 
 def create_viewer(parameters: Parameters, vars: List[Variable], component: str) -> str:
     logger.info(f"Creating viewer for {component}")
-    viewer = OutputViewer(path=parameters.results_dir)
+    index_name = f"zppy global time-series plot: {parameters.experiment_name} {component} component ({parameters.year1}-{parameters.year2})"
+    viewer = OutputViewer(path=parameters.results_dir, index_name=index_name)
     viewer.add_page(f"table_{component}", parameters.regions)
     groups: List[VariableGroup] = get_variable_groups(vars)
     for group in groups:

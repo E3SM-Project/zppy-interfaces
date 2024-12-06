@@ -128,13 +128,23 @@ class DatasetWrapper(object):
                         "landfrac"
                     ]
                     # area.shape() = (180, 360)
-                    # landfrac.shape() =(180, 360)
+                    # landfrac.shape() = (180, 360)
                     total_land_area = (area * landfrac).sum()  # Sum over all dimensions
+
+                    # Account for hemispheric plots:
+                    north_area = area.where(area.lat >= 0)
+                    south_area = area.where(area.lat <= 0)
+                    north_landfrac = landfrac.where(landfrac.lat >= 0)
+                    south_landfrac = landfrac.where(landfrac.lat <= 0)
+                    north_land_area = (north_area * north_landfrac).sum()
+                    south_land_area = (south_area * south_landfrac).sum()
+
                 # data_array.shape = (number of years, number of regions)
-                data_array *= total_land_area
-                logger.info(
-                    f"for Metric.TOTAL, data_array has been scaled by total_land_area={total_land_area}"
-                )
+                # We want to keep those dimensions, but with these values:
+                # (glb*total_land_area, n*north_land_area, s*south_land_area)
+                data_array[:, 0] *= total_land_area
+                data_array[:, 1] *= north_land_area
+                data_array[:, 2] *= south_land_area
             units = data_array.units
             # `units` will be "1" if it's a dimensionless quantity
             if (units != "1") and (original_units != "") and original_units != units:
