@@ -22,7 +22,6 @@ class Parameters(object):
         self.color: str = args["color"]
         self.ts_num_years_str: str = args["ts_num_years"]
         self.plots_original: List[str] = param_get_list(args["plots_original"])
-        self.atmosphere_only: bool = _str2bool(args["atmosphere_only"])
         self.plots_atm: List[str] = param_get_list(args["plots_atm"])
         self.plots_ice: List[str] = param_get_list(args["plots_ice"])
         self.plots_lnd: List[str] = param_get_list(args["plots_lnd"])
