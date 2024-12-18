@@ -73,7 +73,6 @@ def test_Parameters_and_related_functions():
         "color": "Blue",
         "ts_num_years": "5",
         "plots_original": "None",
-        "atmosphere_only": "False",
         "plots_atm": "TREFHT",
         "plots_ice": "None",
         "plots_lnd": "FSH,RH2M,LAISHA,LAISUN,QINTR,QOVER,QRUNOFF,QSOIL,QVEGE,QVEGT,SOILWATER_10CM,TSA,H2OSNO,TOTLITC,CWDC,SOIL1C,SOIL2C,SOIL3C,SOIL4C,WOOD_HARVESTC,TOTVEGC,NBP,GPP,AR,HR",
@@ -98,7 +97,6 @@ def test_Parameters_and_related_functions():
     assert parameters.color == "Blue"
     assert parameters.ts_num_years_str == "5"
     assert parameters.plots_original == []
-    assert parameters.atmosphere_only == False  # noqa: E712
     assert parameters.plots_atm == ["TREFHT"]
     assert parameters.plots_ice == []
     assert parameters.plots_lnd == [
@@ -186,23 +184,6 @@ def test_Parameters_and_related_functions():
         "ocean": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/ocn/glb/ts/monthly/5yr/",
         "moc": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/ocn/glb/ts/monthly/5yr/",
         "vol": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/ocn/glb/ts/monthly/5yr/",
-        "name": "v3.LR.historical_0051",
-        "yoffset": 0.0,
-        "yr": ([1985, 1989],),
-        "color": "Blue",
-    }
-    assert exps[0] == expected
-    # Change up parameters
-    parameters.atmosphere_only = True
-    exps = get_exps(parameters)
-    assert len(exps) == 1
-    expected = {
-        "atmos": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/atm/glb/ts/monthly/5yr/",
-        "ice": "",
-        "land": "",
-        "ocean": "",
-        "moc": "",
-        "vol": "",
         "name": "v3.LR.historical_0051",
         "yoffset": 0.0,
         "yr": ([1985, 1989],),

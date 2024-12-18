@@ -246,9 +246,7 @@ def get_exps(parameters: Parameters) -> List[Dict[str, Any]]:
         parameters.plots_original
     )
     has_original_ocn_plots: bool = set_intersection != set()
-    use_ocn: bool = (parameters.plots_ocn != []) or (
-        (not parameters.atmosphere_only) and has_original_ocn_plots
-    )
+    use_ocn: bool = (parameters.plots_ocn != []) or has_original_ocn_plots
     ocean_dir = get_data_dir(parameters, "ocn", use_ocn)
     exps: List[Dict[str, Any]] = [
         {

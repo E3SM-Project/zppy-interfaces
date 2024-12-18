@@ -68,7 +68,6 @@ def _get_args() -> Parameters:
     parser.add_argument("--color", type=str, help="Color")
     parser.add_argument("--ts_num_years", type=str, help="Time series number of years")
     parser.add_argument("--plots_original", type=str, help="Plots original")
-    parser.add_argument("--atmosphere_only", type=str, help="Atmosphere only")
     parser.add_argument("--plots_atm", type=str, help="Plots atmosphere")
     parser.add_argument("--plots_ice", type=str, help="Plots ice")
     parser.add_argument("--plots_lnd", type=str, help="Plots land")
