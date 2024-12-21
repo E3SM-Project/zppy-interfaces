@@ -10,7 +10,7 @@ logger = _setup_custom_logger(__name__)
 
 
 class DatasetWrapper(object):
-    def __init__(self, directory, extra_vars_directory=None):
+    def __init__(self, directory):
 
         self.directory: str = directory
 
@@ -19,16 +19,54 @@ class DatasetWrapper(object):
             f"{directory}*.nc", center_times=True
         )
 
-        self.extra_var_dataset: xarray.core.dataset.Dataset
-        if extra_vars_directory:
-            # If an extra_vars_directory is provided, we'll use that to open a new dataset
-            self.extra_var_dataset = xcdat.open_mfdataset(
-                f"{extra_vars_directory}*.nc",
-                center_times=True,
-            )
+        self.area_tuple = None
+
+    def set_area_tuple(self):
+        keys = list(self.dataset.keys())
+        if "valid_area_per_gridcell" in keys:
+            logger.debug("Setting area_tuple, using valid_area_per_gridcell")
+            land_area_per_gridcell = self.dataset["valid_area_per_gridcell"]
+            # land_area_per_gridcell.shape = (360, 720)
+            logger.debug(f"land_area_per_gridcell.shape={land_area_per_gridcell.shape}")
+            total_land_area = land_area_per_gridcell.sum()  # Sum over all dimensions
+            # Account for hemispheric plots:
+            north_land_area = land_area_per_gridcell.where(
+                land_area_per_gridcell.lat >= 0
+            ).sum()
+            south_land_area = land_area_per_gridcell.where(
+                land_area_per_gridcell.lat < 0
+            ).sum()
         else:
-            # Otherwise, we'll use the same dataset.
-            self.extra_var_dataset = self.dataset
+            logger.debug("Setting area_tuple, using area and landfrac")
+            area: xarray.core.dataarray.DataArray = self.dataset["area"]
+            landfrac: xarray.core.dataarray.DataArray = self.dataset["landfrac"]
+
+            # area.shape = (180, 360)
+            logger.debug(f"area.shape={area.shape}")
+            # landfrac.shape = (180, 360)
+            logger.debug(f"landfrac.shape={landfrac.shape}")
+
+            total_land_area = (area * landfrac).sum()  # Sum over all dimensions
+
+            # Account for hemispheric plots:
+            north_area = area.where(area.lat >= 0)
+            north_landfrac = landfrac.where(landfrac.lat >= 0)
+            north_land_area = (north_area * north_landfrac).sum()
+
+            south_area = area.where(area.lat < 0)
+            south_landfrac = landfrac.where(landfrac.lat < 0)
+            south_land_area = (south_area * south_landfrac).sum()
+
+        logger.debug(f"total_land_area.shape={total_land_area.shape}")
+        logger.debug(f"north_land_area.shape={north_land_area.shape}")
+        logger.debug(f"south_land_area.shape={south_land_area.shape}")
+
+        # logger.debug(f"total_land_area={total_land_area.item()}")
+        # logger.debug(f"north_land_area={north_land_area.item()}")
+        # logger.debug(f"south_land_area={south_land_area.item()}")
+
+        self.area_tuple = (total_land_area, north_land_area, south_land_area)
+        # logger.debug(f"For Metric.TOTAL, data_array's glb,n,s will be scaled respectively by {self.area_tuple}")
 
     def __del__(self):
 
@@ -116,35 +154,21 @@ class DatasetWrapper(object):
             )
             data_array = annual_average_dataset_for_var.data_vars[var]
             if metric == Metric.TOTAL:
-                keys = list(self.extra_var_dataset.keys())
-                logger.debug(f"self.extra_var_dataset.keys()={keys}")
-                if "area_times_landfrac" in keys:
-                    total_land_area = self.extra_var_dataset["area_times_landfrac"]
-                else:
-                    area: xarray.core.dataarray.DataArray = self.extra_var_dataset[
-                        "area"
-                    ]
-                    landfrac: xarray.core.dataarray.DataArray = self.extra_var_dataset[
-                        "landfrac"
-                    ]
-                    # area.shape() = (180, 360)
-                    # landfrac.shape() = (180, 360)
-                    total_land_area = (area * landfrac).sum()  # Sum over all dimensions
-
-                    # Account for hemispheric plots:
-                    north_area = area.where(area.lat >= 0)
-                    south_area = area.where(area.lat <= 0)
-                    north_landfrac = landfrac.where(landfrac.lat >= 0)
-                    south_landfrac = landfrac.where(landfrac.lat <= 0)
-                    north_land_area = (north_area * north_landfrac).sum()
-                    south_land_area = (south_area * south_landfrac).sum()
-
+                if not self.area_tuple:
+                    self.set_area_tuple()
+                # Appease the type checker (avoid `Value of type "Optional[Any]" is not indexable`)
+                if not self.area_tuple:
+                    raise ValueError("area_tuple still not set")
                 # data_array.shape = (number of years, number of regions)
                 # We want to keep those dimensions, but with these values:
                 # (glb*total_land_area, n*north_land_area, s*south_land_area)
-                data_array[:, 0] *= total_land_area
-                data_array[:, 1] *= north_land_area
-                data_array[:, 2] *= south_land_area
+                try:
+                    data_array[:, 0] *= self.area_tuple[0]
+                    data_array[:, 1] *= self.area_tuple[1]
+                    data_array[:, 2] *= self.area_tuple[2]
+                except Exception as e:
+                    logger.error(f"Error while scaling data_array: {e}")
+                    raise e
             units = data_array.units
             # `units` will be "1" if it's a dimensionless quantity
             if (units != "1") and (original_units != "") and original_units != units:

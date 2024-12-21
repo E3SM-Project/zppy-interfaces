@@ -8,6 +8,12 @@ CASE_DIR = "/lcrc/group/e3sm/ac.forsyth2/zi-test-input-data"  # This is 44G.
 WEB_DIR = "/lcrc/group/e3sm/public_html/diagnostic_output/ac.forsyth2/zi-test-webdir/"
 RESULTS_DIR_PREFIX = "global_time_series_1985-1995_results"
 
+plots_lnd_metric_average = "FSH,RH2M,LAISHA,LAISUN,QINTR,QOVER,QRUNOFF,QSOIL,QVEGE,QVEGT,SOILWATER_10CM,TSA,H2OSNO,"
+plots_lnd_metric_total = (
+    "TOTLITC,CWDC,SOIL1C,SOIL2C,SOIL3C,SOIL4C,WOOD_HARVESTC,TOTVEGC,NBP,GPP,AR,HR"
+)
+plots_lnd_all = plots_lnd_metric_average + plots_lnd_metric_total
+
 parameters_viewers: Parameters = Parameters(
     {
         "use_ocn": "False",
@@ -23,7 +29,7 @@ parameters_viewers: Parameters = Parameters(
         "atmosphere_only": "False",
         "plots_atm": "TREFHT",
         "plots_ice": "None",
-        "plots_lnd": "FSH,RH2M,LAISHA,LAISUN,QINTR,QOVER,QRUNOFF,QSOIL,QVEGE,QVEGT,SOILWATER_10CM,TSA,H2OSNO,TOTLITC,CWDC,SOIL1C,SOIL2C,SOIL3C,SOIL4C,WOOD_HARVESTC,TOTVEGC,NBP,GPP,AR,HR",
+        "plots_lnd": plots_lnd_all,
         "plots_ocn": "None",
         "nrows": "1",
         "ncols": "1",
@@ -49,7 +55,7 @@ parameters_custom: Parameters = Parameters(
         "plots_original": "None",
         "plots_atm": "TREFHT",
         "plots_ice": "None",
-        "plots_lnd": "FSH,RH2M,LAISHA,LAISUN,QINTR,QOVER,QRUNOFF,QSOIL,QVEGE,QVEGT,SOILWATER_10CM,TSA,H2OSNO,TOTLITC,CWDC,SOIL1C,SOIL2C,SOIL3C,SOIL4C,WOOD_HARVESTC,TOTVEGC,NBP,GPP,AR,HR",
+        "plots_lnd": plots_lnd_all,
         "plots_ocn": "None",
         "nrows": "4",
         "ncols": "2",
@@ -128,7 +134,7 @@ parameters_comprehensive_v3: Parameters = Parameters(
         "plots_original": "net_toa_flux_restom,global_surface_air_temperature,toa_radiation,net_atm_energy_imbalance,change_ohc,max_moc,change_sea_level,net_atm_water_imbalance",
         "plots_atm": "None",
         "plots_ice": "None",
-        "plots_lnd": "FSH,RH2M,LAISHA,LAISUN,QINTR,QOVER,QRUNOFF,QSOIL,QVEGE,QVEGT,SOILWATER_10CM,TSA,H2OSNO,TOTLITC,CWDC,SOIL1C,SOIL2C,SOIL3C,SOIL4C,WOOD_HARVESTC,TOTVEGC,NBP,GPP,AR,HR",
+        "plots_lnd": plots_lnd_all,
         "plots_ocn": "None",
         "nrows": "4",
         "ncols": "2",
@@ -167,10 +173,10 @@ def generate_results(parameters: Parameters):
 
 def run_all_cases():
     generate_results(parameters_viewers)
-    generate_results(parameters_custom)
-    generate_results(parameters_original_8_no_ocn)
-    generate_results(parameters_original_8)
-    generate_results(parameters_comprehensive_v3)
+    # generate_results(parameters_custom)
+    # generate_results(parameters_original_8_no_ocn)
+    # generate_results(parameters_original_8)
+    # generate_results(parameters_comprehensive_v3)
 
 
 if __name__ == "__main__":

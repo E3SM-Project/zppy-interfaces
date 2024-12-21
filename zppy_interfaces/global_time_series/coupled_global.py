@@ -161,13 +161,10 @@ def set_var(
     valid_vars: List[str],
     invalid_vars: List[str],
     rgn: str,
-    extra_vars_dict=None,
 ) -> None:
     if exp[exp_key] != "":
         try:
-            dataset_wrapper: DatasetWrapper = DatasetWrapper(
-                exp[exp_key], extra_vars_dict
-            )
+            dataset_wrapper: DatasetWrapper = DatasetWrapper(exp[exp_key])
         except Exception as e:
             logger.critical(e)
             logger.critical(
@@ -244,7 +241,6 @@ def process_data(
             valid_vars,
             invalid_vars,
             rgn,
-            extra_vars_dict=exp["land"].replace("glb", "180x360_aave"),
         )
         set_var(
             exp, "ocean", requested_variables.vars_ocn, valid_vars, invalid_vars, rgn
