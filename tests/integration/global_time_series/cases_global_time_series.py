@@ -8,6 +8,38 @@ CASE_DIR = "/lcrc/group/e3sm/ac.forsyth2/zi-test-input-data"  # This is 44G.
 WEB_DIR = "/lcrc/group/e3sm/public_html/diagnostic_output/ac.forsyth2/zi-test-webdir/"
 RESULTS_DIR_PREFIX = "global_time_series_1985-1995_results"
 
+plots_lnd_metric_average = "FSH,RH2M,LAISHA,LAISUN,QINTR,QOVER,QRUNOFF,QSOIL,QVEGE,QVEGT,SOILWATER_10CM,TSA,H2OSNO,"
+plots_lnd_metric_total = (
+    "TOTLITC,CWDC,SOIL1C,SOIL2C,SOIL3C,SOIL4C,WOOD_HARVESTC,TOTVEGC,NBP,GPP,AR,HR"
+)
+plots_lnd_all = plots_lnd_metric_average + plots_lnd_metric_total
+
+parameters_viewers: Parameters = Parameters(
+    {
+        "use_ocn": "False",
+        "input": "/lcrc/group/e3sm2/ac.wlin/E3SMv3/v3.LR.historical_0051",
+        "input_subdir": "archive/ocn/hist",
+        "moc_file": "None",
+        "case_dir": CASE_DIR,
+        "experiment_name": "v3.LR.historical_0051",
+        "figstr": "v3.LR.historical_0051",
+        "color": "Blue",
+        "ts_num_years": "5",
+        "plots_original": "None",
+        "plots_atm": "TREFHT",
+        "plots_ice": "None",
+        "plots_lnd": plots_lnd_all,
+        "plots_ocn": "None",
+        "nrows": "1",
+        "ncols": "1",
+        "results_dir": f"{RESULTS_DIR_PREFIX}_viewers",
+        "regions": "glb,n,s",
+        "make_viewer": "True",
+        "start_yr": "1985",
+        "end_yr": "1995",
+    }
+)
+
 parameters_custom: Parameters = Parameters(
     {
         "use_ocn": "False",
@@ -20,14 +52,15 @@ parameters_custom: Parameters = Parameters(
         "color": "Blue",
         "ts_num_years": "5",
         "plots_original": "None",
-        "plots_atm": "TREFHT,AODDUST",
+        "plots_atm": "TREFHT",
         "plots_ice": "None",
-        "plots_lnd": "FSH,RH2M,LAISHA,LAISUN,QINTR,QOVER,QRUNOFF,QSOIL,QVEGE,QVEGT,SOILWATER_10CM,TSA,H2OSNO,TOTLITC,CWDC,SOIL1C,SOIL2C,SOIL3C,SOIL4C,WOOD_HARVESTC,TOTVEGC,NBP,GPP,AR,HR",
+        "plots_lnd": plots_lnd_all,
         "plots_ocn": "None",
         "nrows": "4",
         "ncols": "2",
         "results_dir": f"{RESULTS_DIR_PREFIX}_custom",
         "regions": "glb,n,s",
+        "make_viewer": "False",
         "start_yr": "1985",
         "end_yr": "1995",
     }
@@ -54,6 +87,7 @@ parameters_original_8_no_ocn: Parameters = Parameters(
         "ncols": "2",
         "results_dir": f"{RESULTS_DIR_PREFIX}_original_8_no_ocn",
         "regions": "glb,n,s",
+        "make_viewer": "False",
         "start_yr": "1985",
         "end_yr": "1995",
     }
@@ -79,6 +113,7 @@ parameters_original_8: Parameters = Parameters(
         "ncols": "2",
         "results_dir": f"{RESULTS_DIR_PREFIX}_original_8",
         "regions": "glb,n,s",
+        "make_viewer": "False",
         "start_yr": "1985",
         "end_yr": "1995",
     }
@@ -98,12 +133,13 @@ parameters_comprehensive_v3: Parameters = Parameters(
         "plots_original": "net_toa_flux_restom,global_surface_air_temperature,toa_radiation,net_atm_energy_imbalance,change_ohc,max_moc,change_sea_level,net_atm_water_imbalance",
         "plots_atm": "None",
         "plots_ice": "None",
-        "plots_lnd": "FSH,RH2M,LAISHA,LAISUN,QINTR,QOVER,QRUNOFF,QSOIL,QVEGE,QVEGT,SOILWATER_10CM,TSA,H2OSNO,TOTLITC,CWDC,SOIL1C,SOIL2C,SOIL3C,SOIL4C,WOOD_HARVESTC,TOTVEGC,NBP,GPP,AR,HR",
+        "plots_lnd": plots_lnd_all,
         "plots_ocn": "None",
         "nrows": "4",
         "ncols": "2",
         "results_dir": f"{RESULTS_DIR_PREFIX}_comprehensive_v3",
         "regions": "glb,n,s",
+        "make_viewer": "False",
         "start_yr": "1985",
         "end_yr": "1995",
     }
@@ -135,6 +171,7 @@ def generate_results(parameters: Parameters):
 
 
 def run_all_cases():
+    generate_results(parameters_viewers)
     generate_results(parameters_custom)
     generate_results(parameters_original_8_no_ocn)
     generate_results(parameters_original_8)

@@ -17,6 +17,7 @@ console_handler.setFormatter(logFormatter)
 logging.getLogger().addHandler(console_handler)
 
 
+# Following the example of https://github.com/xCDAT/xcdat/blob/27396e510185fddfe04921427ce2d67618a93709/xcdat/_logger.py#L20
 def _setup_custom_logger(name, propagate=True) -> logging.Logger:
     """Sets up a custom logger.
 
@@ -27,7 +28,7 @@ def _setup_custom_logger(name, propagate=True) -> logging.Logger:
     name : str
         Name of the file where this function is called.
     propagate : bool, optional
-        Whether to propagate logger messages or not, by default False
+        Whether to propagate logger messages or not, by default True
 
     Returns
     -------
@@ -63,5 +64,6 @@ def _setup_custom_logger(name, propagate=True) -> logging.Logger:
     """
     logger = logging.getLogger(name)
     logger.propagate = propagate
+    # logger.setLevel("DEBUG")
 
     return logger

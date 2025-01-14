@@ -3,13 +3,17 @@ from typing import Any, Dict, List
 import pytest
 
 from zppy_interfaces.global_time_series.coupled_global import (
-    Metric,
-    Variable,
     construct_generic_variables,
     get_data_dir,
     get_exps,
     get_vars_original,
-    get_ylim,
+    land_csv_row_to_var,
+)
+from zppy_interfaces.global_time_series.coupled_global_plotting import get_ylim
+from zppy_interfaces.global_time_series.coupled_global_utils import Metric, Variable
+from zppy_interfaces.global_time_series.coupled_global_viewer import (
+    VariableGroup,
+    get_variable_groups,
 )
 from zppy_interfaces.global_time_series.utils import (
     Parameters,
@@ -81,6 +85,7 @@ def test_Parameters_and_related_functions():
         "ncols": "1",
         "results_dir": "results",
         "regions": "glb,n,s",
+        "make_viewer": "True",
         "start_yr": "1985",
         "end_yr": "1989",
     }
@@ -238,9 +243,44 @@ def test_get_vars_original():
     assert get_var_names(get_vars_original(["invalid_plot"])) == []
 
 
+def test_land_csv_row_to_var():
+    # Test with first row of land csv, whitespace stripped
+    csv_row = "BCDEP,A,1.00000E+00,kg/m^2/s,kg/m^2/s,Aerosol Flux,total black carbon deposition (dry+wet) from atmosphere".split(
+        ","
+    )
+    v: Variable = land_csv_row_to_var(csv_row)
+    assert v.variable_name == "BCDEP"
+    assert v.metric == Metric.AVERAGE
+    assert v.scale_factor == 1.0
+    assert v.original_units == "kg/m^2/s"
+    assert v.final_units == "kg/m^2/s"
+    assert v.group == "Aerosol Flux"
+    assert v.long_name == "total black carbon deposition (dry+wet) from atmosphere"
+
+
 def test_construct_generic_variables():
     vars: List[str] = ["a", "b", "c"]
     assert get_var_names(construct_generic_variables(vars)) == vars
+
+
+def test_VariableGroup():
+    var_str_list: List[str] = ["a", "b", "c"]
+    vars: List[Variable] = construct_generic_variables(var_str_list)
+    g: VariableGroup = VariableGroup("MyGroup", vars)
+    assert g.group_name == "MyGroup"
+    assert get_var_names(g.variables) == var_str_list
+
+
+def test_get_variable_groups():
+    a: Variable = Variable(variable_name="a", group="GroupA")
+    b: Variable = Variable(variable_name="b", group="GroupA")
+    x: Variable = Variable(variable_name="x", group="GroupX")
+    y: Variable = Variable(variable_name="y", group="GroupX")
+
+    def get_group_names(groups: List[VariableGroup]) -> List[str]:
+        return list(map(lambda g: g.group_name, groups))
+
+    assert get_group_names(get_variable_groups([a, b, x, y])) == ["GroupA", "GroupX"]
 
 
 def test_get_ylim():
