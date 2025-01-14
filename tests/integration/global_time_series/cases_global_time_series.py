@@ -172,10 +172,10 @@ def generate_results(parameters: Parameters):
 
 def run_all_cases():
     generate_results(parameters_viewers)
-    # generate_results(parameters_custom)
-    # generate_results(parameters_original_8_no_ocn)
-    # generate_results(parameters_original_8)
-    # generate_results(parameters_comprehensive_v3)
+    generate_results(parameters_custom)
+    generate_results(parameters_original_8_no_ocn)
+    generate_results(parameters_original_8)
+    generate_results(parameters_comprehensive_v3)
 
 
 if __name__ == "__main__":
