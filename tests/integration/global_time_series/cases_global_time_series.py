@@ -26,7 +26,6 @@ parameters_viewers: Parameters = Parameters(
         "color": "Blue",
         "ts_num_years": "5",
         "plots_original": "None",
-        "atmosphere_only": "False",
         "plots_atm": "TREFHT",
         "plots_ice": "None",
         "plots_lnd": plots_lnd_all,
