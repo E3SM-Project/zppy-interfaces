@@ -551,6 +551,7 @@ def make_plot_pdfs(  # noqa: C901
     valid_plots,
     invalid_plots,
 ):
+    logger.info(f"make_plot_pdfs for rgn={rgn}, component={component}")
     num_plots = len(plot_list)
     if num_plots == 0:
         return
@@ -570,21 +571,24 @@ def make_plot_pdfs(  # noqa: C901
             fig = plt.figure(1, figsize=[13.5, 16.5])
         fig.suptitle(f"{parameters.figstr}_{rgn}_{component}")
         for j in range(plots_per_page):
+            logger.info(
+                f"Plotting plot {j} on page {page}. This is plot {counter} in total."
+            )
             # The final page doesn't need to be filled out with plots.
             if counter >= num_plots:
                 break
             ax = plt.subplot(parameters.nrows, parameters.ncols, j + 1)
+            plot_name = plot_list[counter]
             if component == "original":
                 try:
-                    plot_function = PLOT_DICT[plot_list[counter]]
+                    plot_function = PLOT_DICT[plot_name]
                 except KeyError:
-                    raise KeyError(f"Invalid plot name: {plot_list[counter]}")
+                    raise KeyError(f"Invalid plot name: {plot_name}")
                 try:
                     plot_function(ax, xlim, exps, rgn)
-                    valid_plots.append(plot_list[counter])
+                    valid_plots.append(plot_name)
                 except Exception:
                     traceback.print_exc()
-                    plot_name = plot_list[counter]
                     required_vars = []
                     if plot_name == "net_toa_flux_restom":
                         required_vars = ["RESTOM"]
@@ -603,7 +607,6 @@ def make_plot_pdfs(  # noqa: C901
                 counter += 1
             else:
                 try:
-                    plot_name = plot_list[counter]
                     plot_generic(ax, xlim, exps, plot_name, rgn)
                     valid_plots.append(plot_name)
                 except Exception:
