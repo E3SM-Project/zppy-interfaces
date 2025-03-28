@@ -288,6 +288,9 @@ def run(parameters: Parameters, requested_variables: RequestedVariables, rgn: st
     invalid_plots: List[str] = []
 
     # Use list of tuples rather than a dict, to keep order
+    # Note: we use `parameters.plots_original` rather than `requested_variables.vars_original`
+    # because the "original" plots are expecting plot names that are not variable names.
+    # The model components however are expecting plot names to be variable names.
     mapping: List[Tuple[str, List[str]]] = [
         ("original", parameters.plots_original),
         ("atm", list(map(lambda v: v.variable_name, requested_variables.vars_atm))),
@@ -348,10 +351,10 @@ def coupled_global(parameters: Parameters) -> None:
                 url = create_viewer(parameters, vars, component)
                 logger.info(f"Viewer URL for {component}: {url}")
                 title_and_url_list.append((component, url))
-        # Special case for original - these are always multi-plot PDFs
+        # Special case for original plots: always use user-provided dimensions.
         vars = get_vars(requested_variables, "original")
         if vars:
-            logger.info("Original plots will be in multi-plot PDF format")
+            logger.info("Using user provided dimensions for original plots PDF")
             title_and_url_list.append(
                 (
                     "original",
