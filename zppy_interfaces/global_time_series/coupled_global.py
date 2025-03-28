@@ -355,7 +355,7 @@ def coupled_global(parameters: Parameters) -> None:
             title_and_url_list.append(
                 (
                     "original",
-                    f"{parameters.results_dir}/{parameters.figstr}_glb_original.pdf",
+                    f"{parameters.figstr}_glb_original.pdf",
                 )
             )
 

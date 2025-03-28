@@ -556,15 +556,18 @@ def make_plot_pdfs(  # noqa: C901
     if num_plots == 0:
         return
 
-    # For original plots, always use multiple plots per page regardless of make_viewer setting
-    use_multi_plot = not parameters.make_viewer or component == "original"
-
-    # Determine layout based on whether we're using multi-plot or single-plot mode
-    if use_multi_plot:
-        plots_per_page = parameters.nrows * parameters.ncols
+    # If make_viewer, then we want to do 1 plot per page.
+    # However, the original plots are excluded from this restriction.
+    # Note: if the user provides nrows=ncols=1, there will still be a single plot per page
+    keep_user_dims = (not parameters.make_viewer) or (component == "original")
+    if keep_user_dims:
+        nrows = parameters.nrows
+        ncols = parameters.ncols
     else:
-        plots_per_page = 1  # For viewer mode, one plot per page
+        nrows = 1
+        ncols = 1
 
+    plots_per_page = nrows * ncols
     num_pages = math.ceil(num_plots / plots_per_page)
 
     counter = 0
@@ -575,9 +578,12 @@ def make_plot_pdfs(  # noqa: C901
     )
     for page in range(num_pages):
         if plots_per_page == 1:
+            logger.info("Using reduced figsize")
             fig = plt.figure(1, figsize=[13.5 / 2, 16.5 / 4])
         else:
+            logger.info("Using standard figsize")
             fig = plt.figure(1, figsize=[13.5, 16.5])
+        logger.info(f"Figure size={fig.get_size_inches() * fig.dpi}")
         fig.suptitle(f"{parameters.figstr}_{rgn}_{component}")
         for j in range(plots_per_page):
             logger.info(
@@ -587,8 +593,8 @@ def make_plot_pdfs(  # noqa: C901
             if counter >= num_plots:
                 break
             ax = plt.subplot(
-                parameters.nrows if use_multi_plot else 1,
-                parameters.ncols if use_multi_plot else 1,
+                nrows,
+                ncols,
                 j + 1,
             )
             plot_name = plot_list[counter]
@@ -648,5 +654,5 @@ def make_plot_pdfs(  # noqa: C901
                 f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.png",
                 dpi=150,
             )
-        plt.clf()
+        plt.close(fig)
     pdf.close()
