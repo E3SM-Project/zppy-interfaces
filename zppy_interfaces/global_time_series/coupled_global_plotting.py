@@ -554,7 +554,16 @@ def make_plot_pdfs(  # noqa: C901
     num_plots = len(plot_list)
     if num_plots == 0:
         return
-    plots_per_page = parameters.nrows * parameters.ncols
+    
+    # For original plots, always use multiple plots per page regardless of make_viewer setting
+    use_multi_plot = not parameters.make_viewer or component == "original"
+    
+    # Determine layout based on whether we're using multi-plot or single-plot mode
+    if use_multi_plot:
+        plots_per_page = parameters.nrows * parameters.ncols
+    else:
+        plots_per_page = 1  # For viewer mode, one plot per page
+    
     num_pages = math.ceil(num_plots / plots_per_page)
 
     counter = 0
@@ -573,7 +582,9 @@ def make_plot_pdfs(  # noqa: C901
             # The final page doesn't need to be filled out with plots.
             if counter >= num_plots:
                 break
-            ax = plt.subplot(parameters.nrows, parameters.ncols, j + 1)
+            ax = plt.subplot(parameters.nrows if use_multi_plot else 1, 
+                            parameters.ncols if use_multi_plot else 1, 
+                            j + 1)
             if component == "original":
                 try:
                     plot_function = PLOT_DICT[plot_list[counter]]
@@ -616,6 +627,7 @@ def make_plot_pdfs(  # noqa: C901
 
         fig.tight_layout()
         pdf.savefig(1)
+        # Always save individual PNGs for viewer mode
         if plots_per_page == 1:
             fig.savefig(
                 f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}_{plot_name}.png",
