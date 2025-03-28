@@ -39,6 +39,8 @@ class Parameters(object):
             raise RuntimeError(
                 f"make_viewer requires 1x1 plots, but nrows={self.nrows} and ncols={self.ncols}"
             )
+        # For "original" plots, always use multiple plots per page regardless of make_viewer setting
+        self.original_plots_multi: bool = True
 
         # For both
         self.year1: int = int(args["start_yr"])

@@ -337,11 +337,27 @@ def coupled_global(parameters: Parameters) -> None:
         # In this case, we don't want the summary PDF.
         # Rather, we want to construct a viewer similar to E3SM Diags.
         title_and_url_list: List[Tuple[str, str]] = []
-        for component in ["original", "atm", "ice", "lnd", "ocn"]:
+        for component in [
+            "atm",
+            "ice",
+            "lnd",
+            "ocn",
+        ]:  # Don't create viewer for original component
             vars = get_vars(requested_variables, component)
             if vars:
                 url = create_viewer(parameters, vars, component)
                 logger.info(f"Viewer URL for {component}: {url}")
                 title_and_url_list.append((component, url))
+        # Special case for original - these are always multi-plot PDFs
+        vars = get_vars(requested_variables, "original")
+        if vars:
+            logger.info("Original plots will be in multi-plot PDF format")
+            title_and_url_list.append(
+                (
+                    "original",
+                    f"{parameters.results_dir}/{parameters.figstr}_glb_original.pdf",
+                )
+            )
+
         index_url: str = create_viewer_index(parameters.results_dir, title_and_url_list)
         logger.info(f"Viewer index URL: {index_url}")
