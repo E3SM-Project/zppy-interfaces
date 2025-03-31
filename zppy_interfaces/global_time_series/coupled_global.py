@@ -161,7 +161,8 @@ def set_var(
     valid_vars: List[str],
     invalid_vars: List[str],
     rgn: str,
-) -> None:
+) -> List[Variable]:
+    new_var_list: List[Variable] = []
     if exp[exp_key] != "":
         try:
             dataset_wrapper: DatasetWrapper = DatasetWrapper(exp[exp_key])
@@ -177,7 +178,8 @@ def set_var(
                 data_array: xarray.core.dataarray.DataArray
                 units: str
                 data_array, units = dataset_wrapper.globalAnnual(var)
-                valid_vars.append(str(var_str))
+                valid_vars.append(str(var_str))  # Append the name
+                new_var_list.append(var)  # Append the variable itself
             except Exception as e:
                 logger.error(e)
                 logger.error(f"globalAnnual failed for {var_str}")
@@ -210,6 +212,7 @@ def set_var(
                 ].values
                 exp["annual"]["year"] = [x.year for x in years]
         del dataset_wrapper
+    return new_var_list
 
 
 def process_data(
@@ -222,7 +225,7 @@ def process_data(
     for exp in exps:
         exp["annual"] = {}
 
-        set_var(
+        requested_variables.vars_original = set_var(
             exp,
             "atmos",
             requested_variables.vars_original,
@@ -230,11 +233,13 @@ def process_data(
             invalid_vars,
             rgn,
         )
-        set_var(
+        requested_variables.vars_atm = set_var(
             exp, "atmos", requested_variables.vars_atm, valid_vars, invalid_vars, rgn
         )
-        set_var(exp, "ice", requested_variables.vars_ice, valid_vars, invalid_vars, rgn)
-        set_var(
+        requested_variables.vars_ice = set_var(
+            exp, "ice", requested_variables.vars_ice, valid_vars, invalid_vars, rgn
+        )
+        requested_variables.vars_land = set_var(
             exp,
             "land",
             requested_variables.vars_land,
@@ -242,7 +247,7 @@ def process_data(
             invalid_vars,
             rgn,
         )
-        set_var(
+        requested_variables.vars_ocn = set_var(
             exp, "ocean", requested_variables.vars_ocn, valid_vars, invalid_vars, rgn
         )
 
@@ -283,12 +288,15 @@ def run(parameters: Parameters, requested_variables: RequestedVariables, rgn: st
     invalid_plots: List[str] = []
 
     # Use list of tuples rather than a dict, to keep order
+    # Note: we use `parameters.plots_original` rather than `requested_variables.vars_original`
+    # because the "original" plots are expecting plot names that are not variable names.
+    # The model components however are expecting plot names to be variable names.
     mapping: List[Tuple[str, List[str]]] = [
         ("original", parameters.plots_original),
-        ("atm", parameters.plots_atm),
-        ("ice", parameters.plots_ice),
-        ("lnd", parameters.plots_lnd),
-        ("ocn", parameters.plots_ocn),
+        ("atm", list(map(lambda v: v.variable_name, requested_variables.vars_atm))),
+        ("ice", list(map(lambda v: v.variable_name, requested_variables.vars_ice))),
+        ("lnd", list(map(lambda v: v.variable_name, requested_variables.vars_land))),
+        ("ocn", list(map(lambda v: v.variable_name, requested_variables.vars_ocn))),
     ]
     for component, plot_list in mapping:
         make_plot_pdfs(
@@ -332,11 +340,27 @@ def coupled_global(parameters: Parameters) -> None:
         # In this case, we don't want the summary PDF.
         # Rather, we want to construct a viewer similar to E3SM Diags.
         title_and_url_list: List[Tuple[str, str]] = []
-        for component in ["original", "atm", "ice", "lnd", "ocn"]:
+        for component in [
+            "atm",
+            "ice",
+            "lnd",
+            "ocn",
+        ]:  # Don't create viewer for original component
             vars = get_vars(requested_variables, component)
             if vars:
                 url = create_viewer(parameters, vars, component)
                 logger.info(f"Viewer URL for {component}: {url}")
                 title_and_url_list.append((component, url))
+        # Special case for original plots: always use user-provided dimensions.
+        vars = get_vars(requested_variables, "original")
+        if vars:
+            logger.info("Using user provided dimensions for original plots PDF")
+            title_and_url_list.append(
+                (
+                    "original",
+                    f"{parameters.figstr}_glb_original.pdf",
+                )
+            )
+
         index_url: str = create_viewer_index(parameters.results_dir, title_and_url_list)
         logger.info(f"Viewer index URL: {index_url}")
