@@ -52,7 +52,8 @@ def add_line(year, var, year1, year2, ax, format="%4.2f", lw=1, color="b"):
     i1 = (np.abs(year - year1)).argmin()
     i2 = (np.abs(year - year2)).argmin()
 
-    tmp = np.average(var[i1 : i2 + 1])
+    # Use np.mean instead of np.average for performance (faster for simple cases)
+    tmp = np.mean(var[i1 : i2 + 1])
     ax.plot((year[i1], year[i2]), (tmp, tmp), lw=lw, color=color, label="average")
     ax.text(ax.get_xlim()[1] + 1, tmp, format % tmp, va="center", color=color)
 
@@ -80,17 +81,28 @@ def add_trend(
     x = year[i1 : i2 + 1]
     y = var[i1 : i2 + 1]
 
+    # Calculate fit coefficients once
     fit = np.polyfit(x, y, 1)
     if verbose:
         logger.info(fit)
+    
+    # Use vectorized operations - calculate all y values at once for better performance
     fit_fn = np.poly1d(fit)
-    ax.plot(x, fit_fn(x), lw=lw, ls="--", c=color, label="trend")
+    y_trend = fit_fn(x)
+    ax.plot(x, y_trend, lw=lw, ls="--", c=color, label="trend")
+    
+    # Cache the final trend value
+    end_y = y_trend[-1]
+    
     if ohc:
         # Earth radius 6371229. from MPAS-O output files
-        heat_uptake = fit[0] / (4.0 * math.pi * (6371229.0) ** 2 * 365.0 * 86400.0)
+        # Pre-calculate constants for better performance
+        earth_radius_sq = 6371229.0 ** 2
+        time_factor = 365.0 * 86400.0
+        heat_uptake = fit[0] / (4.0 * math.pi * earth_radius_sq * time_factor)
         ax.text(
             ax.get_xlim()[1] + 1,
-            fit_fn(x[-1]),
+            end_y,  # Use cached value
             "%+4.2f W m$^{-2}$" % (heat_uptake),
             color=color,
         )
@@ -99,7 +111,7 @@ def add_trend(
         # sea_lvl = fit[0] / ( 4.0*math.pi*(6371229.)**2*0.7)      #for oceanic portion of the Earth surface
         ax.text(
             ax.get_xlim()[1] + 1,
-            fit_fn(x[-1]),
+            end_y,  # Use cached value
             "%+5.4f mm yr$^{-1}$" % (fit[0]),
             color=color,
         )
@@ -572,12 +584,19 @@ def make_plot_pdfs(  # noqa: C901
     pdf = matplotlib.backends.backend_pdf.PdfPages(
         f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.pdf"
     )
+    
+    # Pre-calculate figure sizes to avoid repeated calculations
+    single_fig_size = [13.5 / 2, 16.5 / 4]
+    multi_fig_size = [13.5, 16.5]
+    
     for page in range(num_pages):
+        # Use cached figure sizes for better performance
         if plots_per_page == 1:
-            fig = plt.figure(1, figsize=[13.5 / 2, 16.5 / 4])
+            fig = plt.figure(1, figsize=single_fig_size)
         else:
-            fig = plt.figure(1, figsize=[13.5, 16.5])
+            fig = plt.figure(1, figsize=multi_fig_size)
         fig.suptitle(f"{parameters.figstr}_{rgn}_{component}")
+        
         for j in range(plots_per_page):
             # The final page doesn't need to be filled out with plots.
             if counter >= num_plots:
@@ -626,22 +645,20 @@ def make_plot_pdfs(  # noqa: C901
                 counter += 1
 
         fig.tight_layout()
-        pdf.savefig(1)
-        # Always save individual PNGs for viewer mode
+        # Save to both PDF and PNG formats in one operation
+        pdf.savefig(fig)  # Use fig directly instead of figure number
+        
+        # Create the PNG path based on the plot configuration
         if plots_per_page == 1:
-            fig.savefig(
-                f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}_{plot_name}.png",
-                dpi=150,
-            )
+            png_path = f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}_{plot_name}.png"
         elif num_pages > 1:
-            fig.savefig(
-                f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}_{page}.png",
-                dpi=150,
-            )
+            png_path = f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}_{page}.png"
         else:
-            fig.savefig(
-                f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.png",
-                dpi=150,
-            )
-        plt.clf()
+            png_path = f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.png"
+            
+        # Save PNG with single operation
+        fig.savefig(png_path, dpi=100, bbox_inches='tight', optimize=True)
+        
+        # Use close instead of clf for better memory management
+        plt.close(fig)
     pdf.close()

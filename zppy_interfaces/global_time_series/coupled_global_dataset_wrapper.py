@@ -163,9 +163,16 @@ class DatasetWrapper(object):
                 # We want to keep those dimensions, but with these values:
                 # (glb*total_land_area, n*north_land_area, s*south_land_area)
                 try:
-                    data_array[:, 0] *= self.area_tuple[0]
-                    data_array[:, 1] *= self.area_tuple[1]
-                    data_array[:, 2] *= self.area_tuple[2]
+                    # Use vectorized multiplication with broadcasting for better performance
+                    if data_array.shape[1] == 3:  # Check if we have all 3 regions
+                        # Create a multiplication factor array and apply it in one operation
+                        area_factors = np.array([self.area_tuple[0], self.area_tuple[1], self.area_tuple[2]])
+                        data_array = data_array * area_factors  # Broadcasting will apply to each column
+                    else:
+                        # Fall back to old method if shape is unexpected
+                        data_array[:, 0] *= self.area_tuple[0]
+                        data_array[:, 1] *= self.area_tuple[1]
+                        data_array[:, 2] *= self.area_tuple[2]
                 except Exception as e:
                     logger.error(f"Error while scaling data_array: {e}")
                     raise e
