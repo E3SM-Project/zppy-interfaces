@@ -268,12 +268,17 @@ def process_data(
                 exp["annual"]["volume"][:] - exp["annual"]["volume"][0]
             )
 
-    logger.info(
-        f"{rgn} region globalAnnual was computed successfully for these variables: {valid_vars}"
-    )
-    logger.error(
-        f"{rgn} region globalAnnual could not be computed for these variables: {invalid_vars}"
-    )
+    # Log successfully processed variables
+    if valid_vars:
+        logger.info(
+            f"{rgn} region globalAnnual was computed successfully for these variables: {valid_vars}"
+        )
+    
+    # Only log errors if there were actually any invalid variables
+    if invalid_vars:
+        logger.error(
+            f"{rgn} region globalAnnual could not be computed for these variables: {invalid_vars}"
+        )
     return exps
 
 
@@ -309,10 +314,15 @@ def run(parameters: Parameters, requested_variables: RequestedVariables, rgn: st
             valid_plots,
             invalid_plots,
         )
-    logger.info(f"These {rgn} region plots generated successfully: {valid_plots}")
-    logger.error(
-        f"These {rgn} region plots could not be generated successfully: {invalid_plots}"
-    )
+    # Log successfully generated plots
+    if valid_plots:
+        logger.info(f"These {rgn} region plots generated successfully: {valid_plots}")
+    
+    # Only log errors if there were actually any invalid plots
+    if invalid_plots:
+        logger.error(
+            f"These {rgn} region plots could not be generated successfully: {invalid_plots}"
+        )
 
 
 def get_vars(requested_variables: RequestedVariables, component: str) -> List[Variable]:
