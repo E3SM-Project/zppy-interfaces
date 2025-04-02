@@ -563,7 +563,9 @@ def make_plot_pdfs(  # noqa: C901
     valid_plots,
     invalid_plots,
 ):
-    logger.info(f"make_plot_pdfs for rgn={rgn}, component={component}")
+    # Minimal logging for better performance
+    logger.debug(f"make_plot_pdfs for rgn={rgn}, component={component}")
+    
     num_plots = len(plot_list)
     if num_plots == 0:
         return
@@ -582,39 +584,43 @@ def make_plot_pdfs(  # noqa: C901
     plots_per_page = nrows * ncols
     num_pages = math.ceil(num_plots / plots_per_page)
 
-    counter = 0
+    # Pre-calculate figure dimensions for performance
+    small_figsize = [13.5 / 2, 16.5 / 4]
+    large_figsize = [13.5, 16.5]
+    
+    # Prepare output directory once
     os.makedirs(parameters.results_dir, exist_ok=True)
-    # https://stackoverflow.com/questions/58738992/save-multiple-figures-with-subplots-into-a-pdf-with-multiple-pages
-    pdf = matplotlib.backends.backend_pdf.PdfPages(
-        f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.pdf"
-    )
+    
+    # PDF output path
+    pdf_path = f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.pdf"
+    pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_path)
+    
+    counter = 0
     for page in range(num_pages):
-        if plots_per_page == 1:
-            logger.info("Using reduced figsize")
-            fig = plt.figure(1, figsize=[13.5 / 2, 16.5 / 4])
-        else:
-            logger.info("Using standard figsize")
-            fig = plt.figure(1, figsize=[13.5, 16.5])
-        logger.info(f"Figure size={fig.get_size_inches() * fig.dpi}")
+        # Create figure with optimal parameters
+        figsize = small_figsize if plots_per_page == 1 else large_figsize
+        fig = plt.figure(figsize=figsize)
         fig.suptitle(f"{parameters.figstr}_{rgn}_{component}")
+        
+        # Process all plots for this page
+        plots_on_page = 0
         for j in range(plots_per_page):
-            logger.info(
-                f"Plotting plot {j} on page {page}. This is plot {counter} in total."
-            )
-            # The final page doesn't need to be filled out with plots.
+            # Stop if we've processed all plots
             if counter >= num_plots:
                 break
-            ax = plt.subplot(
-                nrows,
-                ncols,
-                j + 1,
-            )
+                
+            # Create subplot and get plot info
+            ax = plt.subplot(nrows, ncols, j + 1)
             plot_name = plot_list[counter]
+            plots_on_page += 1
+            
+            # Process based on component type
             if component == "original":
                 try:
                     plot_function = PLOT_DICT[plot_name]
                 except KeyError:
                     raise KeyError(f"Invalid plot name: {plot_name}")
+                
                 try:
                     plot_function(ax, xlim, exps, rgn)
                     valid_plots.append(plot_name)
@@ -635,7 +641,6 @@ def make_plot_pdfs(  # noqa: C901
                         f"Failed plot_function for {plot_name}. Check that {required_vars} are available."
                     )
                     invalid_plots.append(plot_name)
-                counter += 1
             else:
                 try:
                     plot_generic(ax, xlim, exps, plot_name, rgn)
@@ -646,21 +651,35 @@ def make_plot_pdfs(  # noqa: C901
                         f"plot_generic failed. Invalid plot={plot_name}, rgn={rgn}"
                     )
                     invalid_plots.append(plot_name)
-                counter += 1
+            
+            counter += 1
+            
+        # Hide unused axes for cleaner output
+        for j in range(plots_on_page, len(fig.axes)):
+            fig.axes[j].set_visible(False)
 
+        # Apply layout optimization
         fig.tight_layout()
-        # Save to PDF format with direct figure reference for better performance
+        
+        # Save to PDF
         pdf.savefig(fig)
         
-        # Create the PNG path based on the plot configuration
+        # Determine PNG path based on configuration
         if plots_per_page == 1:
+            # For single plots, use plot name in filename
             png_path = f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}_{plot_name}.png"
         elif num_pages > 1:
+            # For multi-page documents, include page number
             png_path = f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}_{page}.png"
         else:
+            # Single page with multiple plots
             png_path = f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.png"
-            
-        # Save PNG with single operation - using lower DPI for better performance
+        
+        # Save PNG with optimized settings for better performance
         fig.savefig(png_path, dpi=100, optimize=True)
+        
+        # Properly release figure resources
         plt.close(fig)
+    
+    # Close PDF file when done
     pdf.close()
