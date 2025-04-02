@@ -591,9 +591,12 @@ def make_plot_pdfs(  # noqa: C901
     # Prepare output directory once
     os.makedirs(parameters.results_dir, exist_ok=True)
     
-    # PDF output path
-    pdf_path = f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.pdf"
-    pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_path)
+    # PDF output path - only create PDFs for "original" plots when make_viewer is true
+    skip_pdf = parameters.make_viewer and (component != "original")
+    pdf = None
+    if not skip_pdf:
+        pdf_path = f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.pdf"
+        pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_path)
     
     counter = 0
     for page in range(num_pages):
@@ -661,8 +664,9 @@ def make_plot_pdfs(  # noqa: C901
         # Apply layout optimization
         fig.tight_layout()
         
-        # Save to PDF
-        pdf.savefig(fig)
+        # Save to PDF if we're not skipping it
+        if not skip_pdf:
+            pdf.savefig(fig)
         
         # Determine PNG path based on configuration
         if plots_per_page == 1:
@@ -675,11 +679,12 @@ def make_plot_pdfs(  # noqa: C901
             # Single page with multiple plots
             png_path = f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.png"
         
-        # Save PNG with optimized settings for better performance
-        fig.savefig(png_path, dpi=100, optimize=True)
+        # Save PNG with lower DPI for better performance
+        fig.savefig(png_path, dpi=100)
         
         # Properly release figure resources
         plt.close(fig)
     
     # Close PDF file when done
-    pdf.close()
+    if not skip_pdf:
+        pdf.close()
