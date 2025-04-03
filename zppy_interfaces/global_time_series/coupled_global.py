@@ -165,7 +165,7 @@ def set_var(
     new_var_list: List[Variable] = []
     if exp[exp_key] != "":
         try:
-            dataset_wrapper: DatasetWrapper = DatasetWrapper(exp[exp_key])
+            dataset_wrapper: DatasetWrapper = DatasetWrapper(exp[exp_key], var_list)
         except Exception as e:
             logger.critical(e)
             logger.critical(
@@ -253,16 +253,16 @@ def process_data(
 
         # Optionally read ohc
         if exp["ocean"] != "":
-            dataset_wrapper = DatasetWrapper(exp["ocean"])
-            exp["annual"]["ohc"], _ = dataset_wrapper.globalAnnual(Variable("ohc"))
+            ohc_variable = Variable("ohc")
+            dataset_wrapper = DatasetWrapper(exp["ocean"], [ohc_variable])
+            exp["annual"]["ohc"], _ = dataset_wrapper.globalAnnual(ohc_variable)
             # anomalies with respect to first year
             exp["annual"]["ohc"][:] = exp["annual"]["ohc"][:] - exp["annual"]["ohc"][0]
 
         if exp["vol"] != "":
-            dataset_wrapper = DatasetWrapper(exp["vol"])
-            exp["annual"]["volume"], _ = dataset_wrapper.globalAnnual(
-                Variable("volume")
-            )
+            vol_variable = Variable("volume")
+            dataset_wrapper = DatasetWrapper(exp["vol"], [vol_variable])
+            exp["annual"]["volume"], _ = dataset_wrapper.globalAnnual(vol_variable)
             # annomalies with respect to first year
             exp["annual"]["volume"][:] = (
                 exp["annual"]["volume"][:] - exp["annual"]["volume"][0]
