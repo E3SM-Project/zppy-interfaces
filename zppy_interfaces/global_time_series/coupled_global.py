@@ -554,17 +554,15 @@ def coupled_global(parameters: Parameters) -> None:
         
         # Create viewers for each component except original
         for component in ["atm", "ice", "lnd", "ocn"]:  # Don't create viewer for original component
-            component_plot_list = getattr(parameters, f"plots_{component}")
-            # Create viewer if this component was requested in parameters
-            if component_plot_list:
-                vars = get_vars(requested_variables, component)
+            vars = get_vars(requested_variables, component)
+            if vars:
                 url = create_viewer(parameters, vars, component)
                 logger.info(f"Viewer URL for {component}: {url}")
                 title_and_url_list.append((component, url))
                 
         # Special case for original plots: always use user-provided dimensions.
-        if parameters.plots_original:
-            vars = get_vars(requested_variables, "original")
+        vars = get_vars(requested_variables, "original")
+        if vars:
             logger.info("Using user provided dimensions for original plots PDF")
             title_and_url_list.append(
                 (

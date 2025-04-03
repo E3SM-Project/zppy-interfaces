@@ -595,38 +595,27 @@ def make_plot_pdfs(  # noqa: C901
                 except KeyError:
                     raise KeyError(f"Invalid plot name: {plot_name}")
                     
-                # Check if this is a global-only plot and we're not in global region
-                is_global_only = (plot_name in ["change_ohc", "max_moc", "change_sea_level"]) and (rgn != "glb")
-                
-                if is_global_only:
-                    # For global-only plots in non-global regions, just create an empty plot
-                    ax.set_title(f"{plot_name}")
-                    ax.set_xticks([])
-                    ax.set_yticks([])
+                try:
+                    plot_function(ax, xlim, exps, rgn)
                     valid_plots.append(plot_name)
-                else:
-                    # For normal plots
-                    try:
-                        plot_function(ax, xlim, exps, rgn)
-                        valid_plots.append(plot_name)
-                    except Exception:
-                        traceback.print_exc()
-                        required_vars = []
-                        if plot_name == "net_toa_flux_restom":
-                            required_vars = ["RESTOM"]
-                        elif plot_name == "net_atm_energy_imbalance":
-                            required_vars = ["RESTOM", "RESSURF"]
-                        elif plot_name == "global_surface_air_temperature":
-                            required_vars = ["TREFHT"]
-                        elif plot_name == "toa_radiation":
-                            required_vars = ["FSNTOA", "FLUT"]
-                        elif plot_name == "net_atm_water_imbalance":
-                            required_vars = ["PRECC", "PRECL", "QFLX"]
-                        logger.error(
-                            f"Failed plot_function for {plot_name}. Check that {required_vars} are available."
-                        )
-                        invalid_plots.append(plot_name)
-                
+                except Exception:
+                    traceback.print_exc()
+                    required_vars = []
+                    if plot_name == "net_toa_flux_restom":
+                        required_vars = ["RESTOM"]
+                    elif plot_name == "net_atm_energy_imbalance":
+                        required_vars = ["RESTOM", "RESSURF"]
+                    elif plot_name == "global_surface_air_temperature":
+                        required_vars = ["TREFHT"]
+                    elif plot_name == "toa_radiation":
+                        required_vars = ["FSNTOA", "FLUT"]
+                    elif plot_name == "net_atm_water_imbalance":
+                        required_vars = ["PRECC", "PRECL", "QFLX"]
+                    logger.error(
+                        f"Failed plot_function for {plot_name}. Check that {required_vars} are available."
+                    )
+                    invalid_plots.append(plot_name)
+                    
                 counter += 1
             
             # Finalize and save the figure
