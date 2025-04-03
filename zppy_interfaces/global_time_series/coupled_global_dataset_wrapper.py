@@ -79,6 +79,7 @@ class DatasetWrapper(object):
         scale_factor: float,
         original_units: str,
         final_units: str,
+        extract_region: bool = True,
     ) -> Tuple[xarray.core.dataarray.DataArray, str]:
 
         data_array: xarray.core.dataarray.DataArray
@@ -181,12 +182,23 @@ class DatasetWrapper(object):
         return data_array, units
 
     def globalAnnual(
-        self, var: Variable
+        self, var: Variable, all_regions: bool = False
     ) -> Tuple[xarray.core.dataarray.DataArray, str]:
+        """Get annual average for a variable.
+        
+        Args:
+            var: The variable to process
+            all_regions: If True, returns data for all regions without extraction
+                        If False (default), extracts single region based on rgn param
+        
+        Returns:
+            Tuple of (data_array, units)
+        """
         return self.globalAnnualHelper(
             var.variable_name,
             var.metric,
             var.scale_factor,
             var.original_units,
             var.final_units,
+            extract_region=not all_regions,
         )
