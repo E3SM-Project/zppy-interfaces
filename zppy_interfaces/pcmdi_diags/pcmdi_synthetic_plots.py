@@ -5,15 +5,21 @@ import shutil
 import sys
 from typing import Dict, List
 
-from pcmdi_viewer_util import (
+from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.pcmdi_diags.synthetic_plots.synthetic_metrics_plotter import (
+    SyntheticMetricsPlotter,
+)
+from zppy_interfaces.pcmdi_diags.viewer import (
     collect_config,
     generate_data_html,
     generate_methodology_html,
     generate_viewer_html,
 )
-from pcmdi_zppy_util import SyntheticMetricsPlotter
+
+logger = _setup_custom_logger(__name__)
 
 
+# Classes #####################################################################
 class SyntheticPlotsParameters(object):
     def __init__(self, args: Dict[str, str]):
         self.figure_sets: List[str] = args["synthetic_sets"].split(",")
@@ -33,7 +39,7 @@ class SyntheticPlotsParameters(object):
         self.cmip_enso_dir: str = args["cmip_enso_dir"]
         self.cmip_enso_set: str = args["cmip_enso_set"]
         self.groups: List[str] = args["sub_sets"].split(",")
-        self.pcmdi_website: str = args["pcmdi_website"]
+        self.pcmdi_webtitle: str = args["pcmdi_webtitle"]
         self.pcmdi_version: str = args["pcmdi_version"]
         self.run_type: str = args["run_type"]
         self.ts_years: str = args["ts_years"]
@@ -41,6 +47,7 @@ class SyntheticPlotsParameters(object):
         self.pcmdi_viewer_template: str = args["pcmdi_viewer_template"]
 
 
+# Functions ###################################################################
 def main():
     args: Dict[str, str] = _get_args()
     parameters = SyntheticPlotsParameters(args)
@@ -48,10 +55,10 @@ def main():
     #########################################
     # plot synthetic figures for pcmdi metrics
     #########################################
-    print("generate synthetic metrics plot ...")
+    logger.info("generate synthetic metrics plot ...")
     test_input_path = os.path.join(
         parameters.www,
-        "%(model_name)",
+        "put_model_here",
         "pcmdi_diags",
         parameters.results_dir,
         "metrics_data",
@@ -79,8 +86,9 @@ def main():
     )
     # Generate Summary Metrics plots
     # e.g., "climatology,enso,variability"
+    logger.info(f"Generating groups={parameters.groups}")
     plotter.generate(parameters.groups)
-    print("Generating viewer page for diagnostics...")
+    logger.info("Generating viewer page for diagnostics...")
     subtitle = parameters.run_type.replace("_", " ").capitalize()
     # ts_years is assumed to be a list via string_list(default=list(""))
     ts_periods: List[str] = (
@@ -111,7 +119,7 @@ def main():
     shutil.copy(web_logo_src, web_logo_dst)
     # Build config
     config = collect_config(
-        title=parameters.pcmdi_website,
+        title=parameters.pcmdi_webtitle,
         subtitle=subtitle,
         version=parameters.pcmdi_version,
         case_id=parameters.case,
@@ -136,6 +144,7 @@ def _get_args() -> Dict[str, str]:
     )
 
     # For SyntheticPlotsParameters
+    parser.add_argument("--synthetic_sets", type=str)
     parser.add_argument("--figure_format", type=str)
     parser.add_argument("--www", type=str)
     parser.add_argument("--results_dir", type=str)
@@ -152,7 +161,7 @@ def _get_args() -> Dict[str, str]:
     parser.add_argument("--cmip_enso_dir", type=str)
     parser.add_argument("--cmip_enso_set", type=str)
     parser.add_argument("--sub_sets", type=str)
-    parser.add_argument("--pcmdi_website", type=str)
+    parser.add_argument("--pcmdi_webtitle", type=str)
     parser.add_argument("--pcmdi_version", type=str)
     parser.add_argument("--run_type", type=str)
     parser.add_argument("--ts_years", type=str)  # Or List[str] ???

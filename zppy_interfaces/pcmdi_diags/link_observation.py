@@ -1,10 +1,16 @@
 import argparse
+import glob
+import json
+import os
+import re
+import shutil
 import sys
 from typing import Dict, List
 
-from zppy_interfaces.pcmdi_diags.pcmdi_zppy_util import ObservationLinker
+from pcmdi_metrics.io import xcdat_open
 
 
+# Classes #####################################################################
 class LinkObservationParameters(object):
     def __init__(self, args: Dict[str, str]):
         self.model_name: str = f"{args['model_name_ref']}.{args['tableID_ref']}"
@@ -14,6 +20,137 @@ class LinkObservationParameters(object):
         self.obstmp_dir: str = args["obstmp_dir"]
 
 
+class ObservationLinker:
+    def __init__(
+        self,
+        model_name,
+        variables,
+        obs_sets,
+        ts_dir_ref_source,
+        obstmp_dir,
+        obs_alias_file,
+        altobs_dic,
+    ):
+        self.model_name = model_name
+        self.variables = variables
+        self.obs_sets = obs_sets
+        self.ts_dir_ref_source = ts_dir_ref_source
+        self.obstmp_dir = obstmp_dir
+        self.obs_dic = json.load(open(obs_alias_file))
+        self.altobs_dic = altobs_dic
+
+    def _resolve_obs_file(self, varin, obsid):
+        if varin not in self.obs_dic or obsid not in self.obs_dic[varin]:
+            print(f"[Warning] No alias found for variable '{varin}' in obsid '{obsid}'")
+            return None, None
+
+        obsname = self.obs_dic[varin][obsid]
+        obsstr = (
+            obsname.replace("_", "*").replace("-", "*")
+            if "ceres_ebaf" in obsname
+            else obsname
+        )
+        pattern = os.path.join(self.ts_dir_ref_source, obsstr, f"{varin}_*.nc")
+        fpaths = sorted(glob.glob(pattern))
+
+        if fpaths and os.path.exists(fpaths[0]):
+            return fpaths[0], varin
+
+        # Try altobs mapping
+        if varin in self.altobs_dic:
+            alt_var = self.altobs_dic[varin]
+            pattern_alt = os.path.join(
+                self.ts_dir_ref_source, obsstr, f"{alt_var}_*.nc"
+            )
+            fpaths = sorted(glob.glob(pattern_alt))
+            if fpaths and os.path.exists(fpaths[0]):
+                return fpaths[0], alt_var
+
+        print(f"[Warning] Observation file not found for {varin} ({obsid})")
+        return None, None
+
+    def link_obs_data(self):
+        for i, vv in enumerate(self.variables):
+            varin = re.split(r"_|-", vv)[0] if "_" in vv or "-" in vv else vv
+            if len(self.obs_sets) > 1 and len(self.obs_sets) == len(self.variables):
+                obsid = self.obs_sets[i]
+            else:
+                obsid = self.obs_sets[0]
+
+            filepath, resolved_var = self._resolve_obs_file(varin, obsid)
+            if filepath:
+                template = os.path.basename(filepath)
+                parts = template.replace(".nc", "").split("_")
+                if len(parts) < 3:
+                    print(f"[Error] Unexpected filename format: {template}")
+                    continue
+                yms, yme = parts[-2][:6], parts[-1][:6]
+                obsname = self.obs_dic[varin][obsid].replace(".", "_")
+                out = os.path.join(
+                    self.obstmp_dir,
+                    f"{self.model_name.replace('put_model_here', obsname)}.{varin}.{yms}-{yme}.nc",
+                )
+
+                if not os.path.exists(out):
+                    os.makedirs(os.path.dirname(out), exist_ok=True)
+                    if resolved_var == varin:
+                        os.symlink(filepath, out)
+                        print(f"[Info] Linked {resolved_var} → {out}")
+                    else:
+                        ds = xcdat_open(filepath)
+                        ds = ds.rename({resolved_var: varin})
+                        ds.to_netcdf(out)
+                        print(
+                            f"[Info] Renamed and saved {resolved_var} as {varin} → {out}"
+                        )
+                else:
+                    print(f"[Info] Skipping existing file: {out}")
+
+    def derive_var(self, vout, var_dic):
+        template = None
+        out = None
+        ds_out = None
+
+        for i, (var, scale) in enumerate(var_dic.items()):
+            fpaths = sorted(glob.glob(os.path.join(self.obstmp_dir, f"*.{var}.*.nc")))
+            if not fpaths:
+                print(
+                    f"[Warning] No file found for base variable '{var}' needed to derive '{vout}'"
+                )
+                continue
+
+            ds = xcdat_open(fpaths[0])
+            if i == 0:
+                template = os.path.basename(fpaths[0])
+                out = os.path.join(
+                    self.obstmp_dir, template.replace(f".{var}.", f".{vout}.")
+                )
+                shutil.copy(fpaths[0], out)
+                ds_out = ds.rename_vars({var: vout})
+                ds_out[vout] = ds_out[vout] * scale
+            else:
+                ds_other = xcdat_open(fpaths[0])
+                if ds_out:
+                    ds_out[vout] = ds_out[vout] + ds_other[var] * scale
+                else:
+                    raise ValueError("ds_out is None")
+
+        if template and ds_out:
+            ds_out.to_netcdf(out)
+            print(f"[Info] Derived variable '{vout}' written to {out}")
+
+    def process_derived_variables(self):
+        for vv in self.variables:
+            if vv in ["rltcre", "rstcre"]:
+                fpaths = sorted(glob.glob(os.path.join(self.obstmp_dir, f"*{vv}_*.nc")))
+                if not fpaths:
+                    if vv == "rstcre":
+                        self.derive_var("rstcre", {"rsutcs": 1, "rsut": -1})
+                    elif vv == "rltcre":
+                        self.derive_var("rltcre", {"rlutcs": 1, "rlut": -1})
+
+
+# Functions ###################################################################
 def main():
     parameters: LinkObservationParameters = _get_args()
     # Mapping from observational variable names to CMIP-standard
