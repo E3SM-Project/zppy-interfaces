@@ -1,11 +1,35 @@
 from typing import Dict, List
 
+from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+
+logger = _setup_custom_logger(__name__)
+
 
 # Parameters ##################################################################
 class Parameters(object):
     def __init__(self, args: Dict[str, str]):
+        # Used by both Classic PDF and Viewer
+        # For determining which output type to produce
+        self.make_viewer: bool = _str2bool(args["make_viewer"])
+        # For coupled_global
+        self.case_dir: str = args["case_dir"]
+        self.experiment_name: str = args["experiment_name"]
+        self.figstr: str = args["figstr"]
+        self.color: str = args["color"]
+        self.ts_num_years_str: str = args["ts_num_years"]
+        self.results_dir: str = args["results_dir"]
+        # These regions are used often as strings,
+        # so making an Enum Region={GLOBAL, NORTH, SOUTH} would be limiting.
+        self.regions: List[str] = list(
+            map(lambda rgn: get_region(rgn), args["regions"].split(","))
+        )
+        # For both ocean_month and coupled_global
+        self.year1: int = int(args["start_yr"])
+        self.year2: int = int(args["end_yr"])
 
+        # Used by Classic PDF only
         # For ocean_month
+        self.subtask_name: str = f"global_time_series_{args['subsection']}"
         self.use_ocn: bool = _str2bool(args["use_ocn"])
         self.input: str = args["input"]
         self.input_subdir: str = args["input_subdir"]
@@ -14,31 +38,53 @@ class Parameters(object):
             self.moc_file = ""
         else:
             self.moc_file = args["moc_file"]
-
         # For coupled_global
-        self.case_dir: str = args["case_dir"]
-        self.experiment_name: str = args["experiment_name"]
-        self.figstr: str = args["figstr"]
-        self.color: str = args["color"]
-        self.ts_num_years_str: str = args["ts_num_years"]
         self.plots_original: List[str] = param_get_list(args["plots_original"])
+        self.nrows: int = int(args["nrows"])
+        self.ncols: int = int(args["ncols"])
+
+        # Used by Viewer only
+        # For coupled_global
         self.plots_atm: List[str] = param_get_list(args["plots_atm"])
         self.plots_ice: List[str] = param_get_list(args["plots_ice"])
         self.plots_lnd: List[str] = param_get_list(args["plots_lnd"])
         self.plots_ocn: List[str] = param_get_list(args["plots_ocn"])
-        self.nrows: int = int(args["nrows"])
-        self.ncols: int = int(args["ncols"])
-        self.results_dir: str = args["results_dir"]
-        # These regions are used often as strings,
-        # so making an Enum Region={GLOBAL, NORTH, SOUTH} would be limiting.
-        self.regions: List[str] = list(
-            map(lambda rgn: get_region(rgn), args["regions"].split(","))
-        )
-        self.make_viewer: bool = _str2bool(args["make_viewer"])
 
-        # For both
-        self.year1: int = int(args["start_yr"])
-        self.year2: int = int(args["end_yr"])
+        # Input validation
+        if self.make_viewer:
+            if self.plots_original:
+                logger.warning(
+                    f"plots_original={self.plots_original} will not be plotted in Viewer mode."
+                )
+        else:
+            if self.use_ocn and (not self.moc_file):
+                raise ValueError(
+                    "moc_file must be set for ocean plots in Classic PDF mode."
+                )
+            if self.nrows != 4:
+                logger.warning(
+                    f"nrows={self.nrows} is DEPRECATED. It will be overridden as 4."
+                )
+            if self.ncols != 2:
+                logger.warning(
+                    f"ncols={self.ncols} is DEPRECATED. It will be overridden as 2."
+                )
+            if self.plots_atm:
+                logger.warning(
+                    f"plots_atm={self.plots_atm} will not be plotted in Classic PDF mode."
+                )
+            if self.plots_ice:
+                logger.warning(
+                    f"plots_ice={self.plots_ice} will not be plotted in Classic PDF mode."
+                )
+            if self.plots_lnd:
+                logger.warning(
+                    f"plots_lnd={self.plots_lnd} will not be plotted in Classic PDF mode."
+                )
+            if self.plots_ocn:
+                logger.warning(
+                    f"plots_ocn={self.plots_ocn} will not be plotted in Classic PDF mode."
+                )
 
 
 def _str2bool(s: str) -> bool:
@@ -62,6 +108,3 @@ def get_region(rgn: str) -> str:
     else:
         raise ValueError(f"Invalid rgn={rgn}")
     return rgn
-
-
-###############################################################################

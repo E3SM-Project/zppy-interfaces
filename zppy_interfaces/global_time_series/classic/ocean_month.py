@@ -13,9 +13,14 @@ logger = _setup_child_logger(__name__)
 
 
 def ocean_month(
-    path_in: str, case_dir: str, start_yr: int, end_yr: int, ts_num_years: int
+    path_in: str,
+    subtask_name: str,
+    case_dir: str,
+    start_yr: int,
+    end_yr: int,
+    ts_num_years: int,
 ):
-    path_out = f"{case_dir}/post/ocn/glb/ts/monthly/{ts_num_years}yr"
+    path_out = f"{case_dir}/post/{subtask_name}/ocn/glb/ts/monthly/{ts_num_years}yr"
 
     # Ocean constants
     # specific heat [J/(kg*degC)]
