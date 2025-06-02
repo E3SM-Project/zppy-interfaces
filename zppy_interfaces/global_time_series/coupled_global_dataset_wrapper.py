@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Any, List, Optional, Tuple
 
 import xarray
 import xcdat
@@ -10,16 +10,22 @@ logger = _setup_custom_logger(__name__)
 
 
 class DatasetWrapper(object):
-    def __init__(self, directory):
+    def __init__(self, directory: str, var_list: Optional[List[Variable]] = None):
 
         self.directory: str = directory
+        self.var_list: Optional[List[Variable]] = var_list
 
         # `directory` will be of the form `{case_dir}/post/<component>/glb/ts/monthly/{ts_num_years_str}yr/`
-        self.dataset: xarray.core.dataset.Dataset = xcdat.open_mfdataset(
-            f"{directory}*.nc", center_times=True
-        )
-
-        self.area_tuple = None
+        self.dataset: xarray.core.dataset.Dataset
+        if var_list:
+            file_path_list: List[str] = []
+            for var in var_list:
+                # `var` will be of the form `FSNS`, `FLNS`, etc.
+                file_path_list.append(f"{directory}{var.variable_name}*.nc")
+            self.dataset = xcdat.open_mfdataset(file_path_list, center_times=True)
+        else:
+            self.dataset = xcdat.open_mfdataset(f"{directory}*.nc", center_times=True)
+        self.area_tuple: Optional[Tuple[Any, Any, Any]] = None
 
     def set_area_tuple(self):
         keys = list(self.dataset.keys())
@@ -88,65 +94,72 @@ class DatasetWrapper(object):
         Lv = 2.501e6
         Lf = 3.337e5
 
-        # Is this a derived variable?
-        if var == "RESTOM":
-            FSNT, _ = self.globalAnnualHelper(
-                "FSNT", metric, scale_factor, original_units, final_units
-            )
-            FLNT, _ = self.globalAnnualHelper(
-                "FLNT", metric, scale_factor, original_units, final_units
-            )
-            data_array = FSNT - FLNT
-        elif var == "RESTOA":
-            logger.warning("NOT READY")
-            FSNTOA, _ = self.globalAnnualHelper(
-                "FSNTOA", metric, scale_factor, original_units, final_units
-            )
-            FLUT, _ = self.globalAnnualHelper(
-                "FLUT", metric, scale_factor, original_units, final_units
-            )
-            data_array = FSNTOA - FLUT
-        elif var == "LHFLX":
-            QFLX, _ = self.globalAnnualHelper(
-                "QFLX", metric, scale_factor, original_units, final_units
-            )
-            PRECC, _ = self.globalAnnualHelper(
-                "PRECC", metric, scale_factor, original_units, final_units
-            )
-            PRECL, _ = self.globalAnnualHelper(
-                "PRECL", metric, scale_factor, original_units, final_units
-            )
-            PRECSC, _ = self.globalAnnualHelper(
-                "PRECSC", metric, scale_factor, original_units, final_units
-            )
-            PRECSL, _ = self.globalAnnualHelper(
-                "PRECSL", metric, scale_factor, original_units, final_units
-            )
-            data_array = (Lv + Lf) * QFLX - Lf * 1.0e3 * (
-                PRECC + PRECL - PRECSC - PRECSL
-            )
-        elif var == "RESSURF":
-            FSNS, _ = self.globalAnnualHelper(
-                "FSNS", metric, scale_factor, original_units, final_units
-            )
-            FLNS, _ = self.globalAnnualHelper(
-                "FLNS", metric, scale_factor, original_units, final_units
-            )
-            SHFLX, _ = self.globalAnnualHelper(
-                "SHFLX", metric, scale_factor, original_units, final_units
-            )
-            LHFLX, _ = self.globalAnnualHelper(
-                "LHFLX", metric, scale_factor, original_units, final_units
-            )
-            data_array = FSNS - FLNS - SHFLX - LHFLX
-        elif var == "PREC":
-            PRECC, _ = self.globalAnnualHelper(
-                "PRECC", metric, scale_factor, original_units, final_units
-            )
-            PRECL, _ = self.globalAnnualHelper(
-                "PRECL", metric, scale_factor, original_units, final_units
-            )
-            data_array = 1.0e3 * (PRECC + PRECL)
+        if (not self.var_list) and (
+            var in ["RESTOM", "RESTOA", "LHFLX", "RESSURF", "PREC"]
+        ):
+            # We've loaded ALL variables.
+            # That means we can attempt derivations from other variables
+            # not explicitally requested.
+            if var == "RESTOM":
+                FSNT, _ = self.globalAnnualHelper(
+                    "FSNT", metric, scale_factor, original_units, final_units
+                )
+                FLNT, _ = self.globalAnnualHelper(
+                    "FLNT", metric, scale_factor, original_units, final_units
+                )
+                data_array = FSNT - FLNT
+            elif var == "RESTOA":
+                logger.warning("NOT READY")
+                FSNTOA, _ = self.globalAnnualHelper(
+                    "FSNTOA", metric, scale_factor, original_units, final_units
+                )
+                FLUT, _ = self.globalAnnualHelper(
+                    "FLUT", metric, scale_factor, original_units, final_units
+                )
+                data_array = FSNTOA - FLUT
+            elif var == "LHFLX":
+                QFLX, _ = self.globalAnnualHelper(
+                    "QFLX", metric, scale_factor, original_units, final_units
+                )
+                PRECC, _ = self.globalAnnualHelper(
+                    "PRECC", metric, scale_factor, original_units, final_units
+                )
+                PRECL, _ = self.globalAnnualHelper(
+                    "PRECL", metric, scale_factor, original_units, final_units
+                )
+                PRECSC, _ = self.globalAnnualHelper(
+                    "PRECSC", metric, scale_factor, original_units, final_units
+                )
+                PRECSL, _ = self.globalAnnualHelper(
+                    "PRECSL", metric, scale_factor, original_units, final_units
+                )
+                data_array = (Lv + Lf) * QFLX - Lf * 1.0e3 * (
+                    PRECC + PRECL - PRECSC - PRECSL
+                )
+            elif var == "RESSURF":
+                FSNS, _ = self.globalAnnualHelper(
+                    "FSNS", metric, scale_factor, original_units, final_units
+                )
+                FLNS, _ = self.globalAnnualHelper(
+                    "FLNS", metric, scale_factor, original_units, final_units
+                )
+                SHFLX, _ = self.globalAnnualHelper(
+                    "SHFLX", metric, scale_factor, original_units, final_units
+                )
+                LHFLX, _ = self.globalAnnualHelper(
+                    "LHFLX", metric, scale_factor, original_units, final_units
+                )
+                data_array = FSNS - FLNS - SHFLX - LHFLX
+            elif var == "PREC":
+                PRECC, _ = self.globalAnnualHelper(
+                    "PRECC", metric, scale_factor, original_units, final_units
+                )
+                PRECL, _ = self.globalAnnualHelper(
+                    "PRECL", metric, scale_factor, original_units, final_units
+                )
+                data_array = 1.0e3 * (PRECC + PRECL)
+            else:
+                raise ValueError(f"Invalid var={var}")
         else:
             # Non-derived variables
             annual_average_dataset_for_var: xarray.core.dataset.Dataset = (

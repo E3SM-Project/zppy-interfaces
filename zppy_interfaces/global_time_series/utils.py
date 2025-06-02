@@ -62,6 +62,3 @@ def get_region(rgn: str) -> str:
     else:
         raise ValueError(f"Invalid rgn={rgn}")
     return rgn
-
-
-###############################################################################

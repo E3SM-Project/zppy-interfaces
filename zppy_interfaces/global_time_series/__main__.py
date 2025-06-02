@@ -1,10 +1,8 @@
 import argparse
-import os
-import shutil
 import sys
 
-from zppy_interfaces.global_time_series.coupled_global import coupled_global
-from zppy_interfaces.global_time_series.ocean_month import ocean_month
+import zppy_interfaces.global_time_series.classic.driver as classic_driver
+import zppy_interfaces.global_time_series.viewer.driver as viewer_driver
 from zppy_interfaces.global_time_series.utils import Parameters
 from zppy_interfaces.multi_utils.logger import _setup_custom_logger
 
@@ -14,38 +12,11 @@ logger = _setup_custom_logger(__name__)
 def main(parameters=None):
     if not parameters:
         parameters = _get_args()
-
-    if parameters.use_ocn:
-        logger.info("Create ocean time series")
-        # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
-        # Creates the directory post/ocn
-        os.makedirs(
-            f"{parameters.case_dir}/post/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr",
-            exist_ok=True,
-        )
-        input: str = f"{parameters.input}/{parameters.input_subdir}"
-        # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
-        # Modifies post/ocn (which we just created in the first place)
-        ocean_month(
-            input,
-            parameters.case_dir,
-            parameters.year1,
-            parameters.year2,
-            int(parameters.ts_num_years_str),
-        )
-
-        logger.info("Copy moc file")
-        # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
-        # Copies files to post/ocn (which we just created in the first place)
-        shutil.copy(
-            f"{parameters.case_dir}/post/analysis/mpas_analysis/cache/timeseries/moc/{parameters.moc_file}",
-            f"{parameters.case_dir}/post/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr/",
-        )
-
-    logger.info("Update time series figures")
-    # NOTE: PRODUCES OUTPUT IN THE CURRENT DIRECTORY (not necessarily the case directory)
-    # Creates the directory parameters.results_dir
-    coupled_global(parameters)
+    # Determine if we want the Classic PDF or the Viewer
+    if parameters.make_viewer:
+        viewer_driver.run(parameters)
+    else:
+        classic_driver.run(parameters)
 
 
 def _get_args() -> Parameters:
