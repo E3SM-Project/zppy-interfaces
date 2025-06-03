@@ -2,23 +2,31 @@ from typing import Any, Dict, List
 
 import pytest
 
-from zppy_interfaces.global_time_series.coupled_global import (
-    construct_generic_variables,
-    get_data_dir,
-    get_exps,
-    get_vars_original,
-    land_csv_row_to_var,
+from zppy_interfaces.global_time_series.classic.coupled_global import (
+    get_exps as classic_get_exps,
 )
+from zppy_interfaces.global_time_series.classic.coupled_global import get_vars_original
 from zppy_interfaces.global_time_series.coupled_global_plotting import get_ylim
-from zppy_interfaces.global_time_series.coupled_global_utils import Metric, Variable
-from zppy_interfaces.global_time_series.coupled_global_viewer import (
-    VariableGroup,
-    get_variable_groups,
+from zppy_interfaces.global_time_series.coupled_global_utils import (
+    Metric,
+    Variable,
+    get_data_dir,
 )
 from zppy_interfaces.global_time_series.utils import (
     Parameters,
     get_region,
     param_get_list,
+)
+from zppy_interfaces.global_time_series.viewer.coupled_global import (
+    construct_generic_variables,
+)
+from zppy_interfaces.global_time_series.viewer.coupled_global import (
+    get_exps as viewer_get_exps,
+)
+from zppy_interfaces.global_time_series.viewer.coupled_global import land_csv_row_to_var
+from zppy_interfaces.global_time_series.viewer.coupled_global_viewer import (
+    VariableGroup,
+    get_variable_groups,
 )
 
 # Run tests with `pytest tests/unit/global_time_series/test_*.py`
@@ -67,41 +75,48 @@ def test_get_region():
 def test_Parameters_and_related_functions():
     # Consider the following parameters given by a user.
     args: Dict[str, str] = {
-        "use_ocn": "True",
-        "input": "/lcrc/group/e3sm2/ac.wlin/E3SMv3/v3.LR.historical_0051",
-        "input_subdir": "archive/atm/hist",
-        "moc_file": "mocTimeSeries_1985-1995.nc",
+        "make_viewer": "True",
         "case_dir": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051",
         "experiment_name": "v3.LR.historical_0051",
         "figstr": "v3.LR.historical_0051",
         "color": "Blue",
         "ts_num_years": "5",
+        "results_dir": "results",
+        "regions": "glb,n,s",
+        "start_yr": "1985",
+        "end_yr": "1989",
+        "subsection": "subsection_name",
+        "use_ocn": "True",
+        "input": "/lcrc/group/e3sm2/ac.wlin/E3SMv3/v3.LR.historical_0051",
+        "input_subdir": "archive/atm/hist",
+        "moc_file": "mocTimeSeries_1985-1995.nc",
         "plots_original": "None",
+        "nrows": "1",
+        "ncols": "1",
         "plots_atm": "TREFHT",
         "plots_ice": "None",
         "plots_lnd": "FSH,RH2M,LAISHA,LAISUN,QINTR,QOVER,QRUNOFF,QSOIL,QVEGE,QVEGT,SOILWATER_10CM,TSA,H2OSNO,TOTLITC,CWDC,SOIL1C,SOIL2C,SOIL3C,SOIL4C,WOOD_HARVESTC,TOTVEGC,NBP,GPP,AR,HR",
         "plots_ocn": "None",
-        "nrows": "1",
-        "ncols": "1",
-        "results_dir": "results",
-        "regions": "glb,n,s",
-        "make_viewer": "True",
-        "start_yr": "1985",
-        "end_yr": "1989",
     }
     # Then:
     parameters: Parameters = Parameters(args)
+    assert parameters.make_viewer
     assert (
         parameters.case_dir
         == "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051"
     )
     assert parameters.experiment_name == "v3.LR.historical_0051"
     assert parameters.figstr == "v3.LR.historical_0051"
-    assert parameters.year1 == 1985
-    assert parameters.year2 == 1989
     assert parameters.color == "Blue"
     assert parameters.ts_num_years_str == "5"
+    assert parameters.results_dir == "results"
+    assert parameters.regions == ["glb", "n", "s"]
+    assert parameters.year1 == 1985
+    assert parameters.year2 == 1989
+    assert parameters.subtask_name == "global_time_series_subsection_name"
     assert parameters.plots_original == []
+    assert parameters.nrows == 1
+    assert parameters.ncols == 1
     assert parameters.plots_atm == ["TREFHT"]
     assert parameters.plots_ice == []
     assert parameters.plots_lnd == [
@@ -132,9 +147,6 @@ def test_Parameters_and_related_functions():
         "HR",
     ]
     assert parameters.plots_ocn == []
-    assert parameters.nrows == 1
-    assert parameters.ncols == 1
-    assert parameters.regions == ["glb", "n", "s"]
 
     # test_get_data_dir
     assert (
@@ -159,15 +171,13 @@ def test_Parameters_and_related_functions():
     assert get_data_dir(parameters, "ocn", False) == ""
 
     # test_get_exps
-    exps: List[Dict[str, Any]] = get_exps(parameters)
+    exps: List[Dict[str, Any]] = viewer_get_exps(parameters)
     assert len(exps) == 1
     expected = {
         "atmos": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/atm/glb/ts/monthly/5yr/",
         "ice": "",
         "land": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/lnd/glb/ts/monthly/5yr/",
         "ocean": "",
-        "moc": "",
-        "vol": "",
         "name": "v3.LR.historical_0051",
         "yoffset": 0.0,
         "yr": ([1985, 1989],),
@@ -180,15 +190,13 @@ def test_Parameters_and_related_functions():
     )
     parameters.plots_atm = []
     parameters.plots_lnd = []
-    exps = get_exps(parameters)
+    exps = classic_get_exps(parameters)
     assert len(exps) == 1
     expected = {
         "atmos": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/atm/glb/ts/monthly/5yr/",
-        "ice": "",
-        "land": "",
         "ocean": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/ocn/glb/ts/monthly/5yr/",
-        "moc": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/ocn/glb/ts/monthly/5yr/",
-        "vol": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/ocn/glb/ts/monthly/5yr/",
+        "moc": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/global_time_series_subsection_name/ocn/glb/ts/monthly/5yr/",
+        "vol": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/global_time_series_subsection_name/ocn/glb/ts/monthly/5yr/",
         "name": "v3.LR.historical_0051",
         "yoffset": 0.0,
         "yr": ([1985, 1989],),

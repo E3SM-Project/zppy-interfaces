@@ -19,9 +19,9 @@ def run(parameters: Parameters):
         ):
             logger.info("Create ocean time series")
             # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
-            # Creates the directory post/ocn
+            # Creates the directory post/<subtask>ocn
             os.makedirs(
-                f"{parameters.case_dir}/post/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr",
+                f"{parameters.case_dir}/post/{parameters.subtask_name}/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr",
                 exist_ok=True,
             )
             input_dir: str = f"{parameters.input}/{parameters.input_subdir}"
@@ -29,18 +29,25 @@ def run(parameters: Parameters):
             # Modifies post/ocn (which we just created in the first place)
             ocean_month(
                 input_dir,
+                parameters.subtask_name,
                 parameters.case_dir,
                 parameters.year1,
                 parameters.year2,
                 int(parameters.ts_num_years_str),
             )
 
-            logger.info("Copy moc file")
+            src: str = (
+                f"{parameters.case_dir}/post/analysis/mpas_analysis/cache/timeseries/moc/{parameters.moc_file}"
+            )
+            dst: str = (
+                f"{parameters.case_dir}/post/{parameters.subtask_name}/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr/"
+            )
+            logger.info(f"Copy moc file from {src} to {dst}")
             # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
-            # Copies files to post/ocn (which we just created in the first place)
+            # Copies files to post/<subtask>/ocn (which we just created in the first place)
             shutil.copy(
-                f"{parameters.case_dir}/post/analysis/mpas_analysis/cache/timeseries/moc/{parameters.moc_file}",
-                f"{parameters.case_dir}/post/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr/",
+                src,
+                dst,
             )
         else:
             logger.info(

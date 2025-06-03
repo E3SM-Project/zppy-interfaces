@@ -56,7 +56,7 @@ def plot(ax, xlim, exps, param_dict, rgn):  # noqa: C901
             # Specifically for plot_toa_radiation
             # TODO: if more plots require a 2nd variable, we can change `var` to be a list,
             # but that will be a more significant refactoring.
-            var = np.array(exp["annual"]["FLUT"][0])
+            var = np.array(exp["annual"]["FLUT"][rgn][0])
             ax.plot(year, var, lw=1.0, marker=None, ls=":", c=exp["color"])
             continue
         if param_dict["check_exp_year"] and exp["yr"] is None:

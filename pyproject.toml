@@ -116,8 +116,6 @@ version = { attr = "zppy_interfaces.version.__version__" }
 # evolution of options.entry-points
 [project.scripts]
 zi-global-time-series = "zppy_interfaces.global_time_series.__main__:main"
-#zi-global-time-series-overview = "zppy_interfaces.global_time_series.overview:main"
-# zi-global-time-series-viewer = "zppy_interfaces.global_time_series.viewer:main"
 
 [project.urls]
 Documentation = "https://docs.e3sm.org/zppy-interfaces"

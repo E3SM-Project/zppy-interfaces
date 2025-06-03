@@ -88,12 +88,12 @@ def make_plot_pdfs(  # noqa: C901
         pdf.savefig(1)
         if num_pages > 1:
             fig.savefig(
-                f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{page}.png",
+                f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}_{page}.png",
                 dpi=150,
             )
         else:
             fig.savefig(
-                f"{parameters.results_dir}/{parameters.figstr}_{rgn}.png",
+                f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.png",
                 dpi=150,
             )
         plt.close(fig)
@@ -121,7 +121,7 @@ def plot_net_toa_flux_restom(ax, xlim, exps, rgn):
         "shorten_year": False,
         "title": "Net TOA flux (restom)",
         "use_getmoc": False,
-        "var": lambda exp: np.array(exp["annual"]["RESTOM"][0]),
+        "var": lambda exp: np.array(exp["annual"]["RESTOM"][rgn][0]),
         "verbose": False,
         "vol": False,
         "ylabel": "W m-2",
@@ -158,7 +158,7 @@ def plot_global_surface_air_temperature(ax, xlim, exps, rgn):
         "shorten_year": False,
         "title": f"{region_title} surface air temperature",
         "use_getmoc": False,
-        "var": lambda exp: np.array(exp["annual"]["TREFHT"][0]) - 273.15,
+        "var": lambda exp: np.array(exp["annual"]["TREFHT"][rgn][0]) - 273.15,
         "verbose": False,
         "vol": False,
         "ylabel": "degC",
@@ -187,7 +187,7 @@ def plot_toa_radiation(ax, xlim, exps, rgn):
         "shorten_year": False,
         "title": "TOA radiation: SW (solid), LW (dashed)",
         "use_getmoc": False,
-        "var": lambda exp: np.array(exp["annual"]["FSNTOA"][0]),
+        "var": lambda exp: np.array(exp["annual"]["FSNTOA"][rgn][0]),
         "verbose": None,
         "vol": None,
         "ylabel": "W m-2",
@@ -216,8 +216,8 @@ def plot_net_atm_energy_imbalance(ax, xlim, exps, rgn):
         "shorten_year": False,
         "title": "Net atm energy imbalance (restom-ressurf)",
         "use_getmoc": False,
-        "var": lambda exp: np.array(exp["annual"]["RESTOM"][0])
-        - np.array(exp["annual"]["RESSURF"][0]),
+        "var": lambda exp: np.array(exp["annual"]["RESTOM"][rgn][0])
+        - np.array(exp["annual"]["RESSURF"][rgn][0]),
         "verbose": False,
         "vol": False,
         "ylabel": "W m-2",
@@ -341,11 +341,11 @@ def plot_net_atm_water_imbalance(ax, xlim, exps, rgn):
             365
             * 86400
             * (
-                np.array(exp["annual"]["QFLX"][0])
+                np.array(exp["annual"]["QFLX"][rgn][0])
                 - 1e3
                 * (
-                    np.array(exp["annual"]["PRECC"][0])
-                    + np.array(exp["annual"]["PRECL"][0])
+                    np.array(exp["annual"]["PRECC"][rgn][0])
+                    + np.array(exp["annual"]["PRECL"][rgn][0])
                 )
             )
         ),

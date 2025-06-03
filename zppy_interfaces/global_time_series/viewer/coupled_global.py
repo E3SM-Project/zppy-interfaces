@@ -24,9 +24,10 @@ logger = _setup_custom_logger(__name__)
 # Classes #####################################################################
 class RequestedVariables(object):
     def __init__(self, parameters: Parameters):
+        # Land variables are constructed differently
         self.vars_land: List[Variable] = construct_land_variables(parameters.plots_lnd)
 
-        # Use generic constructor
+        # Other variables use the generic constructor
         self.vars_atm: List[Variable] = construct_generic_variables(
             parameters.plots_atm
         )
@@ -96,8 +97,7 @@ def construct_generic_variables(requested_vars: List[str]) -> List[Variable]:
 
 def run_coupled_global(parameters: Parameters) -> None:
     requested_variables = RequestedVariables(parameters)
-    for rgn in parameters.regions:
-        run(parameters, requested_variables, rgn)
+    run(parameters, requested_variables)
     title_and_url_list: List[Tuple[str, str]] = []
     for component in [
         "atm",
@@ -115,9 +115,9 @@ def run_coupled_global(parameters: Parameters) -> None:
     logger.info(f"Viewer index URL: {index_url}")
 
 
-def run(parameters: Parameters, requested_variables: RequestedVariables, rgn: str):
+def run(parameters: Parameters, requested_variables: RequestedVariables):
     # Experiments
-    exps: List[Dict[str, Any]] = process_data(parameters, requested_variables, rgn)
+    exps: List[Dict[str, Any]] = process_data(parameters, requested_variables)
 
     xlim: List[float] = [float(parameters.year1), float(parameters.year2)]
 
@@ -131,21 +131,23 @@ def run(parameters: Parameters, requested_variables: RequestedVariables, rgn: st
         ("lnd", list(map(lambda v: v.variable_name, requested_variables.vars_land))),
         ("ocn", list(map(lambda v: v.variable_name, requested_variables.vars_ocn))),
     ]
-    for component, plot_list in mapping:
-        make_plot_pdfs(
-            parameters,
-            rgn,
-            component,
-            xlim,
-            exps,
-            plot_list,
-            valid_plots,
-            invalid_plots,
-        )
-    logger.info(f"These {rgn} region plots generated successfully: {valid_plots}")
-    logger.error(
-        f"These {rgn} region plots could not be generated successfully: {invalid_plots}"
-    )
+    for rgn in parameters.regions:
+        for component, plot_list in mapping:
+            make_plot_pdfs(
+                parameters,
+                rgn,
+                component,
+                xlim,
+                exps,
+                plot_list,
+                valid_plots,
+                invalid_plots,
+            )
+        logger.info(f"These {rgn} region plots generated successfully: {valid_plots}")
+        if invalid_plots:
+            logger.error(
+                f"These {rgn} region plots could not be generated successfully: {invalid_plots}"
+            )
 
 
 def get_vars(requested_variables: RequestedVariables, component: str) -> List[Variable]:
@@ -164,7 +166,7 @@ def get_vars(requested_variables: RequestedVariables, component: str) -> List[Va
 
 
 def process_data(
-    parameters: Parameters, requested_variables: RequestedVariables, rgn: str
+    parameters: Parameters, requested_variables: RequestedVariables
 ) -> List[Dict[str, Any]]:
     exps: List[Dict[str, Any]] = get_exps(parameters)
     valid_vars: List[str] = []
@@ -174,10 +176,20 @@ def process_data(
         exp["annual"] = {}
 
         requested_variables.vars_atm = set_var(
-            exp, "atmos", requested_variables.vars_atm, valid_vars, invalid_vars, rgn
+            exp,
+            "atmos",
+            requested_variables.vars_atm,
+            valid_vars,
+            invalid_vars,
+            parameters,
         )
         requested_variables.vars_ice = set_var(
-            exp, "ice", requested_variables.vars_ice, valid_vars, invalid_vars, rgn
+            exp,
+            "ice",
+            requested_variables.vars_ice,
+            valid_vars,
+            invalid_vars,
+            parameters,
         )
         requested_variables.vars_land = set_var(
             exp,
@@ -185,18 +197,24 @@ def process_data(
             requested_variables.vars_land,
             valid_vars,
             invalid_vars,
-            rgn,
+            parameters,
         )
         requested_variables.vars_ocn = set_var(
-            exp, "ocean", requested_variables.vars_ocn, valid_vars, invalid_vars, rgn
+            exp,
+            "ocean",
+            requested_variables.vars_ocn,
+            valid_vars,
+            invalid_vars,
+            parameters,
         )
 
     logger.info(
-        f"{rgn} region globalAnnual was computed successfully for these variables: {valid_vars}"
+        f"globalAnnual was computed successfully for these variables: {valid_vars}"
     )
-    logger.error(
-        f"{rgn} region globalAnnual could not be computed for these variables: {invalid_vars}"
-    )
+    if invalid_vars:
+        logger.error(
+            f"globalAnnual could not be computed for these variables: {invalid_vars}"
+        )
     return exps
 
 
