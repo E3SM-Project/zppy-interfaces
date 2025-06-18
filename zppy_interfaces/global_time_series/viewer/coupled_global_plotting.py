@@ -53,7 +53,6 @@ def make_plot_pdfs(  # noqa: C901
             traceback.print_exc()
             logger.error(f"plot_generic failed. Invalid plot={plot_name}, rgn={rgn}")
             invalid_plots.append(plot_name)
-        i += 1
 
         fig.tight_layout()
         # Save individual PNGs

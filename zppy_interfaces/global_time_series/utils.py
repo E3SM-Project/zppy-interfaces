@@ -67,7 +67,7 @@ class Parameters(object):
                 )
             if self.ncols != 2:
                 logger.warning(
-                    f"nrows={self.ncols} is DEPRECATED. It will be overridden as 2."
+                    f"ncols={self.ncols} is DEPRECATED. It will be overridden as 2."
                 )
             if self.plots_atm:
                 logger.warning(

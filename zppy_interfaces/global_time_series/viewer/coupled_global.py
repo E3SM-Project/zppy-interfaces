@@ -105,9 +105,9 @@ def run_coupled_global(parameters: Parameters) -> None:
         "lnd",
         "ocn",
     ]:  # Don't create viewer for original component
-        vars = get_vars(requested_variables, component)
-        if vars:
-            url = create_viewer(parameters, vars, component)
+        vars_list: List[Variable] = get_vars(requested_variables, component)
+        if vars_list:
+            url = create_viewer(parameters, vars_list, component)
             logger.info(f"Viewer URL for {component}: {url}")
             title_and_url_list.append((component, url))
 
@@ -121,9 +121,6 @@ def run(parameters: Parameters, requested_variables: RequestedVariables):
 
     xlim: List[float] = [float(parameters.year1), float(parameters.year2)]
 
-    valid_plots: List[str] = []
-    invalid_plots: List[str] = []
-
     # Use list of tuples rather than a dict, to keep order
     mapping: List[Tuple[str, List[str]]] = [
         ("atm", list(map(lambda v: v.variable_name, requested_variables.vars_atm))),
@@ -132,6 +129,8 @@ def run(parameters: Parameters, requested_variables: RequestedVariables):
         ("ocn", list(map(lambda v: v.variable_name, requested_variables.vars_ocn))),
     ]
     for rgn in parameters.regions:
+        valid_plots: List[str] = []
+        invalid_plots: List[str] = []
         for component, plot_list in mapping:
             make_plot_pdfs(
                 parameters,

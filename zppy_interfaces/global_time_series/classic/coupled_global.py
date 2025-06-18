@@ -58,13 +58,12 @@ def run(parameters: Parameters, requested_variables: RequestedVariables):
 
     xlim: List[float] = [float(parameters.year1), float(parameters.year2)]
 
-    valid_plots: List[str] = []
-    invalid_plots: List[str] = []
-
     # Note: we use `parameters.plots_original` rather than `requested_variables.vars_original`
     # because the "original" plots are expecting plot names that are not variable names.
     # The model components however are expecting plot names to be variable names.
     for rgn in parameters.regions:
+        valid_plots: List[str] = []
+        invalid_plots: List[str] = []
         make_plot_pdfs(
             parameters,
             rgn,
