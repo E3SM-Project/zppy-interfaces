@@ -1,15 +1,53 @@
 # Compute time series of ocean heat content (ohc) using MPAS-O output
 
 import glob
+import os
+import shutil
 from datetime import datetime
 
 import numpy as np
 from mpas_tools.cime.constants import constants
 from netCDF4 import Dataset, chartostring, date2num
 
+from zppy_interfaces.global_time_series.utils import Parameters
 from zppy_interfaces.multi_utils.logger import _setup_child_logger
 
 logger = _setup_child_logger(__name__)
+
+
+def create_ocean_ts(parameters: Parameters):
+    logger.info("Create ocean time series")
+    # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
+    # Creates the directory post/<subtask>ocn
+    os.makedirs(
+        f"{parameters.case_dir}/post/{parameters.subtask_name}/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr",
+        exist_ok=True,
+    )
+    input_dir: str = f"{parameters.input}/{parameters.input_subdir}"
+    # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
+    # Modifies post/ocn (which we just created in the first place)
+    ocean_month(
+        input_dir,
+        parameters.subtask_name,
+        parameters.case_dir,
+        parameters.year1,
+        parameters.year2,
+        int(parameters.ts_num_years_str),
+    )
+
+    src: str = (
+        f"{parameters.case_dir}/post/analysis/mpas_analysis/cache/timeseries/moc/{parameters.moc_file}"
+    )
+    dst: str = (
+        f"{parameters.case_dir}/post/{parameters.subtask_name}/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr/"
+    )
+    logger.info(f"Copy moc file from {src} to {dst}")
+    # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
+    # Copies files to post/<subtask>/ocn (which we just created in the first place)
+    shutil.copy(
+        src,
+        dst,
+    )
 
 
 def ocean_month(

@@ -1,10 +1,10 @@
 from typing import Any, Dict, List
 
-from zppy_interfaces.global_time_series.classic.coupled_global_plotting import (
-    make_plot_pdfs,
-)
-from zppy_interfaces.global_time_series.coupled_global_utils import (
+import matplotlib as mpl
+
+from zppy_interfaces.global_time_series.coupled_global.utils import (
     DatasetWrapper,
+    RequestedVariables,
     Variable,
     get_data_dir,
     set_var,
@@ -12,79 +12,20 @@ from zppy_interfaces.global_time_series.coupled_global_utils import (
 from zppy_interfaces.global_time_series.utils import Parameters
 from zppy_interfaces.multi_utils.logger import _setup_custom_logger
 
+mpl.use("Agg")
+
 logger = _setup_custom_logger(__name__)
 
+# This file is for handling the original plots
+# Hence, "plots_original"
 
-# Classes #####################################################################
-class RequestedVariables(object):
-    def __init__(self, parameters: Parameters):
-        self.vars_original: List[Variable] = get_vars_original(
-            parameters.plots_original
-        )
-
-
-def get_vars_original(plots_original: List[str]) -> List[Variable]:
-    # NOTE: These are ALL atmosphere variables
-    vars_original: List[Variable] = []
-    if ("net_toa_flux_restom" in plots_original) or (
-        "net_atm_energy_imbalance" in plots_original
-    ):
-        vars_original.append(Variable("RESTOM"))
-    if "net_atm_energy_imbalance" in plots_original:
-        vars_original.append(Variable("RESSURF"))
-    if "global_surface_air_temperature" in plots_original:
-        vars_original.append(Variable("TREFHT"))
-    if "toa_radiation" in plots_original:
-        vars_original.append(Variable("FSNTOA"))
-        vars_original.append(Variable("FLUT"))
-    if "net_atm_water_imbalance" in plots_original:
-        vars_original.append(Variable("PRECC"))
-        vars_original.append(Variable("PRECL"))
-        vars_original.append(Variable("QFLX"))
-    return vars_original
-
-
-# Main functionality ##########################################################
-
-
-def run_coupled_global(parameters: Parameters) -> None:
-    requested_variables = RequestedVariables(parameters)
-    run(parameters, requested_variables)
-
-
-def run(parameters: Parameters, requested_variables: RequestedVariables):
-    # Experiments
-    exps: List[Dict[str, Any]] = process_data(parameters, requested_variables)
-
-    xlim: List[float] = [float(parameters.year1), float(parameters.year2)]
-
-    # Note: we use `parameters.plots_original` rather than `requested_variables.vars_original`
-    # because the "original" plots are expecting plot names that are not variable names.
-    # The model components however are expecting plot names to be variable names.
-    for rgn in parameters.regions:
-        valid_plots: List[str] = []
-        invalid_plots: List[str] = []
-        make_plot_pdfs(
-            parameters,
-            rgn,
-            "original",
-            xlim,
-            exps,
-            parameters.plots_original,
-            valid_plots,
-            invalid_plots,
-        )
-        logger.info(f"These {rgn} region plots generated successfully: {valid_plots}")
-        if invalid_plots:
-            logger.error(
-                f"These {rgn} region plots could not be generated successfully: {invalid_plots}"
-            )
+# Used by driver.run ##########################################################
 
 
 def process_data(
     parameters: Parameters, requested_variables: RequestedVariables
 ) -> List[Dict[str, Any]]:
-    exps: List[Dict[str, Any]] = get_exps(parameters)
+    exps: List[Dict[str, Any]] = _get_exps(parameters)
     valid_vars: List[str] = []
     invalid_vars: List[str] = []
     exp: Dict[str, Any]
@@ -130,7 +71,7 @@ def process_data(
     return exps
 
 
-def get_exps(parameters: Parameters) -> List[Dict[str, Any]]:
+def _get_exps(parameters: Parameters) -> List[Dict[str, Any]]:
     # Experiments
     atm_set_intersection: set = set(
         [

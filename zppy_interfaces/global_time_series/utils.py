@@ -51,40 +51,18 @@ class Parameters(object):
         self.plots_ocn: List[str] = param_get_list(args["plots_ocn"])
 
         # Input validation
-        if self.make_viewer:
-            if self.plots_original:
-                logger.warning(
-                    f"plots_original={self.plots_original} will not be plotted in Viewer mode."
-                )
-        else:
-            if self.use_ocn and (not self.moc_file):
-                raise ValueError(
-                    "moc_file must be set for ocean plots in Classic PDF mode."
-                )
-            if self.nrows != 4:
-                logger.warning(
-                    f"nrows={self.nrows} is DEPRECATED. It will be overridden as 4."
-                )
-            if self.ncols != 2:
-                logger.warning(
-                    f"ncols={self.ncols} is DEPRECATED. It will be overridden as 2."
-                )
-            if self.plots_atm:
-                logger.warning(
-                    f"plots_atm={self.plots_atm} will not be plotted in Classic PDF mode."
-                )
-            if self.plots_ice:
-                logger.warning(
-                    f"plots_ice={self.plots_ice} will not be plotted in Classic PDF mode."
-                )
-            if self.plots_lnd:
-                logger.warning(
-                    f"plots_lnd={self.plots_lnd} will not be plotted in Classic PDF mode."
-                )
-            if self.plots_ocn:
-                logger.warning(
-                    f"plots_ocn={self.plots_ocn} will not be plotted in Classic PDF mode."
-                )
+        if self.plots_original and self.use_ocn and (not self.moc_file):
+            raise ValueError(
+                "moc_file must be set for ocean plots in the original 8-plot set."
+            )
+        if not (
+            self.plots_original
+            or self.plots_atm
+            or self.plots_ice
+            or self.plots_lnd
+            or self.plots_ocn
+        ):
+            raise ValueError("No plots are specified, so nothing will be generated.")
 
 
 def _str2bool(s: str) -> bool:

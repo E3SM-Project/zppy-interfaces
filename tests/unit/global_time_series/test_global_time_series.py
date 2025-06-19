@@ -2,31 +2,29 @@ from typing import Any, Dict, List
 
 import pytest
 
-from zppy_interfaces.global_time_series.classic.coupled_global import (
-    get_exps as classic_get_exps,
+from zppy_interfaces.global_time_series.coupled_global.mix_viewer_component import (
+    VariableGroup,
+    _get_variable_groups,
 )
-from zppy_interfaces.global_time_series.classic.coupled_global import get_vars_original
-from zppy_interfaces.global_time_series.coupled_global_plotting import get_ylim
-from zppy_interfaces.global_time_series.coupled_global_utils import (
+from zppy_interfaces.global_time_series.coupled_global.plots_component import (
+    _get_exps as component_get_exps,
+)
+from zppy_interfaces.global_time_series.coupled_global.plots_original import (
+    _get_exps as original_get_exps,
+)
+from zppy_interfaces.global_time_series.coupled_global.plotting import get_ylim
+from zppy_interfaces.global_time_series.coupled_global.utils import (
     Metric,
     Variable,
+    _land_csv_row_to_var,
+    construct_generic_variables,
     get_data_dir,
+    get_vars_original,
 )
 from zppy_interfaces.global_time_series.utils import (
     Parameters,
     get_region,
     param_get_list,
-)
-from zppy_interfaces.global_time_series.viewer.coupled_global import (
-    construct_generic_variables,
-)
-from zppy_interfaces.global_time_series.viewer.coupled_global import (
-    get_exps as viewer_get_exps,
-)
-from zppy_interfaces.global_time_series.viewer.coupled_global import land_csv_row_to_var
-from zppy_interfaces.global_time_series.viewer.coupled_global_viewer import (
-    VariableGroup,
-    get_variable_groups,
 )
 
 # Run tests with `pytest tests/unit/global_time_series/test_*.py`
@@ -171,7 +169,7 @@ def test_Parameters_and_related_functions():
     assert get_data_dir(parameters, "ocn", False) == ""
 
     # test_get_exps
-    exps: List[Dict[str, Any]] = viewer_get_exps(parameters)
+    exps: List[Dict[str, Any]] = component_get_exps(parameters)
     assert len(exps) == 1
     expected = {
         "atmos": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/atm/glb/ts/monthly/5yr/",
@@ -190,7 +188,7 @@ def test_Parameters_and_related_functions():
     )
     parameters.plots_atm = []
     parameters.plots_lnd = []
-    exps = classic_get_exps(parameters)
+    exps = original_get_exps(parameters)
     assert len(exps) == 1
     expected = {
         "atmos": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/atm/glb/ts/monthly/5yr/",
@@ -256,7 +254,7 @@ def test_land_csv_row_to_var():
     csv_row = "BCDEP,A,1.00000E+00,kg/m^2/s,kg/m^2/s,Aerosol Flux,total black carbon deposition (dry+wet) from atmosphere".split(
         ","
     )
-    v: Variable = land_csv_row_to_var(csv_row)
+    v: Variable = _land_csv_row_to_var(csv_row)
     assert v.variable_name == "BCDEP"
     assert v.metric == Metric.AVERAGE
     assert v.scale_factor == 1.0
@@ -288,7 +286,7 @@ def test_get_variable_groups():
     def get_group_names(groups: List[VariableGroup]) -> List[str]:
         return list(map(lambda g: g.group_name, groups))
 
-    assert get_group_names(get_variable_groups([a, b, x, y])) == ["GroupA", "GroupX"]
+    assert get_group_names(_get_variable_groups([a, b, x, y])) == ["GroupA", "GroupX"]
 
 
 def test_get_ylim():

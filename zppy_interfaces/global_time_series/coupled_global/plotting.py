@@ -36,7 +36,13 @@ def plot(ax, xlim, exps, param_dict, rgn):  # noqa: C901
                 continue
         else:
             year = np.array(exp["annual"]["year"]) + exp["yoffset"]
-            var = param_dict["var"](exp)
+            try:
+                var = param_dict["var"](exp)
+            except KeyError as e:
+                # We have no direct way of getting `var_name`, but
+                # `title`` also happens to be set to `var_name` in plot_generic
+                logger.error(f"Key {param_dict['title']} not found in exp={exp}")
+                raise e
         extreme_values.append(np.amax(var))
         extreme_values.append(np.amin(var))
         if param_dict["shorten_year"]:

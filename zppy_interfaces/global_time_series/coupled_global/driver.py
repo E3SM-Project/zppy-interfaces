@@ -1,0 +1,99 @@
+from typing import Any, Dict, List, Tuple
+
+from zppy_interfaces.global_time_series.coupled_global.mix_viewer_component import (
+    produce_pngs_for_viewer,
+)
+from zppy_interfaces.global_time_series.coupled_global.mode_pdf import (
+    assemble_cumulative_pdf,
+)
+from zppy_interfaces.global_time_series.coupled_global.mode_viewer import produce_viewer
+from zppy_interfaces.global_time_series.coupled_global.plots_component import (
+    process_data as component_process_data,
+)
+from zppy_interfaces.global_time_series.coupled_global.plots_original import (
+    process_data as original_process_data,
+)
+from zppy_interfaces.global_time_series.coupled_global.utils import RequestedVariables
+from zppy_interfaces.global_time_series.utils import Parameters
+from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+
+logger = _setup_custom_logger(__name__)
+
+# Main functionality ##########################################################
+
+
+def run_coupled_global(parameters: Parameters) -> None:
+    requested_variables = RequestedVariables(parameters)
+    run(parameters, requested_variables)
+    if parameters.make_viewer:
+        produce_viewer(parameters, requested_variables)
+
+
+def run(parameters: Parameters, requested_variables: RequestedVariables):
+    # Experiments
+    exps_original: List[Dict[str, Any]] = original_process_data(
+        parameters, requested_variables
+    )
+    exps_component: List[Dict[str, Any]] = component_process_data(
+        parameters, requested_variables
+    )
+
+    xlim: List[float] = [float(parameters.year1), float(parameters.year2)]
+
+    # Use list of tuples rather than a dict, to keep order
+    # Note: we use `parameters.plots_original` rather than `requested_variables.vars_original`
+    # because the "original" plots are expecting plot names that are not variable names.
+    # The model components however are expecting plot names to be variable names.
+    mapping: List[Tuple[str, List[str]]] = [
+        ("original", parameters.plots_original),
+        ("atm", list(map(lambda v: v.variable_name, requested_variables.vars_atm))),
+        ("ice", list(map(lambda v: v.variable_name, requested_variables.vars_ice))),
+        ("lnd", list(map(lambda v: v.variable_name, requested_variables.vars_land))),
+        ("ocn", list(map(lambda v: v.variable_name, requested_variables.vars_ocn))),
+    ]
+    for rgn in parameters.regions:
+        valid_plots: List[str] = []
+        invalid_plots: List[str] = []
+        for component, plot_list in mapping:
+            exps: List[Dict[str, Any]]
+            if component == "original":
+                exps = exps_original
+                assemble_cumulative_pdf(
+                    parameters,
+                    rgn,
+                    component,
+                    xlim,
+                    exps,
+                    parameters.plots_original,
+                    valid_plots,
+                    invalid_plots,
+                )
+            else:
+                exps = exps_component
+                if parameters.make_viewer:
+                    produce_pngs_for_viewer(
+                        parameters,
+                        rgn,
+                        component,
+                        xlim,
+                        exps,
+                        plot_list,
+                        valid_plots,
+                        invalid_plots,
+                    )
+                else:
+                    assemble_cumulative_pdf(
+                        parameters,
+                        rgn,
+                        component,
+                        xlim,
+                        exps,
+                        plot_list,
+                        valid_plots,
+                        invalid_plots,
+                    )
+        logger.info(f"These {rgn} region plots generated successfully: {valid_plots}")
+        if invalid_plots:
+            logger.error(
+                f"These {rgn} region plots could not be generated successfully: {invalid_plots}"
+            )
