@@ -1,103 +1,20 @@
 import math
-import os
-import traceback
+from typing import List
 
 import matplotlib as mpl
-import matplotlib.backends.backend_pdf
-import matplotlib.pyplot as plt
 import numpy as np
 
-from zppy_interfaces.global_time_series.coupled_global_plotting import plot
-from zppy_interfaces.global_time_series.utils import Parameters
+from zppy_interfaces.global_time_series.coupled_global.plotting import plot
 from zppy_interfaces.multi_utils.logger import _setup_custom_logger
 
 mpl.use("Agg")
 
 logger = _setup_custom_logger(__name__)
 
+# This file is for making cumulative PDFs for the original plots.
+# Hence, "mix_pdf_original"
 
-# FIXME: C901 'make_plot_pdfs' is too complex (20)
-def make_plot_pdfs(  # noqa: C901
-    parameters: Parameters,
-    rgn,
-    component,
-    xlim,
-    exps,
-    plot_list,
-    valid_plots,
-    invalid_plots,
-):
-    logger.info(f"Global Time Series Classic PDF: make_plot_pdfs for rgn={rgn}")
-    num_plots = len(plot_list)
-    if num_plots == 0:
-        return
-
-    plots_per_page = parameters.nrows * parameters.ncols
-    num_pages = math.ceil(num_plots / plots_per_page)
-
-    counter = 0
-    os.makedirs(parameters.results_dir, exist_ok=True)
-    # https://stackoverflow.com/questions/58738992/save-multiple-figures-with-subplots-into-a-pdf-with-multiple-pages
-    pdf = matplotlib.backends.backend_pdf.PdfPages(
-        f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.pdf"
-    )
-    for page in range(num_pages):
-        fig = plt.figure(1, figsize=[13.5, 16.5])
-        logger.info(f"Figure size={fig.get_size_inches() * fig.dpi}")
-        fig.suptitle(f"{parameters.figstr}_{rgn}_{component}")
-        for j in range(plots_per_page):
-            logger.info(
-                f"Plotting plot {j} on page {page}. This is plot {counter} in total."
-            )
-            # The final page doesn't need to be filled out with plots.
-            if counter >= num_plots:
-                break
-            ax = plt.subplot(
-                parameters.nrows,
-                parameters.ncols,
-                j + 1,
-            )
-            plot_name = plot_list[counter]
-            try:
-                plot_function = PLOT_DICT[plot_name]
-            except KeyError:
-                raise KeyError(f"Invalid plot name: {plot_name}")
-            try:
-                plot_function(ax, xlim, exps, rgn)
-                valid_plots.append(plot_name)
-            except Exception:
-                traceback.print_exc()
-                required_vars = []
-                if plot_name == "net_toa_flux_restom":
-                    required_vars = ["RESTOM"]
-                elif plot_name == "net_atm_energy_imbalance":
-                    required_vars = ["RESTOM", "RESSURF"]
-                elif plot_name == "global_surface_air_temperature":
-                    required_vars = ["TREFHT"]
-                elif plot_name == "toa_radiation":
-                    required_vars = ["FSNTOA", "FLUT"]
-                elif plot_name == "net_atm_water_imbalance":
-                    required_vars = ["PRECC", "PRECL", "QFLX"]
-                logger.error(
-                    f"Failed plot_function for {plot_name}. Check that {required_vars} are available."
-                )
-                invalid_plots.append(plot_name)
-            counter += 1
-
-        fig.tight_layout()
-        pdf.savefig(1)
-        if num_pages > 1:
-            fig.savefig(
-                f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}_{page}.png",
-                dpi=150,
-            )
-        else:
-            fig.savefig(
-                f"{parameters.results_dir}/{parameters.figstr}_{rgn}_{component}.png",
-                dpi=150,
-            )
-        plt.close(fig)
-    pdf.close()
+# Used by mode_pdf.assemble_cumulative_pdf ####################################
 
 
 # 1
@@ -366,3 +283,18 @@ PLOT_DICT = {
     "change_sea_level": plot_change_sea_level,  # only glb
     "net_atm_water_imbalance": plot_net_atm_water_imbalance,
 }
+
+
+def get_required_vars(plot_name: str) -> List[str]:
+    required_vars = []
+    if plot_name == "net_toa_flux_restom":
+        required_vars = ["RESTOM"]
+    elif plot_name == "net_atm_energy_imbalance":
+        required_vars = ["RESTOM", "RESSURF"]
+    elif plot_name == "global_surface_air_temperature":
+        required_vars = ["TREFHT"]
+    elif plot_name == "toa_radiation":
+        required_vars = ["FSNTOA", "FLUT"]
+    elif plot_name == "net_atm_water_imbalance":
+        required_vars = ["PRECC", "PRECL", "QFLX"]
+    return required_vars

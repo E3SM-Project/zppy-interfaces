@@ -1,3 +1,5 @@
+import csv
+import importlib.resources as imp_res
 import os.path
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
@@ -47,6 +49,107 @@ class Variable(object):
         self.group: str = group
         # Descriptive text to add to the plot page to help users identify the variable
         self.long_name: str = long_name
+
+
+class RequestedVariables(object):
+    def __init__(self, parameters: Parameters):
+        # Original plots
+        self.vars_original: List[Variable] = get_vars_original(
+            parameters.plots_original
+        )
+        # Component plots
+        # > Land variables are constructed differently
+        self.vars_land: List[Variable] = construct_land_variables(parameters.plots_lnd)
+        # > Other variables use the generic constructor
+        self.vars_atm: List[Variable] = construct_generic_variables(
+            parameters.plots_atm
+        )
+        self.vars_ice: List[Variable] = construct_generic_variables(
+            parameters.plots_ice
+        )
+        self.vars_ocn: List[Variable] = construct_generic_variables(
+            parameters.plots_ocn
+        )
+
+
+# For plots_original
+
+
+def get_vars_original(plots_original: List[str]) -> List[Variable]:
+    # NOTE: These are ALL atmosphere variables
+    vars_original: List[Variable] = []
+    if ("net_toa_flux_restom" in plots_original) or (
+        "net_atm_energy_imbalance" in plots_original
+    ):
+        vars_original.append(Variable("RESTOM"))
+    if "net_atm_energy_imbalance" in plots_original:
+        vars_original.append(Variable("RESSURF"))
+    if "global_surface_air_temperature" in plots_original:
+        vars_original.append(Variable("TREFHT"))
+    if "toa_radiation" in plots_original:
+        vars_original.append(Variable("FSNTOA"))
+        vars_original.append(Variable("FLUT"))
+    if "net_atm_water_imbalance" in plots_original:
+        vars_original.append(Variable("PRECC"))
+        vars_original.append(Variable("PRECL"))
+        vars_original.append(Variable("QFLX"))
+    return vars_original
+
+
+# For plots_components
+
+
+def construct_land_variables(requested_vars: List[str]) -> List[Variable]:
+    var_list: List[Variable] = []
+    header = True
+    csv_filename = str(
+        imp_res.files("zppy_interfaces.global_time_series") / "zppy_land_fields.csv"
+    )
+    with open(csv_filename, newline="") as csv_file:
+        logger.debug("Reading zppy_land_fields.csv")
+        var_reader = csv.reader(csv_file)
+        for row in var_reader:
+            # logger.debug(f"row={row}")
+            # Skip the header row
+            if header:
+                header = False
+            else:
+                # If set to "all" then we want all variables.
+                # Design note: we can't simply run all variables if requested_vars is empty because
+                # that would actually mean the user doesn't want to make *any* land plots.
+                if (requested_vars == ["all"]) or (row[0] in requested_vars):
+                    row_elements_strip_whitespace: List[str] = list(
+                        map(lambda x: x.strip(), row)
+                    )
+                    var_list.append(_land_csv_row_to_var(row_elements_strip_whitespace))
+    return var_list
+
+
+def _land_csv_row_to_var(csv_row: List[str]) -> Variable:
+    # “A” or “T” for global average over land area or global total, respectively
+    metric: Metric
+    if csv_row[1] == "A":
+        metric = Metric.AVERAGE
+    elif csv_row[1] == "T":
+        metric = Metric.TOTAL
+    else:
+        raise ValueError(f"Invalid metric={csv_row[1]}")
+    return Variable(
+        variable_name=csv_row[0],
+        metric=metric,
+        scale_factor=float(csv_row[2]),
+        original_units=csv_row[3],
+        final_units=csv_row[4],
+        group=csv_row[5],
+        long_name=csv_row[6],
+    )
+
+
+def construct_generic_variables(requested_vars: List[str]) -> List[Variable]:
+    var_list: List[Variable] = []
+    for var_name in requested_vars:
+        var_list.append(Variable(var_name))
+    return var_list
 
 
 class DatasetWrapper(object):
