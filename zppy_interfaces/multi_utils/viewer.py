@@ -11,9 +11,9 @@ from output_viewer.index import (
 )
 from output_viewer.utils import rechmod
 
-from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.multi_utils.logger import _setup_child_logger
 
-logger = _setup_custom_logger(__name__)
+logger = _setup_child_logger(__name__)
 
 
 # Copied from e3sm_diags
