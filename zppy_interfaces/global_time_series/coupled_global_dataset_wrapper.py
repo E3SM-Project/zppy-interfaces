@@ -4,9 +4,9 @@ import xarray
 import xcdat
 
 from zppy_interfaces.global_time_series.coupled_global_utils import Metric, Variable
-from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.multi_utils.logger import _setup_child_logger
 
-logger = _setup_custom_logger(__name__)
+logger = _setup_child_logger(__name__)
 
 
 class DatasetWrapper(object):

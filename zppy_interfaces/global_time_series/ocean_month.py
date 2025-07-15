@@ -7,9 +7,9 @@ import numpy as np
 from mpas_tools.cime.constants import constants
 from netCDF4 import Dataset, chartostring, date2num
 
-from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.multi_utils.logger import _setup_child_logger
 
-logger = _setup_custom_logger(__name__)
+logger = _setup_child_logger(__name__)
 
 
 def ocean_month(

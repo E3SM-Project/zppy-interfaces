@@ -17,9 +17,9 @@ from zppy_interfaces.global_time_series.coupled_global_viewer import (
     create_viewer_index,
 )
 from zppy_interfaces.global_time_series.utils import Parameters
-from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.multi_utils.logger import _setup_child_logger
 
-logger = _setup_custom_logger(__name__)
+logger = _setup_child_logger(__name__)
 
 
 # Useful helper functions and classes #########################################
