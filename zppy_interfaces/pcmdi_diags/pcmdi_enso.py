@@ -35,14 +35,22 @@ class EnsoDiagnosticsCollector:
         self.diag_metric = "enso_metric"
         self.fig_sets = OrderedDict([("ENSO_metric", ["graphics", "*"])])
 
-    def collect_figures(self, groups):
+    def collect_figures(self, groups) -> bool:
         logger.info("Entering EnsoDiagnosticsCollector.collect_figures")
+        success: bool = True
         for fset, (subdir, pattern) in self.fig_sets.items():
             logger.info(f"Processing {fset}, ({subdir}, {pattern})")
+            fdir = self.input_dir.replace("%(output_type)", subdir)
+            logger.info(f"Processing fdir={fdir}")
+            found_groups: List[str] = os.listdir(fdir)
+            if sorted(groups) != sorted(found_groups):
+                logger.error(
+                    f"Groups mismatch: expected {sorted(groups)}, found {sorted(found_groups)} in {fdir}"
+                )
+                success = False
+                continue
             for group in groups:
                 logger.info(f"Processing group={group}")
-                fdir = self.input_dir.replace("%(output_type)", subdir)
-                logger.info(f"Processing fdir={fdir}")
                 template = os.path.join(fdir, group, f"{pattern}.{self.fig_format}")
                 logger.info(
                     f"template={template}, pattern.fig_format={pattern}.{self.fig_format}"
@@ -53,6 +61,7 @@ class EnsoDiagnosticsCollector:
                     logger.error(
                         f"fpaths={fpaths}, self.input_dir={self.input_dir}, template={os.path.abspath(template)}, files in template={os.listdir(os.path.join(fdir, group))}"
                     )
+                    success = False
                 for fpath in fpaths:
                     logger.info(f"Processing fpath={fpath}")
                     tail = fpath.split("/")[-1].split(f"{self.model}_{self.relm}")[-1]
@@ -63,9 +72,11 @@ class EnsoDiagnosticsCollector:
                     os.makedirs(outpath, exist_ok=True)
                     outfile = f"{group}{tail}"
                     os.rename(fpath, os.path.join(outpath, outfile))
+        return success
 
-    def collect_metrics(self):
+    def collect_metrics(self) -> bool:
         logger.info("Entering EnsoDiagnosticsCollector.collect_metrics")
+        success: bool = True
         inpath = self.input_dir.replace("%(output_type)", "metrics_results")
         fpaths = sorted(glob.glob(os.path.join(inpath, "*/*.json")))
 
@@ -73,6 +84,7 @@ class EnsoDiagnosticsCollector:
             logger.error(
                 f"fpaths={fpaths}, self.input_dir={self.input_dir}, inpath={os.path.abspath(inpath)}, files in inpath={os.listdir(inpath)}"
             )
+            success = False
         for fpath in fpaths:
             logger.info(f"Processing fpath={fpath}")
             refmode = fpath.split("/")[-2]
@@ -94,9 +106,11 @@ class EnsoDiagnosticsCollector:
                 else base_filename
             )
             os.rename(fpath, os.path.join(outpath, outfile))
+        return success
 
-    def collect_diags(self):
+    def collect_diags(self) -> bool:
         logger.info("Entering EnsoDiagnosticsCollector.collect_diags")
+        success: bool = True
         inpath = self.input_dir.replace("%(output_type)", "diagnostic_results")
         fpaths = sorted(glob.glob(os.path.join(inpath, "*/*/*/*/*/*.nc")))
 
@@ -104,6 +118,7 @@ class EnsoDiagnosticsCollector:
             logger.error(
                 f"fpaths={fpaths}, self.input_dir={self.input_dir}, inpath={os.path.abspath(inpath)}, files in inpath={os.listdir(inpath)}"
             )
+            success = False
         for fpath in fpaths:
             logger.info(f"Processing fpath={fpath}")
             refmode = fpath.split("/")[-2]
@@ -117,13 +132,20 @@ class EnsoDiagnosticsCollector:
             os.makedirs(outpath, exist_ok=True)
 
             os.rename(fpath, os.path.join(outpath, reffile))
+        return success
 
     def run(self, groups):
         logger.info("Entering EnsoDiagnosticsCollector.run")
-        self.collect_figures(groups)
-        self.collect_metrics()
-        self.collect_diags()
-        logger.info("Completing EnsoDiagnosticsCollector.run")
+        figures_success: bool = self.collect_figures(groups)
+        metrics_success: bool = self.collect_metrics()
+        diags_success: bool = self.collect_diags()
+        if figures_success and metrics_success and diags_success:
+            logger.info("Completing EnsoDiagnosticsCollector.run")
+        else:
+            raise RuntimeError(
+                "EnsoDiagnosticsCollector.run failed: "
+                f"figures_success={figures_success}, metrics_success={metrics_success}, diags_success={diags_success}"
+            )
 
 
 # Functions ###################################################################
