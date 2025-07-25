@@ -87,15 +87,29 @@ class MoVsMetricsReader:
         return merge_lib, mode_season_list
 
     def _get_cmip_files(self):
-        return glob.glob(
-            os.path.join(
-                self.parameter["cmip_path"],
-                self.cmip_group,
-                self.cmip_model,
-                self.cmip_version,
-                "*/*/var_mode_*.json",
-            )
+        current_dir: str = os.path.abspath(os.getcwd())
+        pattern: str = os.path.join(
+            self.parameter["cmip_path"],
+            self.cmip_group,
+            self.cmip_model,
+            self.cmip_version,
+            "*/*/var_mode_*.json",
         )
+        """
+        Checking in /lcrc/group/e3sm/ac.forsyth2/zppy_pr719_output/unique_id_21/v3.LR.amip_0101/post/scripts/tmp.818290.CJbY for cmip files matching /lcrc/group/e3sm/diagnostics/pcmdi_data/metrics_data/variability_modes/cmip6/historical/v20220825/*/*/var_mode_*.json
+        """
+        logger.info(f"From {current_dir}, checking for cmip files matching {pattern}")
+        matching_files = glob.glob(pattern)
+        num_matching_files = len(matching_files)
+        logger.info(f"Found {num_matching_files} matching files")
+        for file_name in matching_files:
+            logger.debug(f"  - {file_name}")
+        if not matching_files:
+            logger.warning(
+                f"No matching files found for pattern: {pattern}. "
+                "Ensure the path and pattern are correct."
+            )
+        return matching_files
 
     def _load_movs_files(self, file_lists):
         json_lib = {}
