@@ -6,8 +6,14 @@ import time
 from collections import OrderedDict
 from typing import Dict, List
 
+from zppy_interfaces.multi_utils.logger import _setup_child_logger, _setup_root_logger
 from zppy_interfaces.pcmdi_diags.pcmdi_setup import CoreOutput, CoreParameters, set_up
 from zppy_interfaces.pcmdi_diags.utils import run_parallel_jobs, run_serial_jobs
+
+# Set up the root logger and module level logger. The module level logger is
+# a child of the root logger.
+_setup_root_logger()
+logger = _setup_child_logger(__name__)
 
 
 # Classes #####################################################################

@@ -3,10 +3,10 @@ import json
 import os
 import re
 
-from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.multi_utils.logger import _setup_child_logger
 from zppy_interfaces.pcmdi_diags.synthetic_plots.utils import find_latest_file_list
 
-logger = _setup_custom_logger(__name__)
+logger = _setup_child_logger(__name__)
 
 
 class EnsoMetricsReader:

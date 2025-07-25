@@ -7,14 +7,14 @@ import numpy as np
 import pandas as pd
 from pcmdi_metrics.utils import sort_human
 
-from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.multi_utils.logger import _setup_child_logger
 from zppy_interfaces.pcmdi_diags.synthetic_plots.utils import (
     find_latest_file_list,
     get_highlight_models,
     shift_row_to_bottom,
 )
 
-logger = _setup_custom_logger(__name__)
+logger = _setup_child_logger(__name__)
 
 
 class MoVsMetricsReader:

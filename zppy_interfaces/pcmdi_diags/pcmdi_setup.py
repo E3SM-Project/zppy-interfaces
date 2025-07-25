@@ -10,9 +10,9 @@ import xarray as xr
 from pcmdi_metrics.io import xcdat_open
 from pcmdi_metrics.utils import create_land_sea_mask
 
-from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.multi_utils.logger import _setup_child_logger
 
-logger = _setup_custom_logger(__name__)
+logger = _setup_child_logger(__name__)
 
 
 # Classes #####################################################################

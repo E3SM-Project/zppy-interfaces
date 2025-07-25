@@ -5,13 +5,13 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.multi_utils.logger import _setup_child_logger
 from zppy_interfaces.pcmdi_diags.synthetic_plots.utils import (
     get_highlight_models,
     shift_row_to_bottom,
 )
 
-logger = _setup_custom_logger(__name__)
+logger = _setup_child_logger(__name__)
 
 
 class ClimMetricsMerger:
