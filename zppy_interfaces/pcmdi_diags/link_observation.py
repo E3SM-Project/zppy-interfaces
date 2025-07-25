@@ -9,6 +9,13 @@ from typing import Dict, List
 
 from pcmdi_metrics.io import xcdat_open
 
+from zppy_interfaces.multi_utils.logger import _setup_child_logger, _setup_root_logger
+
+# Set up the root logger and module level logger. The module level logger is
+# a child of the root logger.
+_setup_root_logger()
+logger = _setup_child_logger(__name__)
+
 
 # Classes #####################################################################
 class LinkObservationParameters(object):

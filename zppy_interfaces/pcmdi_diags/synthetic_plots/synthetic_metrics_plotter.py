@@ -13,7 +13,7 @@ from pcmdi_metrics.graphics import (
     portrait_plot,
 )
 
-from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.multi_utils.logger import _setup_child_logger
 from zppy_interfaces.pcmdi_diags.synthetic_plots.clim_metrics_reader import (
     ClimMetricsReader,
 )
@@ -25,7 +25,7 @@ from zppy_interfaces.pcmdi_diags.synthetic_plots.movs_metrics_reader import (
 )
 from zppy_interfaces.pcmdi_diags.synthetic_plots.utils import get_highlight_models
 
-logger = _setup_custom_logger(__name__)
+logger = _setup_child_logger(__name__)
 
 
 class SyntheticMetricsPlotter:
