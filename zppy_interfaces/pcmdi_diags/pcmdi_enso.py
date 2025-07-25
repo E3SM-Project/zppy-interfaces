@@ -10,7 +10,11 @@ from typing import Dict, List
 
 from zppy_interfaces.multi_utils.logger import _setup_child_logger, _setup_root_logger
 from zppy_interfaces.pcmdi_diags.pcmdi_setup import CoreOutput, CoreParameters, set_up
-from zppy_interfaces.pcmdi_diags.utils import run_parallel_jobs, run_serial_jobs
+from zppy_interfaces.pcmdi_diags.utils import (
+    ALT_OBS_MAP,
+    run_parallel_jobs,
+    run_serial_jobs,
+)
 
 # Set up the root logger and module level logger. The module level logger is
 # a child of the root logger.
@@ -164,6 +168,7 @@ def main():
     build_enso_obsvar_catalog(core_output.obs_dic, core_parameters.variables)
     build_enso_obsvar_landmask(core_output.obs_dic, core_parameters.variables)
     # now start enso driver
+    check_enso_input()
     lstcmd = generate_enso_cmds(enso_parameters.enso_groups, core_parameters.case_id)
     logger.info(
         f"input_template={core_output.input_template}; if the directories based on this template are empty, lstcmd={lstcmd} failed to produce output."
@@ -172,24 +177,18 @@ def main():
         logger.info(f"Running parallel jobs for {lstcmd}")
         try:
             results = run_parallel_jobs(lstcmd, core_parameters.num_workers)
-            for i, (stdout, stderr, return_code) in enumerate(results):
-                logger.info(f"Command {i+1} finished:")
-                logger.info(f"STDOUT: {stdout}")
-                logger.info(f"STDERR: {stderr}")
-                logger.info(f"Return code: {return_code}")
+            check_enso_output(results)
         except RuntimeError as e:
             logger.error(f"Execution failed: {e}")
+            raise e
     elif (len(lstcmd) > 0) and not core_parameters.multiprocessing:
         logger.info(f"Running serial jobs for {lstcmd}")
         try:
             results = run_serial_jobs(lstcmd)
-            for i, (stdout, stderr, return_code) in enumerate(results):
-                logger.info(f"Command {i+1} finished:")
-                logger.info(f"STDOUT: {stdout}")
-                logger.info(f"STDERR: {stderr}")
-                logger.info(f"Return code: {return_code}")
+            check_enso_output(results)
         except RuntimeError as e:
             logger.error(f"Execution failed: {e}")
+            raise e
     else:
         logger.info("no jobs to run...")
     logger.info("successfully finish all jobs....")
@@ -324,6 +323,32 @@ def build_enso_obsvar_landmask(
     logger.info(f"[INFO] Landmask mapping written to: {output_file}")
 
 
+def check_enso_input():
+    current_dir: str = os.path.abspath(os.getcwd())
+    ts_dir: str = os.path.join(current_dir, "ts")
+    if not os.path.exists(ts_dir):
+        raise FileNotFoundError(f"{ts_dir} (input for enso_driver) does not exist.")
+    if not os.listdir(ts_dir):
+        raise FileNotFoundError(f"{ts_dir} is empty.")
+    else:
+        for obs_var_name, cmip_var_name in ALT_OBS_MAP.items():
+            logger.info(
+                f"Symlinking cmip-standard {cmip_var_name} to observational variable name {obs_var_name}, if present"
+            )
+            found_nc_file = glob.glob(f"ts/*.{cmip_var_name}.*.nc")
+            if found_nc_file:
+                source_file = found_nc_file[0]
+                link_name = found_nc_file[0].replace(
+                    f".{cmip_var_name}.", f".{obs_var_name}."
+                )
+                os.symlink(source_file, link_name)
+            found_txt_file = glob.glob(f"ts/{cmip_var_name}_files.txt")
+            if found_txt_file:
+                source_file = found_txt_file[0]
+                link_name = f"ts/{obs_var_name}_files.txt"
+                os.symlink(source_file, link_name)
+
+
 def generate_enso_cmds(
     enso_groups_str,
     case_id,
@@ -349,4 +374,113 @@ def generate_enso_cmds(
         )
         for group in enso_groups
     ]
+    current_dir: str = os.path.abspath(os.getcwd())
+    logger.info(f"Commands will be run from current_dir={current_dir}")
+    dir_contents: List[str] = os.listdir(current_dir)
+    if param_file not in dir_contents:
+        logger.error(
+            f"Parameter file '{param_file}' not found in current directory: {current_dir}"
+        )
+        raise FileNotFoundError(f"Parameter file '{param_file}' not found.")
+
     return commands
+
+
+def check_enso_output(results):
+    logger.info("Checking ENSO output.")
+    success: bool = True
+    for i, (stdout, stderr, return_code) in enumerate(results):
+        logger.info(f"Command {i+1} finished:")
+        logger.info(f"STDOUT: {stdout}")
+        logger.info(f"STDERR: {stderr}")
+        logger.info(f"Return code: {return_code}")
+        if not check_vars(stdout):
+            logger.error(f"Command {i+1} failed to produce expected variables.")
+            success = False
+        if not check_output_dirs(stdout):
+            logger.error(
+                f"Command {i+1} failed to produce expected output directories."
+            )
+            success = False
+    if not success:
+        raise RuntimeError("ENSO output check failed.")
+    logger.info("ENSO output check passed.")
+
+
+def check_vars(stdout: str) -> bool:
+    """
+    Check if the output from an enso_driver.py command contains expected variables.
+
+    Parameters:
+        stdout (str): Standard output from the command execution.
+
+    Returns:
+        bool: True if expected variables are found, False otherwise.
+    """
+    success: bool = True
+    match_object = re.search(r"list_variables:\s*\[(.*?)\]", stdout)
+    if match_object:
+        variables_content = match_object.group(1)
+        # Split by comma and clean up each variable name
+        requested_variables = []
+        for var in variables_content.split(","):
+            # Remove quotes, whitespace, and extract just the variable name
+            clean_var = re.sub(r"['\"\s]", "", var.strip())
+            if clean_var:  # Only care about non-empty strings
+                requested_variables.append(clean_var)
+        # Now, check if we actually have data for these variables
+        current_dir: str = os.path.abspath(os.getcwd())
+        variables_missing_data: List[str] = []
+        for var in requested_variables:
+            found_nc_file = glob.glob(f"ts/*.{var}.*.nc")
+            found_txt_file = glob.glob(f"ts/{var}_files.txt")
+            if (not found_nc_file) or (not found_txt_file):
+                variables_missing_data.append(var)
+                # Check for references
+                if var in ALT_OBS_MAP:
+                    alt_var = ALT_OBS_MAP[var]
+                    found_nc_file_alt = glob.glob(f"ts/*.{alt_var}.*.nc")
+                    found_txt_file_alt = glob.glob(f"ts/{alt_var}_files.txt")
+                    if found_nc_file_alt or found_txt_file_alt:
+                        logger.error(
+                            f"Found alternative variable '{alt_var}' for '{var}' in {current_dir}/ts. This indicates that the variable derivation/mapping has not been applied correctly."
+                        )
+        ts_dir = os.path.join(current_dir, "ts")
+        if variables_missing_data:
+            logger.error(
+                f"Variables missing data: {variables_missing_data} in directory {ts_dir}"
+            )
+            logger.error(f"Full contents of {ts_dir}: {os.listdir(ts_dir)}")
+            success = False
+        else:
+            logger.info(
+                f"All requested variables {requested_variables} found in directory {ts_dir}"
+            )
+    else:
+        logger.error("No variable list found in stdout.")
+        success = False
+    return success
+
+
+def check_output_dirs(stdout: str) -> bool:
+    current_dir: str = os.path.abspath(os.getcwd())
+    success: bool = True
+    for output_type in ["graphics", "diagnostic_results", "metrics_results"]:
+        match_object = re.search(f"output directory for {output_type}:(.*)", stdout)
+        if match_object:
+            subdir = match_object.group(1).strip()
+            combined_dir = os.path.join(current_dir, subdir)
+            if not os.path.exists(combined_dir):
+                logger.error(
+                    f"{output_type} output directory does not exist: {combined_dir}"
+                )
+                success = False
+            else:
+                if not os.listdir(combined_dir):
+                    logger.error(
+                        f"{output_type} output directory is empty: {combined_dir}"
+                    )
+                    success = False
+                # else: success = True
+        # else: success = True # Don't assume we have any particular directory
+    return success
