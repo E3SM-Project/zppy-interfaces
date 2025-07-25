@@ -6,6 +6,10 @@ from typing import Dict, List, Tuple
 
 import pandas as pd
 
+from zppy_interfaces.multi_utils.logger import _setup_child_logger
+
+logger = _setup_child_logger(__name__)
+
 
 def find_latest_file_list(
     path: str,
@@ -27,13 +31,28 @@ def find_latest_file_list(
     """
     latest_files: Dict[str, Tuple[datetime, str]] = {}
     files = glob.glob(os.path.join(path, file_pattern))
+    if not files:
+        """
+        FAILURE
 
+        No files found in /lcrc/group/e3sm/public_html/diagnostic_output/ac.forsyth2/zppy_pr719_output/unique_id_21/v3.LR.amip_0101/pcmdi_diags/model_vs_obs/metrics_data/variability_modes/*/* that match pattern: var_mode_*.json
+
+        ls /lcrc/group/e3sm/public_html/diagnostic_output/ac.forsyth2/zppy_pr_719_output/unique_id_21/v3.LR.amip_0101/pcmdi_diags/model_vs_obs/metrics_data/variability_modes/
+        AMO  NAM  NAO  NPGO  NPO  PDO  PNA  PSA1  PSA2  SAM
+
+        ls /lcrc/group/e3sm/public_html/diagnostic_output/ac.forsyth2/zppy_pr719_output/unique_id_21/v3.LR.amip_0101/pcmdi_diags/model_vs_obs/metrics_data/variability_modes/AMO/HadISST2/
+        AMO_ts_EOF1_monthly_obs_1869-2014.nc  AMO_ts_EOF1_yearly_obs_1869-2014.nc
+
+        SYNTHETIC PLOTS ERROR #2: No json files produced by variability modes, even though those jobs completed successfully!
+        """
+        logger.error(f"No files found in {path} that match pattern: {file_pattern}")
     for f in files:
         fname = os.path.basename(f)
         var_match = re.search(var_pattern, fname)
         time_match = re.search(time_pattern, fname)
 
         if var_match and time_match:
+            logger.info(f"{fname} matched var and time patterns")
             var = var_match.group(1)
             try:
                 timestamp = datetime.strptime(time_match.group(1), "%Y%m%d")
@@ -42,6 +61,8 @@ def find_latest_file_list(
 
             if var not in latest_files or timestamp > latest_files[var][0]:
                 latest_files[var] = (timestamp, f)
+        else:
+            logger.warning(f"{fname} failed to match both var and time patterns")
 
     return [file for _, file in latest_files.values()]
 

@@ -47,6 +47,24 @@ class ClimMetricsReader:
         logger.info("file_paths=")
         for i, fp in enumerate(file_paths):
             logger.info(f"{i}. {fp}")
+        """
+        FAILURE:
+
+        list(results_dict_var["RESULTS"][model_list[0]]["default"][run_list[0]].keys())
+        IndexError: list index out of range
+
+        cat /lcrc/group/e3sm/public_html/diagnostic_output/ac.forsyth2/zppy_pr719_output/unique_id_21/v3.LR.amip_0101/pcmdi_diags/model_vs_obs/metrics_data/mean_climate/rlus.2.5x2.5.e3sm.amip.v3-LR_0101.v20250725.json
+
+        "RESULTS": {
+            "v3-LR": {
+                "default": {
+                    "source": "ceres_ebaf_v4_1"
+                }
+            }
+        },
+
+        SYNTHETIC PLOTS ERROR #1: "source" is supposed to be a dictionary itself, even though mean_climate job completed successfully!
+        """
         lib = Metrics(file_paths)
         lib = check_badvals(lib)
         if self.unit_check:
