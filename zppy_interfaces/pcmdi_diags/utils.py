@@ -4,9 +4,9 @@ from typing import List, Tuple
 
 import psutil
 
-from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.multi_utils.logger import _setup_child_logger
 
-logger = _setup_custom_logger(__name__)
+logger = _setup_child_logger(__name__)
 
 
 def count_child_processes(process=None):
