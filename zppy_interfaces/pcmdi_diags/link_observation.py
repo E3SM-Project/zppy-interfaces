@@ -10,6 +10,7 @@ from typing import Dict, List
 from pcmdi_metrics.io import xcdat_open
 
 from zppy_interfaces.multi_utils.logger import _setup_child_logger, _setup_root_logger
+from zppy_interfaces.pcmdi_diags.utils import ALT_OBS_MAP
 
 # Set up the root logger and module level logger. The module level logger is
 # a child of the root logger.
@@ -160,24 +161,13 @@ class ObservationLinker:
 # Functions ###################################################################
 def main():
     parameters: LinkObservationParameters = _get_args()
-    # Mapping from observational variable names to CMIP-standard
-    alt_obs_map: Dict[str, str] = {
-        "pr": "PRECT",
-        "sst": "ts",
-        "sfcWind": "si10",
-        "taux": "tauu",
-        "tauy": "tauv",
-        "rltcre": "toa_cre_lw_mon",
-        "rstcre": "toa_cre_sw_mon",
-        "rtmt": "toa_net_all_mon",
-    }
     linker = ObservationLinker(
         model_name=parameters.model_name,
         variables=parameters.variables,
         obs_sets=parameters.obs_sets,
         ts_dir_ref_source=parameters.obs_ts,
         obstmp_dir=parameters.obstmp_dir,
-        altobs_dic=alt_obs_map,
+        altobs_dic=ALT_OBS_MAP,
         obs_alias_file="reference_alias.json",
     )
     linker.link_obs_data()

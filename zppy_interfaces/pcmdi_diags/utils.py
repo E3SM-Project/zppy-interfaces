@@ -1,12 +1,24 @@
 import time
 from subprocess import PIPE, Popen
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import psutil
 
 from zppy_interfaces.multi_utils.logger import _setup_child_logger
 
 logger = _setup_child_logger(__name__)
+
+# Mapping from observational variable names to CMIP-standard
+ALT_OBS_MAP: Dict[str, str] = {
+    "pr": "PRECT",
+    "sst": "ts",
+    "sfcWind": "si10",
+    "taux": "tauu",
+    "tauy": "tauv",
+    "rltcre": "toa_cre_lw_mon",
+    "rstcre": "toa_cre_sw_mon",
+    "rtmt": "toa_net_all_mon",
+}
 
 
 def count_child_processes(process=None):
