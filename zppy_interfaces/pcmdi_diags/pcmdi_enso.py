@@ -119,7 +119,7 @@ class EnsoDiagnosticsCollector:
         logger.info("Entering EnsoDiagnosticsCollector.collect_diags")
         success: bool = True
         inpath = self.input_dir.replace("%(output_type)", "diagnostic_results")
-        fpaths = sorted(glob.glob(os.path.join(inpath, "*/*/*/*/*/*.nc")))
+        fpaths = sorted(glob.glob(os.path.join(inpath, "*/*.nc")))
 
         if not fpaths:
             logger.error(
