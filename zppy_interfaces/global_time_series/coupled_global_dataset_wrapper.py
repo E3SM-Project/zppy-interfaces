@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Any, List, Optional, Tuple
 
 import xarray
 import xcdat
@@ -10,16 +10,20 @@ logger = _setup_child_logger(__name__)
 
 
 class DatasetWrapper(object):
-    def __init__(self, directory):
+    def __init__(self, directory: str, var_list: List[Variable]):
 
         self.directory: str = directory
 
         # `directory` will be of the form `{case_dir}/post/<component>/glb/ts/monthly/{ts_num_years_str}yr/`
+        file_path_list: List[str] = []
+        for var in var_list:
+            # `var` will be of the form `FSNS`, `FLNS`, etc.
+            file_path_list.append(f"{directory}{var.variable_name}*.nc")
         self.dataset: xarray.core.dataset.Dataset = xcdat.open_mfdataset(
-            f"{directory}*.nc", center_times=True
+            file_path_list, center_times=True
         )
 
-        self.area_tuple = None
+        self.area_tuple: Optional[Tuple[Any, Any, Any]] = None
 
     def set_area_tuple(self):
         keys = list(self.dataset.keys())
