@@ -15,11 +15,11 @@ from zppy_interfaces.global_time_series.coupled_global.plots_component import (
     plot_generic,
 )
 from zppy_interfaces.global_time_series.utils import Parameters
-from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.multi_utils.logger import _setup_child_logger
 
 mpl.use("Agg")
 
-logger = _setup_custom_logger(__name__)
+logger = _setup_child_logger(__name__)
 
 # This file is for making cumulative PDFs
 # Hence, "mode_pdf"

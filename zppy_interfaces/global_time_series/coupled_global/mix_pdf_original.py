@@ -5,11 +5,11 @@ import matplotlib as mpl
 import numpy as np
 
 from zppy_interfaces.global_time_series.coupled_global.plotting import plot
-from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.multi_utils.logger import _setup_child_logger
 
 mpl.use("Agg")
 
-logger = _setup_custom_logger(__name__)
+logger = _setup_child_logger(__name__)
 
 # This file is for making cumulative PDFs for the original plots.
 # Hence, "mix_pdf_original"

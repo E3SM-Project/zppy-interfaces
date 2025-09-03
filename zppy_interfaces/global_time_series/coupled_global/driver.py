@@ -15,9 +15,9 @@ from zppy_interfaces.global_time_series.coupled_global.plots_original import (
 )
 from zppy_interfaces.global_time_series.coupled_global.utils import RequestedVariables
 from zppy_interfaces.global_time_series.utils import Parameters
-from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.multi_utils.logger import _setup_child_logger
 
-logger = _setup_custom_logger(__name__)
+logger = _setup_child_logger(__name__)
 
 # Main functionality ##########################################################
 

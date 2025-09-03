@@ -1,8 +1,8 @@
 from zppy_interfaces.global_time_series.utils import Parameters
-from zppy_interfaces.multi_utils.logger import _setup_custom_logger
+from zppy_interfaces.multi_utils.logger import _setup_child_logger
 from zppy_interfaces.multi_utils.viewer import OutputViewer
 
-logger = _setup_custom_logger(__name__)
+logger = _setup_child_logger(__name__)
 
 # This file is for making Viewers for the original plots.
 # Hence, "mix_viewer_original"
