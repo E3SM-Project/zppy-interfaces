@@ -335,17 +335,17 @@ def check_enso_input():
             logger.info(
                 f"Symlinking cmip-standard {cmip_var_name} to observational variable name {obs_var_name}, if present"
             )
-            found_nc_file = glob.glob(f"ts/*.{cmip_var_name}.*.nc")
+            found_nc_file = glob.glob(f"{ts_dir}/*.{cmip_var_name}.*.nc")
             if found_nc_file:
                 source_file = found_nc_file[0]
                 link_name = found_nc_file[0].replace(
                     f".{cmip_var_name}.", f".{obs_var_name}."
                 )
                 os.symlink(source_file, link_name)
-            found_txt_file = glob.glob(f"ts/{cmip_var_name}_files.txt")
+            found_txt_file = glob.glob(f"{ts_dir}/{cmip_var_name}_files.txt")
             if found_txt_file:
                 source_file = found_txt_file[0]
-                link_name = f"ts/{obs_var_name}_files.txt"
+                link_name = f"{ts_dir}/{obs_var_name}_files.txt"
                 os.symlink(source_file, link_name)
 
 
@@ -419,6 +419,8 @@ def check_vars(stdout: str) -> bool:
     """
     success: bool = True
     match_object = re.search(r"list_variables:\s*\[(.*?)\]", stdout)
+    # Special-case "optional" missing variables (these quantities may not be frequently output)
+    optional_missing = {"ssh", "thf"}
     if match_object:
         variables_content = match_object.group(1)
         # Split by comma and clean up each variable name
@@ -447,11 +449,19 @@ def check_vars(stdout: str) -> bool:
                         )
         ts_dir = os.path.join(current_dir, "ts")
         if variables_missing_data:
-            logger.error(
-                f"Variables missing data: {variables_missing_data} in directory {ts_dir}"
-            )
-            logger.error(f"Full contents of {ts_dir}: {os.listdir(ts_dir)}")
-            success = False
+            if set(variables_missing_data) <= optional_missing:
+                # Only ssh/thf are missing → warn but do not fail
+                logger.warning(
+                        f"Optional variables missing: {variables_missing_data} in directory{ts_dir}"
+                )
+                success = True
+            else:
+                # Other variables missing → error and fail
+                logger.error(
+                        f"Variables missing data: {variables_missing_data} in directory {ts_dir}"
+                )
+                logger.error(f"Full contents of {ts_dir}: {os.listdir(ts_dir)}")
+                success = False
         else:
             logger.info(
                 f"All requested variables {requested_variables} found in directory {ts_dir}"
