@@ -192,8 +192,8 @@ def test_Parameters_and_related_functions():
     expected = {
         "atmos": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/atm/glb/ts/monthly/5yr/",
         "ocean": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/ocn/glb/ts/monthly/5yr/",
-        "moc": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/global_time_series_subsection_name/ocn/glb/ts/monthly/5yr/",
-        "vol": "/lcrc/group/e3sm/ac.forsyth2/zppy_min_case_global_time_series_single_plots_output/test-616-20240930/v3.LR.historical_0051/post/global_time_series_subsection_name/ocn/glb/ts/monthly/5yr/",
+        "moc": "results/ocn/glb/ts/monthly/5yr/",
+        "vol": "results/ocn/glb/ts/monthly/5yr/",
         "name": "v3.LR.historical_0051",
         "yoffset": 0.0,
         "yr": ([1985, 1989],),
