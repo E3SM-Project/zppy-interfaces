@@ -18,7 +18,7 @@ def create_viewer_for_original(parameters: Parameters) -> str:
     viewer.add_page(f"table_{component}", parameters.regions)
     viewer.add_group("Original Plots")
     # PDFs -- these don't show up when clicked on, but they CAN be downloaded
-    row_title: str = "Original Plots, PDFs"
+    row_title: str = "Original Plots, PDFs (click for download)"
     viewer.add_row(row_title)
     for rgn in parameters.regions:
         viewer.add_col(
@@ -27,7 +27,7 @@ def create_viewer_for_original(parameters: Parameters) -> str:
             title=f"{rgn}_{component}",
         )
     # PNGs -- these show up when clicked on
-    row_title = "Original Plots, PNGs"
+    row_title = "Original Plots, PNGs (click to view)"
     viewer.add_row(row_title)
     for rgn in parameters.regions:
         viewer.add_col(

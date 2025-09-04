@@ -18,12 +18,14 @@ logger = _setup_child_logger(__name__)
 def create_ocean_ts(parameters: Parameters):
     logger.info("Create ocean time series")
     # Create output directory in results_dir (simplified structure)
-    output_dir = f"{parameters.results_dir}/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr"
+    output_dir = (
+        f"{parameters.results_dir}/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr"
+    )
     os.makedirs(output_dir, exist_ok=True)
-    
+
     # Input: Raw MPAS-O data
     input_dir: str = f"{parameters.input}/{parameters.input_subdir}"
-    
+
     # Generate ocean time series in results_dir
     ocean_month(
         input_dir,
@@ -33,7 +35,7 @@ def create_ocean_ts(parameters: Parameters):
         int(parameters.ts_num_years_str),
     )
 
-    # Input: MOC file from case_dir (existing MPAS-Analysis results)  
+    # Input: MOC file from case_dir (existing MPAS-Analysis results)
     src: str = (
         f"{parameters.case_dir}/post/analysis/mpas_analysis/cache/timeseries/moc/{parameters.moc_file}"
     )
