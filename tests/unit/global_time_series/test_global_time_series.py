@@ -143,7 +143,7 @@ def test_Parameters_and_related_functions():
         "HR",
     ]
     assert parameters.plots_ocn == []
-    assert parameters.use_ocn == False
+    assert parameters.use_ocn is False
 
     # test_get_data_dir
     assert (
@@ -200,7 +200,6 @@ def test_Parameters_and_related_functions():
         "color": "Blue",
     }
     assert exps[0] == expected
-
 
 
 def test_Variable():
