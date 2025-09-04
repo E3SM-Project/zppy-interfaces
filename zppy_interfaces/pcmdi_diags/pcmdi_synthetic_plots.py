@@ -25,7 +25,8 @@ logger = _setup_child_logger(__name__)
 # Classes #####################################################################
 class SyntheticPlotsParameters(object):
     def __init__(self, args: Dict[str, str]):
-        self.figure_sets: List[str] = args["synthetic_sets"].split(",")
+        self.figure_sets: List[str] = args["figure_sets"].split(",")
+        self.figure_sets_period: List[str] = args["figure_sets_period"].split(",")
         self.figure_format: str = args["figure_format"]
         self.www: str = args["www"]
         self.results_dir: str = args["results_dir"]
@@ -45,7 +46,6 @@ class SyntheticPlotsParameters(object):
         self.pcmdi_webtitle: str = args["pcmdi_webtitle"]
         self.pcmdi_version: str = args["pcmdi_version"]
         self.run_type: str = args["run_type"]
-        self.ts_years: str = args["ts_years"]
         self.pcmdi_external_prefix: str = args["pcmdi_external_prefix"]
         self.pcmdi_viewer_template: str = args["pcmdi_viewer_template"]
 
@@ -93,12 +93,12 @@ def main():
     plotter.generate(parameters.groups)
     logger.info("Generating viewer page for diagnostics...")
     subtitle = parameters.run_type.replace("_", " ").capitalize()
-    # ts_years is assumed to be a list via string_list(default=list(""))
-    ts_periods: List[str] = (
-        parameters.ts_years if isinstance(parameters.ts_years, list) else []
+    # figure_sets_period is a list like figure_sets
+    figure_sets_period: List[str] = (
+        parameters.figure_sets_period if isinstance(parameters.figure_sets_period, list) else []
     )
     # Validate and unpack periods
-    if len(ts_periods) == 3:
+    if len(figure_sets_period) == 3:
         clim_period, emov_period, enso_period = [p.strip() for p in ts_periods]
     else:
         raise ValueError(
@@ -163,11 +163,11 @@ def _get_args() -> Dict[str, str]:
     parser.add_argument("--cpl_modes", type=str)
     parser.add_argument("--cmip_enso_dir", type=str)
     parser.add_argument("--cmip_enso_set", type=str)
-    parser.add_argument("--sub_sets", type=str)
+    parser.add_argument("--figure_sets", type=str)
     parser.add_argument("--pcmdi_webtitle", type=str)
     parser.add_argument("--pcmdi_version", type=str)
     parser.add_argument("--run_type", type=str)
-    parser.add_argument("--ts_years", type=str)  # Or List[str] ???
+    parser.add_argument("--figure_sets_period", type=str)  
     parser.add_argument("--pcmdi_external_prefix", type=str)
     parser.add_argument("--pcmdi_viewer_template", type=str)
 
