@@ -29,7 +29,6 @@ class Parameters(object):
 
         # Used by Classic PDF only
         # For ocean_month
-        self.subtask_name: str = f"global_time_series_{args['subsection']}"
         self.use_ocn: bool = _str2bool(args["use_ocn"])
         self.input: str = args["input"]
         self.input_subdir: str = args["input_subdir"]

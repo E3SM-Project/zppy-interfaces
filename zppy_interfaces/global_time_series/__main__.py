@@ -84,7 +84,6 @@ def _get_args() -> Parameters:
 
     # For plots_original
     # > For ocean_month
-    parser.add_argument("--subsection", type=str, help="Subtask name")
     parser.add_argument("--use_ocn", type=str, help="Use ocean")
     parser.add_argument("--input", type=str, help="Input directory")
     parser.add_argument("--input_subdir", type=str, help="Input subdirectory")

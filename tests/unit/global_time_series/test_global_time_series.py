@@ -83,7 +83,6 @@ def test_Parameters_and_related_functions():
         "regions": "glb,n,s",
         "start_yr": "1985",
         "end_yr": "1989",
-        "subsection": "subsection_name",
         "use_ocn": "True",
         "input": "/lcrc/group/e3sm2/ac.wlin/E3SMv3/v3.LR.historical_0051",
         "input_subdir": "archive/atm/hist",
@@ -111,7 +110,6 @@ def test_Parameters_and_related_functions():
     assert parameters.regions == ["glb", "n", "s"]
     assert parameters.year1 == 1985
     assert parameters.year2 == 1989
-    assert parameters.subtask_name == "global_time_series_subsection_name"
     assert parameters.plots_original == []
     assert parameters.nrows == 1
     assert parameters.ncols == 1
