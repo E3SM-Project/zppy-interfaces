@@ -42,7 +42,6 @@ class SyntheticPlotsParameters(object):
         self.cpl_modes: str = args["cpl_modes"]
         self.cmip_enso_dir: str = args["cmip_enso_dir"]
         self.cmip_enso_set: str = args["cmip_enso_set"]
-        self.groups: List[str] = args["sub_sets"].split(",")
         self.pcmdi_webtitle: str = args["pcmdi_webtitle"]
         self.pcmdi_version: str = args["pcmdi_version"]
         self.run_type: str = args["run_type"]
@@ -89,8 +88,8 @@ def main():
     )
     # Generate Summary Metrics plots
     # e.g., "climatology,enso,variability"
-    logger.info(f"Generating groups={parameters.groups}")
-    plotter.generate(parameters.groups)
+    logger.info(f"Generating groups={parameters.figure_sets}")
+    plotter.generate(parameters.figure_sets)
     logger.info("Generating viewer page for diagnostics...")
     subtitle = parameters.run_type.replace("_", " ").capitalize()
     # figure_sets_period is a list like figure_sets
