@@ -452,13 +452,13 @@ def check_vars(stdout: str) -> bool:
             if set(variables_missing_data) <= optional_missing:
                 # Only ssh/thf are missing → warn but do not fail
                 logger.warning(
-                        f"Optional variables missing: {variables_missing_data} in directory{ts_dir}"
+                    f"Optional variables missing: {variables_missing_data} in directory{ts_dir}"
                 )
                 success = True
             else:
                 # Other variables missing → error and fail
                 logger.error(
-                        f"Variables missing data: {variables_missing_data} in directory {ts_dir}"
+                    f"Variables missing data: {variables_missing_data} in directory {ts_dir}"
                 )
                 logger.error(f"Full contents of {ts_dir}: {os.listdir(ts_dir)}")
                 success = False
