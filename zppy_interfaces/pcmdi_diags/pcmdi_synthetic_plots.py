@@ -95,15 +95,17 @@ def main():
     subtitle = parameters.run_type.replace("_", " ").capitalize()
     # figure_sets_period is a list like figure_sets
     figure_sets_period: List[str] = (
-        parameters.figure_sets_period if isinstance(parameters.figure_sets_period, list) else []
+        parameters.figure_sets_period
+        if isinstance(parameters.figure_sets_period, list)
+        else []
     )
     # Validate and unpack periods
     if len(figure_sets_period) == 3:
-        clim_period, emov_period, enso_period = [p.strip() for p in ts_periods]
+        clim_period, emov_period, enso_period = [p.strip() for p in figure_sets_period]
     else:
         raise ValueError(
             f"Expected 3 periods (climatology, EMoV, ENSO), "
-            f"but got {len(ts_periods)}: {ts_periods}"
+            f"but got {len(figure_sets_period)}: {figure_sets_period}"
         )
     # Set up paths
     obs_dir = os.path.join(
@@ -167,7 +169,7 @@ def _get_args() -> Dict[str, str]:
     parser.add_argument("--pcmdi_webtitle", type=str)
     parser.add_argument("--pcmdi_version", type=str)
     parser.add_argument("--run_type", type=str)
-    parser.add_argument("--figure_sets_period", type=str)  
+    parser.add_argument("--figure_sets_period", type=str)
     parser.add_argument("--pcmdi_external_prefix", type=str)
     parser.add_argument("--pcmdi_viewer_template", type=str)
 
