@@ -9,6 +9,9 @@ import numpy as np
 import xarray
 import xcdat
 
+# Set xarray options to suppress FutureWarning about compat parameter defaults
+xarray.set_options(use_new_combine_kwarg_defaults=True)
+
 from zppy_interfaces.global_time_series.utils import Parameters
 from zppy_interfaces.multi_utils.logger import _setup_child_logger
 

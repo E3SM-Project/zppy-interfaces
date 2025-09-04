@@ -69,39 +69,39 @@ def _get_args() -> Parameters:
 
     # Used in all cases
     # > For determining which output type to produce
-    parser.add_argument("--make_viewer", type=str, help="Make viewer")
+    parser.add_argument("--make_viewer", type=str, default="False", help="Make viewer")
     # > For coupled_global
     parser.add_argument("--case_dir", type=str, help="Case directory")
     parser.add_argument("--experiment_name", type=str, help="Experiment name")
-    parser.add_argument("--figstr", type=str, help="Figure string")
-    parser.add_argument("--color", type=str, help="Color")
-    parser.add_argument("--ts_num_years", type=str, help="Time series number of years")
+    parser.add_argument("--figstr", type=str, default="", help="Figure string")
+    parser.add_argument("--color", type=str, default="Blue", help="Color")
+    parser.add_argument("--ts_num_years", type=str, default="5", help="Time series number of years")
     parser.add_argument("--results_dir", type=str, help="Results directory")
-    parser.add_argument("--regions", type=str, help="Regions")
+    parser.add_argument("--regions", type=str, default="glb,n,s", help="Regions")
     # > For both ocean_month and coupled_global
     parser.add_argument("--start_yr", type=str, help="Start year")
     parser.add_argument("--end_yr", type=str, help="End year")
 
     # For plots_original
     # > For ocean_month
-    parser.add_argument("--use_ocn", type=str, help="Use ocean")
+    parser.add_argument("--use_ocn", type=str, default="False", help="Use ocean (should match ocean plots in plots_original/plots_ocn)")
     parser.add_argument("--input", type=str, help="Input directory")
-    parser.add_argument("--input_subdir", type=str, help="Input subdirectory")
-    parser.add_argument("--moc_file", type=str, help="MOC file")
+    parser.add_argument("--input_subdir", type=str, default="archive/ocn/hist", help="Input subdirectory")
+    parser.add_argument("--moc_file", type=str, default="None", help="MOC file")
     # > For coupled_global
-    parser.add_argument("--plots_original", type=str, help="Plots original")
+    parser.add_argument("--plots_original", type=str, default="net_toa_flux_restom,global_surface_air_temperature,toa_radiation,net_atm_energy_imbalance,change_ohc,max_moc,change_sea_level,net_atm_water_imbalance", help="Plots original")
 
     # For plots_component
     # > For coupled_global
-    parser.add_argument("--plots_atm", type=str, help="Plots atmosphere")
-    parser.add_argument("--plots_ice", type=str, help="Plots ice")
-    parser.add_argument("--plots_lnd", type=str, help="Plots land")
-    parser.add_argument("--plots_ocn", type=str, help="Plots ocean")
+    parser.add_argument("--plots_atm", type=str, default="None", help="Plots atmosphere")
+    parser.add_argument("--plots_ice", type=str, default="None", help="Plots ice")
+    parser.add_argument("--plots_lnd", type=str, default="None", help="Plots land")
+    parser.add_argument("--plots_ocn", type=str, default="None", help="Plots ocean")
 
     # Used for mode_pdf, regardless of plot type
     # > For coupled_global
-    parser.add_argument("--ncols", type=str, help="Number of columns in pdf")
-    parser.add_argument("--nrows", type=str, help="Number of rows in pdf")
+    parser.add_argument("--ncols", type=str, default="2", help="Number of columns in pdf")
+    parser.add_argument("--nrows", type=str, default="4", help="Number of rows in pdf")
 
     # Ignore the first arg
     # (zi-global-time-series)

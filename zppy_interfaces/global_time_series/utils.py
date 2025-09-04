@@ -50,6 +50,9 @@ class Parameters(object):
         self.plots_ocn: List[str] = param_get_list(args["plots_ocn"])
 
         # Input validation
+        # Note: use_ocn should be True if ocean plots are requested in plots_original
+        # (change_ohc, max_moc, change_sea_level) or plots_ocn is non-empty.
+        # This follows zppy's logic where use_ocn is auto-determined from plot content.
         if self.plots_original and self.use_ocn and (not self.moc_file):
             raise ValueError(
                 "moc_file must be set for ocean plots in the original 8-plot set."

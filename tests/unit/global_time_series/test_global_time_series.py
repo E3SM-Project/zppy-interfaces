@@ -83,7 +83,7 @@ def test_Parameters_and_related_functions():
         "regions": "glb,n,s",
         "start_yr": "1985",
         "end_yr": "1989",
-        "use_ocn": "True",
+        "use_ocn": "False",
         "input": "/lcrc/group/e3sm2/ac.wlin/E3SMv3/v3.LR.historical_0051",
         "input_subdir": "archive/atm/hist",
         "moc_file": "mocTimeSeries_1985-1995.nc",
@@ -143,6 +143,7 @@ def test_Parameters_and_related_functions():
         "HR",
     ]
     assert parameters.plots_ocn == []
+    assert parameters.use_ocn == False
 
     # test_get_data_dir
     assert (
@@ -199,6 +200,7 @@ def test_Parameters_and_related_functions():
         "color": "Blue",
     }
     assert exps[0] == expected
+
 
 
 def test_Variable():
