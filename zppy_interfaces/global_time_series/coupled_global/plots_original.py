@@ -87,10 +87,11 @@ def _get_exps(parameters: Parameters) -> List[Dict[str, Any]]:
         ["change_ohc", "max_moc", "change_sea_level"]
     ) & set(parameters.plots_original)
     ocean_dir = get_data_dir(parameters, "ocn", ocn_set_intersection != set())
-    ocean_month_dir = get_data_dir(
-        parameters,
-        f"{parameters.subtask_name}/ocn",
-        ocn_set_intersection != set(),
+    # Ocean time series data is in results_dir with simplified structure
+    ocean_month_dir = (
+        f"{parameters.results_dir}/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr/"
+        if ocn_set_intersection != set()
+        else ""
     )
     exps: List[Dict[str, Any]] = [
         {

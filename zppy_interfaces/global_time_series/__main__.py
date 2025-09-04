@@ -50,6 +50,8 @@ def main(parameters=None):
         if set(["change_ohc", "max_moc", "change_sea_level"]) & set(
             parameters.plots_original
         ):
+            # NOTE: READS FROM case_dir (existing MPAS-Analysis results) and input (raw MPAS-O data)
+            # WRITES TO results_dir (new ocean time series output)
             create_ocean_ts(parameters)
     logger.info("Update time series figures")
     # NOTE: PRODUCES OUTPUT IN THE CURRENT DIRECTORY (not necessarily the case directory)

@@ -17,48 +17,40 @@ logger = _setup_child_logger(__name__)
 
 def create_ocean_ts(parameters: Parameters):
     logger.info("Create ocean time series")
-    # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
-    # Creates the directory post/<subtask>ocn
-    os.makedirs(
-        f"{parameters.case_dir}/post/{parameters.subtask_name}/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr",
-        exist_ok=True,
-    )
+    # Create output directory in results_dir (simplified structure)
+    output_dir = f"{parameters.results_dir}/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr"
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Input: Raw MPAS-O data
     input_dir: str = f"{parameters.input}/{parameters.input_subdir}"
-    # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
-    # Modifies post/ocn (which we just created in the first place)
+    
+    # Generate ocean time series in results_dir
     ocean_month(
         input_dir,
-        parameters.subtask_name,
-        parameters.case_dir,
+        output_dir,
         parameters.year1,
         parameters.year2,
         int(parameters.ts_num_years_str),
     )
 
+    # Input: MOC file from case_dir (existing MPAS-Analysis results)  
     src: str = (
         f"{parameters.case_dir}/post/analysis/mpas_analysis/cache/timeseries/moc/{parameters.moc_file}"
     )
-    dst: str = (
-        f"{parameters.case_dir}/post/{parameters.subtask_name}/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr/"
-    )
+    # Output: Copy to results_dir (new ocean time series location)
+    dst: str = output_dir + "/"
     logger.info(f"Copy moc file from {src} to {dst}")
-    # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
-    # Copies files to post/<subtask>/ocn (which we just created in the first place)
-    shutil.copy(
-        src,
-        dst,
-    )
+    shutil.copy(src, dst)
 
 
 def ocean_month(
     path_in: str,
-    subtask_name: str,
-    case_dir: str,
+    path_out: str,
     start_yr: int,
     end_yr: int,
     ts_num_years: int,
 ):
-    path_out = f"{case_dir}/post/{subtask_name}/ocn/glb/ts/monthly/{ts_num_years}yr"
+    # path_out is now directly provided as the output directory
 
     # Ocean constants
     # specific heat [J/(kg*degC)]
