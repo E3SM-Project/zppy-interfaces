@@ -102,6 +102,108 @@ def get_vars_original(plots_original: List[str]) -> List[Variable]:
 # For plots_components
 
 
+def get_variable_files(
+    var_name: str, directory: str, parameters: Parameters
+) -> List[str]:
+    """Get list of NetCDF files for a single variable."""
+    file_path_list: List[str] = []
+    num_years: int = int(parameters.ts_num_years_str)
+    y1: int = parameters.year1
+    y2: int = parameters.year1 + num_years - 1
+
+    while y2 <= parameters.year2:
+        file_path: str = f"{directory}{var_name}_{y1:04d}01_{y2:04d}12.nc"
+        if os.path.exists(file_path):
+            file_path_list.append(file_path)
+        y1 += num_years
+        y2 += num_years
+
+    return file_path_list
+
+
+def apply_scaling(
+    data_array: xarray.core.dataarray.DataArray,
+    metric: Metric,
+    dataset: xarray.core.dataset.Dataset,
+) -> xarray.core.dataarray.DataArray:
+    """Apply area scaling for TOTAL metrics."""
+    if metric != Metric.TOTAL:
+        return data_array
+
+    # Calculate land areas for scaling
+    keys = list(dataset.keys())
+    if "valid_area_per_gridcell" in keys:
+        land_area_per_gridcell = dataset["valid_area_per_gridcell"]
+        total_land_area = land_area_per_gridcell.sum()
+        north_land_area = land_area_per_gridcell.where(
+            land_area_per_gridcell.lat >= 0
+        ).sum()
+        south_land_area = land_area_per_gridcell.where(
+            land_area_per_gridcell.lat < 0
+        ).sum()
+    else:
+        area = dataset["area"]
+        landfrac = dataset["landfrac"]
+        total_land_area = (area * landfrac).sum()
+        north_area = area.where(area.lat >= 0)
+        north_landfrac = landfrac.where(landfrac.lat >= 0)
+        north_land_area = (north_area * north_landfrac).sum()
+        south_area = area.where(area.lat < 0)
+        south_landfrac = landfrac.where(landfrac.lat < 0)
+        south_land_area = (south_area * south_landfrac).sum()
+
+    # Apply scaling
+    data_array[:, 0] *= total_land_area
+    data_array[:, 1] *= north_land_area
+    data_array[:, 2] *= south_land_area
+
+    return data_array
+
+
+def process_variable(
+    var: Variable, directory: str, parameters: Parameters
+) -> Tuple[xarray.core.dataarray.DataArray, str]:
+    """Process a single variable independently - load, compute, cleanup."""
+    try:
+        # 1. Get file paths for this variable
+        file_paths = get_variable_files(var.variable_name, directory, parameters)
+        if not file_paths:
+            raise ValueError(f"No data files found for variable {var.variable_name}")
+
+        # 2. Load only this variable's data
+        dataset = xcdat.open_mfdataset(file_paths, center_times=True)
+
+        try:
+            # 3. Compute annual average
+            annual_dataset = dataset.temporal.group_average(var.variable_name, "year")
+            data_array = annual_dataset.data_vars[var.variable_name]
+
+            # 4. Apply area scaling if needed
+            data_array = apply_scaling(data_array, var.metric, dataset)
+
+            # 5. Apply unit scaling
+            units = data_array.units
+            if (
+                (units != "1")
+                and (var.original_units != "")
+                and var.original_units != units
+            ):
+                raise ValueError(f"Units don't match: {units} vs {var.original_units}")
+            if (var.scale_factor != 1) and (var.final_units != ""):
+                data_array *= var.scale_factor
+                units = var.final_units
+
+            return data_array, units
+
+        finally:
+            # 6. Always cleanup immediately
+            dataset.close()
+
+    except Exception as e:
+        logger.error(f"Failed to process variable {var.variable_name}: {e}")
+        raise
+
+
 def construct_land_variables(requested_vars: List[str]) -> List[Variable]:
     var_list: List[Variable] = []
     header = True
@@ -392,43 +494,33 @@ def set_var(
 ) -> List[Variable]:
     new_var_list: List[Variable] = []
     if parameters and (var_list == []):
-        # If we want to load specific variables,
-        # but none are specified,
-        # then we can just immediately return.
         return new_var_list
+
     if exp[exp_key] != "":
-        try:
-            dataset_wrapper: DatasetWrapper
-            if parameters:
-                # If this is passed in, then we want to load specific vars.
-                dataset_wrapper = DatasetWrapper(exp[exp_key], var_list, parameters)
-            else:
-                dataset_wrapper = DatasetWrapper(exp[exp_key])
-        except Exception as e:
-            logger.critical(e)
-            logger.critical(
-                f"DatasetWrapper object could not be created for {exp_key}={exp[exp_key]}"
-            )
-            raise e
+        directory = exp[exp_key]
+
         for var in var_list:
             var_str: str = var.variable_name
             try:
-                data_array: xarray.core.dataarray.DataArray
-                units: str
-                data_array, units = dataset_wrapper.globalAnnual(var)
-                valid_vars.append(str(var_str))  # Append the name
-                new_var_list.append(var)  # Append the variable itself
+                if parameters:
+                    # Use simplified approach with lazy loading
+                    data_array, units = process_variable(var, directory, parameters)
+                else:
+                    # Legacy fallback: use DatasetWrapper for backward compatibility
+                    dataset_wrapper = DatasetWrapper(directory)
+                    data_array, units = dataset_wrapper.globalAnnual(var)
+                    del dataset_wrapper
+
+                valid_vars.append(str(var_str))
+                new_var_list.append(var)
             except Exception as e:
                 logger.error(e)
-                logger.error(f"globalAnnual failed for {var_str}")
+                logger.error(f"Processing failed for {var_str}")
                 invalid_vars.append(str(var_str))
                 continue
+
             exp["annual"][var_str] = {"glb": (data_array.isel(rgn=0), units)}
             if data_array.sizes["rgn"] > 1:
-                # data_array.shape => number of years x 3 regions
-                # 3 regions = global, northern hemisphere, southern hemisphere
-                # We get here if we used the updated `ts` task
-                # (using `rgn_avg` rather than `glb_avg`).
                 exp["annual"][var_str]["n"] = (data_array.isel(rgn=1), units)
                 exp["annual"][var_str]["s"] = (data_array.isel(rgn=2), units)
             if "year" not in exp["annual"]:
@@ -436,5 +528,5 @@ def set_var(
                     "time"
                 ].values
                 exp["annual"]["year"] = [x.year for x in years]
-        del dataset_wrapper
+
     return new_var_list
