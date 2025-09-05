@@ -1,5 +1,6 @@
 import csv
 import importlib.resources as imp_res
+import multiprocessing as mp
 import os.path
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
@@ -202,6 +203,90 @@ def process_variable(
     except Exception as e:
         logger.error(f"Failed to process variable {var.variable_name}: {e}")
         raise
+
+
+def process_variable_worker(args):
+    """
+    Worker function for multiprocessing - unpacks arguments and processes single variable.
+
+    Args:
+        args: Tuple of (var, directory, parameters)
+
+    Returns:
+        Tuple of (var_name, data_array, units, success_flag, error_msg)
+    """
+    var, directory, parameters = args
+    var_name = var.variable_name
+
+    try:
+        data_array, units = process_variable(var, directory, parameters)
+        return (var_name, data_array, units, True, None)
+    except Exception as e:
+        return (var_name, None, None, False, str(e))
+
+
+def process_variables_parallel(
+    var_list: List[Variable],
+    directory: str,
+    parameters: Parameters,
+    num_processes: Optional[int] = None,
+) -> Dict[str, Tuple[xarray.core.dataarray.DataArray, str]]:
+    """
+    Process multiple variables in parallel using multiprocessing.Pool.
+
+    Args:
+        var_list: List of variables to process
+        directory: Data directory path
+        parameters: Processing parameters
+        num_processes: Number of parallel processes (default: CPU count)
+
+    Returns:
+        Dictionary mapping variable names to (data_array, units) tuples
+
+    Raises:
+        Exception: If no variables processed successfully
+    """
+    if num_processes is None:
+        num_processes = min(mp.cpu_count(), len(var_list))
+
+    logger.info(
+        f"Starting parallel processing of {len(var_list)} variables with {num_processes} processes"
+    )
+
+    # Prepare arguments for worker processes
+    worker_args = [(var, directory, parameters) for var in var_list]
+
+    results = {}
+    failed_vars = []
+
+    try:
+        with mp.Pool(processes=num_processes) as pool:
+            # Process all variables in parallel
+            worker_results = pool.map(process_variable_worker, worker_args)
+
+        # Collect results
+        for var_name, data_array, units, success, error_msg in worker_results:
+            if success:
+                results[var_name] = (data_array, units)
+                logger.info(f"✓ Completed processing variable: {var_name}")
+            else:
+                failed_vars.append(var_name)
+                logger.error(f"✗ Failed processing variable {var_name}: {error_msg}")
+
+    except Exception as e:
+        logger.error(f"Parallel processing failed: {e}")
+        raise
+
+    if failed_vars:
+        logger.warning(f"Failed to process {len(failed_vars)} variables: {failed_vars}")
+
+    if not results:
+        raise Exception("No variables processed successfully")
+
+    logger.info(
+        f"Parallel processing complete. {len(results)}/{len(var_list)} variables processed successfully"
+    )
+    return results
 
 
 def construct_land_variables(requested_vars: List[str]) -> List[Variable]:
@@ -482,6 +567,55 @@ def get_data_dir(parameters: Parameters, component: str, conditional: bool) -> s
         if conditional
         else ""
     )
+
+
+def set_var_parallel(
+    exp: Dict[str, Any],
+    exp_key: str,
+    var_list: List[Variable],
+    valid_vars: List[str],
+    invalid_vars: List[str],
+    parameters: Parameters,
+    num_processes: Optional[int] = None,
+) -> List[Variable]:
+    """Parallel version of set_var for component plots."""
+    new_var_list: List[Variable] = []
+    if var_list == []:
+        return new_var_list
+
+    if exp[exp_key] != "":
+        directory = exp[exp_key]
+
+        if len(var_list) > 1:
+            # Use parallel processing
+            results = process_variables_parallel(
+                var_list, directory, parameters, num_processes
+            )
+
+            # Process results
+            for var in var_list:
+                var_str = var.variable_name
+                if var_str in results:
+                    data_array, units = results[var_str]
+                    valid_vars.append(var_str)
+                    new_var_list.append(var)
+
+                    exp["annual"][var_str] = {"glb": (data_array.isel(rgn=0), units)}
+                    if data_array.sizes["rgn"] > 1:
+                        exp["annual"][var_str]["n"] = (data_array.isel(rgn=1), units)
+                        exp["annual"][var_str]["s"] = (data_array.isel(rgn=2), units)
+                    if "year" not in exp["annual"]:
+                        years: np.ndarray[cftime.DatetimeNoLeap] = data_array.coords[
+                            "time"
+                        ].values
+                        exp["annual"]["year"] = [x.year for x in years]
+                else:
+                    invalid_vars.append(var_str)
+        else:
+            # Single variable - use sequential
+            return set_var(exp, exp_key, var_list, valid_vars, invalid_vars, parameters)
+
+    return new_var_list
 
 
 def set_var(

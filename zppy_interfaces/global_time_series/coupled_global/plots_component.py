@@ -8,6 +8,7 @@ from zppy_interfaces.global_time_series.coupled_global.utils import (
     RequestedVariables,
     get_data_dir,
     set_var,
+    set_var_parallel,
 )
 from zppy_interfaces.global_time_series.utils import Parameters
 from zppy_interfaces.multi_utils.logger import _setup_child_logger
@@ -48,7 +49,7 @@ def process_data(
             invalid_vars,
             parameters,
         )
-        requested_variables.vars_land = set_var(
+        requested_variables.vars_land = set_var_parallel(
             exp,
             "land",
             requested_variables.vars_land,
