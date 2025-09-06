@@ -7,8 +7,7 @@ from zppy_interfaces.global_time_series.coupled_global.plotting import plot
 from zppy_interfaces.global_time_series.coupled_global.utils import (
     RequestedVariables,
     get_data_dir,
-    set_var,
-    set_var_parallel,
+    set_var_parallel_with_plots,
 )
 from zppy_interfaces.global_time_series.utils import Parameters
 from zppy_interfaces.multi_utils.logger import _setup_child_logger
@@ -33,7 +32,7 @@ def process_data(
     for exp in exps:
         exp["annual"] = {}
 
-        requested_variables.vars_atm = set_var(
+        requested_variables.vars_atm = set_var_parallel_with_plots(
             exp,
             "atmos",
             requested_variables.vars_atm,
@@ -41,7 +40,7 @@ def process_data(
             invalid_vars,
             parameters,
         )
-        requested_variables.vars_ice = set_var(
+        requested_variables.vars_ice = set_var_parallel_with_plots(
             exp,
             "ice",
             requested_variables.vars_ice,
@@ -49,7 +48,7 @@ def process_data(
             invalid_vars,
             parameters,
         )
-        requested_variables.vars_land = set_var_parallel(
+        requested_variables.vars_land = set_var_parallel_with_plots(
             exp,
             "land",
             requested_variables.vars_land,
@@ -57,7 +56,7 @@ def process_data(
             invalid_vars,
             parameters,
         )
-        requested_variables.vars_ocn = set_var(
+        requested_variables.vars_ocn = set_var_parallel_with_plots(
             exp,
             "ocean",
             requested_variables.vars_ocn,

@@ -225,6 +225,134 @@ def process_variable_worker(args):
         return (var_name, None, None, False, str(e))
 
 
+def process_and_plot_worker(args):
+    """
+    Combined worker: process variable and generate plots immediately.
+
+    Args:
+        args: Tuple of (var, directory, parameters, plot_config)
+
+    Returns:
+        Tuple of (var_name, success_flag, error_msg, plot_info, data_array, units)
+    """
+    var, directory, parameters, plot_config = args
+    var_name = var.variable_name
+
+    try:
+        # Process the variable first
+        data_array, units = process_variable(var, directory, parameters)
+
+        # Check if we got valid data
+        if data_array is None:
+            return (
+                var_name,
+                False,
+                "No data returned from processing",
+                None,
+                None,
+                None,
+            )
+
+        # Generate plots only if processing succeeded
+        component_name = plot_config.get("component", "lnd")
+        plot_info = generate_variable_plots(
+            var_name, data_array, units, parameters, plot_config, component_name
+        )
+
+        # Return data for populating exp["annual"] - don't delete here
+        return (var_name, True, None, plot_info, data_array, units)
+
+    except Exception as e:
+        # Processing failed - don't attempt plotting
+        return (var_name, False, str(e), None, None, None)
+
+
+def generate_variable_plots(
+    var_name: str,
+    data_array: xarray.core.dataarray.DataArray,
+    units: str,
+    parameters: Parameters,
+    plot_config: Dict[str, Any],
+    component: str,
+) -> Dict[str, Any]:
+    """
+    Generate PNG plots for a single variable immediately after processing.
+
+    Args:
+        var_name: Variable name
+        data_array: Processed data array
+        units: Data units
+        parameters: Processing parameters
+        plot_config: Plotting configuration
+
+    Returns:
+        Dictionary with plot file paths and metadata
+    """
+    import matplotlib.pyplot as plt
+
+    plot_info: Dict[str, Any] = {"var_name": var_name, "plots": []}
+
+    # Validate input data
+    if data_array is None:
+        logger.error(f"Cannot plot {var_name}: data_array is None")
+        return plot_info
+
+    if data_array.size == 0:
+        logger.error(f"Cannot plot {var_name}: data_array is empty")
+        return plot_info
+
+    # Create temporary exp structure for plotting compatibility
+    temp_exp = {
+        "annual": {var_name: {"glb": (data_array.isel(rgn=0), units)}},
+        "color": plot_config.get("color", "blue"),
+        "name": plot_config.get("name", "data"),
+        "yoffset": plot_config.get("yoffset", 0),
+        "yr": ([parameters.year1, parameters.year2],),
+    }
+
+    if data_array.sizes["rgn"] > 1:
+        temp_exp["annual"][var_name]["n"] = (data_array.isel(rgn=1), units)
+        temp_exp["annual"][var_name]["s"] = (data_array.isel(rgn=2), units)
+
+    # Add year data
+    years = data_array.coords["time"].values
+    temp_exp["annual"]["year"] = [x.year for x in years]
+
+    # Generate plots for each region
+    regions = ["glb"]
+    if data_array.sizes["rgn"] > 1:
+        regions.extend(["n", "s"])
+
+    for rgn in regions:
+        try:
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            # Use existing plot_generic function with proper xlim
+            xlim = [parameters.year1, parameters.year2]
+            from zppy_interfaces.global_time_series.coupled_global.plots_component import (
+                plot_generic,
+            )
+
+            plot_generic(ax, xlim, [temp_exp], var_name, rgn)
+
+            # Save plot
+            plot_filename = f"{parameters.figstr}_{rgn}_{component}_{var_name}.png"
+            plot_path = f"{parameters.results_dir}/{plot_filename}"
+            fig.savefig(plot_path, dpi=150, bbox_inches="tight")
+            plt.close(fig)
+
+            plot_info["plots"].append(
+                {"region": rgn, "filename": plot_filename, "path": plot_path}
+            )
+
+            logger.debug(f"Generated plot: {plot_filename}")
+
+        except Exception as e:
+            logger.error(f"Failed to generate plot for {var_name}_{rgn}: {e}")
+
+    return plot_info
+
+
 def process_variables_parallel(
     var_list: List[Variable],
     directory: str,
@@ -567,6 +695,112 @@ def get_data_dir(parameters: Parameters, component: str, conditional: bool) -> s
         if conditional
         else ""
     )
+
+
+def set_var_parallel_with_plots(
+    exp: Dict[str, Any],
+    exp_key: str,
+    var_list: List[Variable],
+    valid_vars: List[str],
+    invalid_vars: List[str],
+    parameters: Parameters,
+    num_processes: Optional[int] = None,
+) -> List[Variable]:
+    """Combined parallel processing + plotting version."""
+    new_var_list: List[Variable] = []
+    if var_list == []:
+        return new_var_list
+
+    if exp[exp_key] != "":
+        directory = exp[exp_key]
+
+        if len(var_list) > 1:
+            # Map exp_key to component name for filename
+            component_map = {
+                "atmos": "atm",
+                "ice": "ice",
+                "land": "lnd",
+                "ocean": "ocn",
+            }
+            component_name = component_map.get(exp_key, exp_key)
+
+            # Combined processing + plotting
+            plot_config = {
+                "color": exp.get("color", "blue"),
+                "name": exp.get("name", "data"),
+                "yoffset": exp.get("yoffset", 0),
+                "component": component_name,
+            }
+
+            # Prepare arguments for combined workers
+            worker_args = [
+                (var, directory, parameters, plot_config) for var in var_list
+            ]
+
+            if num_processes is None:
+                num_processes = min(mp.cpu_count(), len(var_list))
+
+            logger.info(
+                f"Starting combined processing+plotting of {len(var_list)} variables with {num_processes} processes"
+            )
+
+            try:
+                with mp.Pool(processes=num_processes) as pool:
+                    worker_results = pool.map(process_and_plot_worker, worker_args)
+
+                # Process results
+                for (
+                    var_name,
+                    success,
+                    error_msg,
+                    plot_info,
+                    data_array,
+                    units,
+                ) in worker_results:
+                    if success:
+                        valid_vars.append(var_name)
+                        # Find the variable object
+                        var_obj = next(
+                            v for v in var_list if v.variable_name == var_name
+                        )
+                        new_var_list.append(var_obj)
+
+                        # Populate exp["annual"] with processed data
+                        exp["annual"][var_name] = {
+                            "glb": (data_array.isel(rgn=0), units)
+                        }
+                        if data_array.sizes["rgn"] > 1:
+                            exp["annual"][var_name]["n"] = (
+                                data_array.isel(rgn=1),
+                                units,
+                            )
+                            exp["annual"][var_name]["s"] = (
+                                data_array.isel(rgn=2),
+                                units,
+                            )
+                        if "year" not in exp["annual"]:
+                            years = data_array.coords["time"].values
+                            exp["annual"]["year"] = [x.year for x in years]
+
+                        # Clean up data_array after storing
+                        del data_array
+
+                        logger.info(f"Completed processing+plotting for: {var_name}")
+                        if plot_info:
+                            logger.debug(
+                                f"Generated {len(plot_info['plots'])} plots for {var_name}"
+                            )
+                    else:
+                        invalid_vars.append(var_name)
+
+            except Exception as e:
+                logger.error(f"Combined parallel processing+plotting failed: {e}")
+                raise
+        else:
+            # Single variable - use sequential
+            return set_var(exp, exp_key, var_list, valid_vars, invalid_vars, parameters)
+
+    return new_var_list
 
 
 def set_var_parallel(
