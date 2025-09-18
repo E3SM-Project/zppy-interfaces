@@ -9,6 +9,9 @@ import cftime
 import numpy as np
 import xarray
 import xcdat
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
 
 from zppy_interfaces.global_time_series.utils import Parameters
 from zppy_interfaces.multi_utils.logger import _setup_child_logger
@@ -288,8 +291,6 @@ def generate_variable_plots(
     Returns:
         Dictionary with plot file paths and metadata
     """
-    import matplotlib.pyplot as plt
-
     plot_info: Dict[str, Any] = {"var_name": var_name, "plots": []}
 
     # Validate input data
@@ -375,7 +376,7 @@ def process_variables_parallel(
         Exception: If no variables processed successfully
     """
     if num_processes is None:
-        num_processes = min(mp.cpu_count(), len(var_list))
+        num_processes = min(16, len(var_list))
 
     logger.info(
         f"Starting parallel processing of {len(var_list)} variables with {num_processes} processes"
@@ -738,64 +739,57 @@ def set_var_parallel_with_plots(
             ]
 
             if num_processes is None:
-                num_processes = min(mp.cpu_count(), len(var_list))
+                num_processes = min(16, len(var_list))
 
-            logger.info(
-                f"Starting combined processing+plotting of {len(var_list)} variables with {num_processes} processes"
-            )
+            logger.info(f"Processing {len(var_list)} variables")
 
-            try:
-                with mp.Pool(processes=num_processes) as pool:
-                    worker_results = pool.map(process_and_plot_worker, worker_args)
+            worker_results = []
+            for i, var in enumerate(var_list):
+                logger.info(f"Processing {i+1}/{len(var_list)}: {var.variable_name}")
+                try:
+                    result = process_and_plot_worker((var, directory, parameters, plot_config))
+                    worker_results.append(result)
+                    if not result[1]:
+                        logger.error(f"Failed {var.variable_name}: {result[2]}")
+                except Exception as e:
+                    logger.error(f"Exception processing {var.variable_name}: {e}")
+                    worker_results.append((var.variable_name, False, str(e), None, None, None))
 
-                # Process results
-                for (
-                    var_name,
-                    success,
-                    error_msg,
-                    plot_info,
-                    data_array,
-                    units,
-                ) in worker_results:
-                    if success:
-                        valid_vars.append(var_name)
-                        # Find the variable object
-                        var_obj = next(
-                            v for v in var_list if v.variable_name == var_name
+            # Process results
+            for (
+                var_name,
+                success,
+                error_msg,
+                plot_info,
+                data_array,
+                units,
+            ) in worker_results:
+                if success:
+                    valid_vars.append(var_name)
+                    var_obj = next(
+                        v for v in var_list if v.variable_name == var_name
+                    )
+                    new_var_list.append(var_obj)
+
+                    exp["annual"][var_name] = {
+                        "glb": (data_array.isel(rgn=0), units)
+                    }
+                    if data_array.sizes["rgn"] > 1:
+                        exp["annual"][var_name]["n"] = (
+                            data_array.isel(rgn=1),
+                            units,
                         )
-                        new_var_list.append(var_obj)
+                        exp["annual"][var_name]["s"] = (
+                            data_array.isel(rgn=2),
+                            units,
+                        )
+                    if "year" not in exp["annual"]:
+                        years = data_array.coords["time"].values
+                        exp["annual"]["year"] = [x.year for x in years]
 
-                        # Populate exp["annual"] with processed data
-                        exp["annual"][var_name] = {
-                            "glb": (data_array.isel(rgn=0), units)
-                        }
-                        if data_array.sizes["rgn"] > 1:
-                            exp["annual"][var_name]["n"] = (
-                                data_array.isel(rgn=1),
-                                units,
-                            )
-                            exp["annual"][var_name]["s"] = (
-                                data_array.isel(rgn=2),
-                                units,
-                            )
-                        if "year" not in exp["annual"]:
-                            years = data_array.coords["time"].values
-                            exp["annual"]["year"] = [x.year for x in years]
-
-                        # Clean up data_array after storing
-                        del data_array
-
-                        logger.info(f"Completed processing+plotting for: {var_name}")
-                        if plot_info:
-                            logger.debug(
-                                f"Generated {len(plot_info['plots'])} plots for {var_name}"
-                            )
-                    else:
-                        invalid_vars.append(var_name)
-
-            except Exception as e:
-                logger.error(f"Combined parallel processing+plotting failed: {e}")
-                raise
+                    del data_array
+                else:
+                    invalid_vars.append(var_name)
         else:
             # Single variable - use sequential
             return set_var(exp, exp_key, var_list, valid_vars, invalid_vars, parameters)
