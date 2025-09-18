@@ -6,17 +6,17 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 import cftime
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import xarray
 import xcdat
-import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend
-import matplotlib.pyplot as plt
 
 from zppy_interfaces.global_time_series.utils import Parameters
 from zppy_interfaces.multi_utils.logger import _setup_child_logger
 
-# Set xarray options to suppress FutureWarning about compat parameter defaults
+# Set matplotlib backend and xarray options
+matplotlib.use("Agg")  # Use non-interactive backend
 xarray.set_options(use_new_combine_kwarg_defaults=True)
 
 logger = _setup_child_logger(__name__)
@@ -733,11 +733,6 @@ def set_var_parallel_with_plots(
                 "component": component_name,
             }
 
-            # Prepare arguments for combined workers
-            worker_args = [
-                (var, directory, parameters, plot_config) for var in var_list
-            ]
-
             if num_processes is None:
                 num_processes = min(16, len(var_list))
 
@@ -745,15 +740,19 @@ def set_var_parallel_with_plots(
 
             worker_results = []
             for i, var in enumerate(var_list):
-                logger.info(f"Processing {i+1}/{len(var_list)}: {var.variable_name}")
+                logger.info(f"Processing {i + 1}/{len(var_list)}: {var.variable_name}")
                 try:
-                    result = process_and_plot_worker((var, directory, parameters, plot_config))
+                    result = process_and_plot_worker(
+                        (var, directory, parameters, plot_config)
+                    )
                     worker_results.append(result)
                     if not result[1]:
                         logger.error(f"Failed {var.variable_name}: {result[2]}")
                 except Exception as e:
                     logger.error(f"Exception processing {var.variable_name}: {e}")
-                    worker_results.append((var.variable_name, False, str(e), None, None, None))
+                    worker_results.append(
+                        (var.variable_name, False, str(e), None, None, None)
+                    )
 
             # Process results
             for (
@@ -766,14 +765,10 @@ def set_var_parallel_with_plots(
             ) in worker_results:
                 if success:
                     valid_vars.append(var_name)
-                    var_obj = next(
-                        v for v in var_list if v.variable_name == var_name
-                    )
+                    var_obj = next(v for v in var_list if v.variable_name == var_name)
                     new_var_list.append(var_obj)
 
-                    exp["annual"][var_name] = {
-                        "glb": (data_array.isel(rgn=0), units)
-                    }
+                    exp["annual"][var_name] = {"glb": (data_array.isel(rgn=0), units)}
                     if data_array.sizes["rgn"] > 1:
                         exp["annual"][var_name]["n"] = (
                             data_array.isel(rgn=1),
