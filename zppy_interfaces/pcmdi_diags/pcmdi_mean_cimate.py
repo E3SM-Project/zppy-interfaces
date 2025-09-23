@@ -134,7 +134,7 @@ def main():
         try:
             results = run_parallel_jobs(lstcmd, core_parameters.num_workers)
             for i, (stdout, stderr, return_code) in enumerate(results):
-                print(f"\nCommand {i+1} finished:")
+                print(f"\nCommand {i + 1} finished:")
                 print(f"STDOUT: {stdout}")
                 print(f"STDERR: {stderr}")
                 print(f"Return code: {return_code}")
@@ -144,7 +144,7 @@ def main():
         try:
             results = run_serial_jobs(lstcmd)
             for i, (stdout, stderr, return_code) in enumerate(results):
-                print(f"\nCommand {i+1} finished:")
+                print(f"\nCommand {i + 1} finished:")
                 print(f"STDOUT: {stdout}")
                 print(f"STDERR: {stderr}")
                 print(f"Return code: {return_code}")
