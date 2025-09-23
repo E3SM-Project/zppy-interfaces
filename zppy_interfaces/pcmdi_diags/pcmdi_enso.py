@@ -157,6 +157,8 @@ class EnsoDiagnosticsCollector:
 
 # Functions ###################################################################
 def main():
+    logger.error("zi-pcmdi-enso is not yet supported. Exiting.")
+    sys.exit(1)
     args: Dict[str, str] = _get_args()
     core_parameters = CoreParameters(args)
     enso_parameters = ENSOParameters(args)
@@ -390,16 +392,16 @@ def check_enso_output(results):
     logger.info("Checking ENSO output.")
     success: bool = True
     for i, (stdout, stderr, return_code) in enumerate(results):
-        logger.info(f"Command {i+1} finished:")
+        logger.info(f"Command {i + 1} finished:")
         logger.info(f"STDOUT: {stdout}")
         logger.info(f"STDERR: {stderr}")
         logger.info(f"Return code: {return_code}")
         if not check_vars(stdout):
-            logger.error(f"Command {i+1} failed to produce expected variables.")
+            logger.error(f"Command {i + 1} failed to produce expected variables.")
             success = False
         if not check_output_dirs(stdout):
             logger.error(
-                f"Command {i+1} failed to produce expected output directories."
+                f"Command {i + 1} failed to produce expected output directories."
             )
             success = False
     if not success:
