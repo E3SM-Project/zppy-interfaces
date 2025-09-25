@@ -108,12 +108,12 @@ class DataCatalogueBuilder:
                 logger.info(
                     f"NOT extracting & assigining metadata for {varin}, the base var name of {var}."
                 )
-                logger.info(f"test_files={test_files}")
-                logger.info(f"ref_files={ref_files}")
-                if test_files:
-                    logger.info(f"test_files[0]={test_files[0]}")
-                if ref_files:
-                    logger.info(f"ref_files[0]={ref_files[0]}")
+            logger.info(f"test_files={test_files}")
+            logger.info(f"ref_files={ref_files}")
+            if test_files:
+                logger.info(f"test_files[0]={test_files[0]}")
+            if ref_files:
+                logger.info(f"ref_files[0]={ref_files[0]}")
 
         # `odict_keys([])` evaluates as False/None would.
         if self.test_info.keys():
@@ -132,8 +132,19 @@ class DataCatalogueBuilder:
 
     def _extract_metadata(self, filepath, varin, var):
         filename = os.path.basename(filepath)
+        logger.info(f"Extracting metadata from {filename}, dervied from {filepath}")
         parts = filename.split(".")
+        if len(parts) != 7:
+            # Example file in tmp-dir/ts:
+            # e3sm.amip.v3-LR.0101.Amon.ts.200501-201412.nc
+            logger.error(
+                f"Filename {filename} does not have 7 parts when split by '.', unexpected format."
+            )
         yymm_range = parts[6].split("-")
+        if len(yymm_range) != 2:
+            logger.error(
+                f"Filename {filename} has unexpected date range format in part '{parts[6]}'."
+            )
         return {
             "mip": parts[0],
             "exp": parts[1],
