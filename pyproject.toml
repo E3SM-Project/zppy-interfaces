@@ -7,7 +7,7 @@ authors = [
 description = "A package for providing extra functionality on top of external packages"
 license = {file = "LICENSE"}
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 classifiers = [
     # these are only for searching/browsing projects on PyPI
     "Programming Language :: Python :: 3.11",
@@ -96,7 +96,7 @@ exclude =  '''
 '''
 
 [tool.mypy]
-python_version = 3.9
+python_version = 3.13
 check_untyped_defs = true
 ignore_missing_imports = true
 warn_unused_ignores = true
