@@ -89,6 +89,8 @@ def main():
     # Generate Summary Metrics plots
     # e.g., "climatology,enso,variability"
     logger.info(f"Generating groups={parameters.figure_sets}")
+    # This calls the _handle_{figure_set} functions
+    # Those call the {figure_set}_plot_driver functions
     plotter.generate(parameters.figure_sets)
     logger.info("Generating viewer page for diagnostics...")
     subtitle = parameters.run_type.replace("_", " ").capitalize()

@@ -41,6 +41,8 @@ def collect_config(
         clim_regions = ["global", "ocean", "land", "NHEX", "SHEX", "TROPICS"]
 
     if clim_vars is None:
+        # This list appears to dictate which variables show up under "Mean Climate Map"
+        # That is, if plots for the variable don't exist, the links will be grayed out.
         clim_vars = [
             "pr",
             "prw",

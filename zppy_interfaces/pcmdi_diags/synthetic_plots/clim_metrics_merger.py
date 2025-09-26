@@ -157,12 +157,26 @@ class ClimMetricsMerger:
     def _merge_and_standardize_units(self):
         # Prune empty or fully-NaN DataFrames from the model library
         cleaned_model_lib = self._prune_empty_dfs(self.model_lib)
+        if hasattr(cleaned_model_lib, "var_list"):
+            logger.info(f"cleaned_model_lib.var_list: {cleaned_model_lib.var_list}")
 
         # Safe merge with fallback for missing stats/seasons/regions
         self.merged_lib = self._safe_merge_libs(self.cmip_lib, cleaned_model_lib)
+        if hasattr(self.merged_lib, "var_list"):
+            logger.info(f"merged_lib.var_list: {self.merged_lib.var_list}")
+        if hasattr(cleaned_model_lib, "var_list") and hasattr(
+            self.cmip_lib, "var_list"
+        ):
+            self.merged_lib.var_list = (
+                cleaned_model_lib.var_list
+            )  # Keep the shorter list!
 
         # Standardize units after merging
         self.merged_lib = self._check_units(self.merged_lib)
+        if hasattr(self.merged_lib, "var_list"):
+            logger.info(
+                f"Post-unit-check merged_lib.var_list: {self.merged_lib.var_list}"
+            )
 
     def _check_units(self, data_lib, verbose=False):
         units_all = {
@@ -255,6 +269,7 @@ class ClimMetricsMerger:
                     df = df.drop(columns=drop_cols)
                     data_lib.df_dict[stat][season][region] = df
 
+        logger.info(f"Setting data_lib.var_list={common_vars}")
         data_lib.var_list = common_vars
         data_lib.var_unit_list = common_unts
 
