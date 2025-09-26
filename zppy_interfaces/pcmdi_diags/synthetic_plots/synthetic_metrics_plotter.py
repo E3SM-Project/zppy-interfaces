@@ -127,6 +127,7 @@ class SyntheticMetricsPlotter:
             raise RuntimeError("No synthetic metrics plots could be generated.")
 
     def _handle_mean_climate(self, metric):
+        logger.info(f"Handling mean climate for {metric}")
         self.parameter.update(
             {"cmip_path": self.cmip_clim_dir, "cmip_name": self.cmip_clim_set}
         )
@@ -138,6 +139,9 @@ class SyntheticMetricsPlotter:
 
         # merge_lib = collect_clim_metrics(self.parameter)
         for stat, vars_ in self.metric_dict[metric].items():
+            logger.info(
+                f"Running mean climate plot driver for stat={stat} on metric_dict={vars_}"
+            )
             mean_climate_plot_driver(
                 metric,
                 stat,
@@ -153,6 +157,7 @@ class SyntheticMetricsPlotter:
             )
 
     def _handle_variability_modes(self, metric):
+        logger.info(f"Handling variability_modes for {metric}")
         self.parameter.update(
             {
                 "cmip_path": self.cmip_movs_dir,
@@ -178,6 +183,7 @@ class SyntheticMetricsPlotter:
             )
 
     def _handle_enso_metric(self, metric):
+        logger.info(f"Handling enso_metric for {metric}")
         self.parameter.update(
             {
                 "cmip_path": self.cmip_enso_dir,
@@ -237,9 +243,17 @@ def mean_climate_plot_driver(
                     if stat == "cor_xy":
                         data_nor[season] = data_dict[var_names].to_numpy().T
                     else:
-                        data_nor[season] = normalize_by_median(
-                            data_dict[var_names].to_numpy().T, axis=1
+                        logger.info(
+                            f"var_names={var_names} derived from var_list={var_list}."
                         )
+                        logger.info(f"Available columns: {data_dict.columns.tolist()}")
+                        try:
+                            data_nor[season] = normalize_by_median(
+                                data_dict[var_names].to_numpy().T, axis=1
+                            )
+                        except KeyError as e:
+                            logger.error(f"KeyError on var_names={var_names}")
+                            raise e
                     if save_data:
                         outdir = os.path.join(out_path, metric, region)
                         outdic = data_dict.drop(columns=["model_run"]).copy()

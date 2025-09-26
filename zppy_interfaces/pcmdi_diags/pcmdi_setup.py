@@ -134,17 +134,20 @@ class DataCatalogueBuilder:
         filename = os.path.basename(filepath)
         logger.info(f"Extracting metadata from {filename}, dervied from {filepath}")
         parts = filename.split(".")
-        if len(parts) != 7:
+        if len(parts) < 7:
             # Example file in tmp-dir/ts:
             # e3sm.amip.v3-LR.0101.Amon.ts.200501-201412.nc
             logger.error(
-                f"Filename {filename} does not have 7 parts when split by '.', unexpected format."
+                f"Filename {filename} does not have at least 7 parts when split by '.', unexpected format."
             )
         yymm_range = parts[6].split("-")
         if len(yymm_range) != 2:
             logger.error(
                 f"Filename {filename} has unexpected date range format in part '{parts[6]}'."
             )
+        logger.info(
+            f"Parsing {filename}, determined mip={parts[0]}, exp={parts[1]}, model={parts[2]}, realization={parts[3]}, tableID={parts[4]}, yymms={yymm_range[0]}, yymme={yymm_range[1]}"
+        )
         return {
             "mip": parts[0],
             "exp": parts[1],
