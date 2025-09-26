@@ -152,19 +152,19 @@ class ClimMetricsReader:
     def collect(self):
         self._load_cmip_metrics()
         if self.cmip_lib and hasattr(self.cmip_lib, "var_list"):
-            logger.info(
+            logger.debug(
                 f"ClimMetricsReader.cmip_lib.vars_list: {self.cmip_lib.var_list}"
             )
 
         for i, (test_name, model_name) in enumerate(
             zip(self.parameter["test_name"], self.parameter["model_name"])
         ):
-            logger.info(
+            logger.debug(
                 f"Processing model {i + 1}: test_name={test_name}, model_name={model_name}"
             )
             model_lib = self._process_test_model(test_name, model_name)
             if hasattr(model_lib, "var_list"):
-                logger.info(f"model_lib.vars_list: {model_lib.var_list}")
+                logger.debug(f"model_lib.vars_list: {model_lib.var_list}")
             self.all_lib = (
                 model_lib.copy()
                 if self.all_lib is None
@@ -174,7 +174,9 @@ class ClimMetricsReader:
 
         logger.info("Merging model metrics with CMIP reference metrics...")
         if self.all_lib and hasattr(self.all_lib, "var_list"):
-            logger.info(f"ClimMetricsReader.all_lib.vars_list: {self.all_lib.var_list}")
+            logger.debug(
+                f"ClimMetricsReader.all_lib.vars_list: {self.all_lib.var_list}"
+            )
         merger = ClimMetricsMerger(
             model_lib=self.all_lib, cmip_lib=self.cmip_lib, model_names=self.all_names
         )
