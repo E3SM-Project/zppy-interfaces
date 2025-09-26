@@ -139,7 +139,7 @@ class SyntheticMetricsPlotter:
 
         # merge_lib = collect_clim_metrics(self.parameter)
         for stat, vars_ in self.metric_dict[metric].items():
-            logger.info(
+            logger.debug(
                 f"Running mean climate plot driver for stat={stat} on metric_dict={vars_}"
             )
             mean_climate_plot_driver(
@@ -243,10 +243,10 @@ def mean_climate_plot_driver(
                     if stat == "cor_xy":
                         data_nor[season] = data_dict[var_names].to_numpy().T
                     else:
-                        logger.info(
+                        logger.debug(
                             f"var_names={var_names} derived from var_list={var_list}."
                         )
-                        logger.info(f"Available columns: {data_dict.columns.tolist()}")
+                        logger.debug(f"Available columns: {data_dict.columns.tolist()}")
                         try:
                             data_nor[season] = normalize_by_median(
                                 data_dict[var_names].to_numpy().T, axis=1
