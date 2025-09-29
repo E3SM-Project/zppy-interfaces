@@ -172,6 +172,7 @@ def set_var(
                 f"DatasetWrapper object could not be created for {exp_key}={exp[exp_key]}"
             )
             raise e
+        errors: List[str] = []
         for var in var_list:
             var_str: str = var.variable_name
             try:
@@ -184,6 +185,16 @@ def set_var(
                 logger.error(e)
                 logger.error(f"globalAnnual failed for {var_str}")
                 invalid_vars.append(str(var_str))
+                continue
+            if not hasattr(data_array, "sizes"):
+                errors.append(
+                    f"AttributeError: var={var_str} does not have sizes attribute, data_array={data_array}"
+                )
+                continue
+            if "rgn" not in data_array.sizes:
+                errors.append(
+                    f"KeyError: var={var_str} does not have rgn dimension, data_array={data_array}"
+                )
                 continue
             if data_array.sizes["rgn"] > 1:
                 # number of years x 3 regions = data_array.shape
@@ -212,6 +223,8 @@ def set_var(
                 ].values
                 exp["annual"]["year"] = [x.year for x in years]
         del dataset_wrapper
+        if errors:
+            raise RuntimeError(f"Encountered errors: {errors}")
     return new_var_list
 
 
