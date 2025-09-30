@@ -107,6 +107,10 @@ def create_viewer_for_component(
     logger.info(f"Creating viewer for {component}")
     if not vars:
         raise RuntimeError("No vars specified for viewer.")
+
+    # Ensure results directory exists before creating viewer
+    os.makedirs(parameters.results_dir, exist_ok=True)
+
     index_name = f"zppy global time-series plot: {parameters.experiment_name} {component} component ({parameters.year1}-{parameters.year2})"
     viewer = OutputViewer(path=parameters.results_dir, index_name=index_name)
     viewer.add_page(f"table_{component}", parameters.regions)

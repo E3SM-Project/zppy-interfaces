@@ -1,6 +1,7 @@
 import csv
 import importlib.resources as imp_res
 import multiprocessing as mp
+import os
 import os.path
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
@@ -335,6 +336,9 @@ def generate_variable_plots(
             )
 
             plot_generic(ax, xlim, [temp_exp], var_name, rgn)
+
+            # Ensure results directory exists before saving plot
+            os.makedirs(parameters.results_dir, exist_ok=True)
 
             # Save plot
             plot_filename = f"{parameters.figstr}_{rgn}_{component}_{var_name}.png"
