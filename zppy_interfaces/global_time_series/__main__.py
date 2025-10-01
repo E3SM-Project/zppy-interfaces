@@ -1,10 +1,8 @@
 import argparse
-import os
-import shutil
 import sys
 
-from zppy_interfaces.global_time_series.coupled_global import coupled_global
-from zppy_interfaces.global_time_series.ocean_month import ocean_month
+from zppy_interfaces.global_time_series.coupled_global.driver import run_coupled_global
+from zppy_interfaces.global_time_series.create_ocean_ts import create_ocean_ts
 from zppy_interfaces.global_time_series.utils import Parameters
 from zppy_interfaces.multi_utils.logger import _setup_child_logger, _setup_root_logger
 
@@ -17,38 +15,49 @@ logger = _setup_child_logger(__name__)
 def main(parameters=None):
     if not parameters:
         parameters = _get_args()
+    """
+    Determine if we want the Classic PDF or the Viewer
+    There are several cases to consider. In markdown table format:
 
+    | case | make_viewer = | plots_original non-empty? | `plots_<component>` non-empty? | results page shows | plots_original | `plots_<component>` |
+    | --- | --- | --- | --- | --- | --- | --- |
+    | 1 | T | T | T | viewer list HTML    | `<rgn>_original` PDF & PNG | each component gets a Viewer, with rows=vars, cols=rgns |
+    | 2 | T | T | F | viewer list HTML    | `<rgn>_original` PDF & PNG | no Viewers |
+    | 3 | T | F | T | viewer list HTML    | no original PDF/PNG links | each component gets a Viewer, with rows=vars, cols=rgns |
+    | 4 | T | F | F | viewer list HTML    | no original PDF/PNG links | no Viewers |
+    | 5 | F | T | T | no-frills file list | `<rgn>_original` PDF & PNG | each component gets a cumulative PDF |
+    | 6 | F | T | F | no-frills file list | `<rgn>_original` PDF & PNG | no component PDFs |
+    | 7 | F | F | T | no-frills file list | no classic plots | each component gets a cumulative PDF |
+    | 8 | F | F | F | no-frills file list | no classic plots | no component PDFs |
+
+    examples/post.v3.LR.historical_zppy_v3.cfg has: make_viewer = True, plots_original = 8 plots, plots_lnd = variable list
+    That is: | T | T | T |, or case 1 in the table above.
+
+    By default: make_viewer = False, plots_original = 8 plots, plots_<component> = ""
+    That is: | F | T | F |, or case 6 in the table above.
+
+    We can simplify the above table to:
+
+    | make_viewer= | plots_original | `plots_<component>` |
+    | --- | --- | --- |
+    | True | `<rgn>_original` PDF & PNG | each component gets a Viewer, with rows=vars, cols=rgns |
+    | False | `<rgn>_original` PDF & PNG | each component gets a cumulative PDF |
+    """
     if parameters.use_ocn:
-        logger.info("Create ocean time series")
-        # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
-        # Creates the directory post/ocn
-        os.makedirs(
-            f"{parameters.case_dir}/post/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr",
-            exist_ok=True,
-        )
-        input: str = f"{parameters.input}/{parameters.input_subdir}"
-        # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
-        # Modifies post/ocn (which we just created in the first place)
-        ocean_month(
-            input,
-            parameters.case_dir,
-            parameters.year1,
-            parameters.year2,
-            int(parameters.ts_num_years_str),
-        )
-
-        logger.info("Copy moc file")
-        # NOTE: MODIFIES THE CASE DIRECTORY (parameters.case_dir) post subdirectory
-        # Copies files to post/ocn (which we just created in the first place)
-        shutil.copy(
-            f"{parameters.case_dir}/post/analysis/mpas_analysis/cache/timeseries/moc/{parameters.moc_file}",
-            f"{parameters.case_dir}/post/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr/",
-        )
-
+        # From zppy's default.ini:
+        # Remove the 3 ocean plots (change_ohc,max_moc,change_sea_level) if you don't have ocean data.
+        # plots_original = string(default="net_toa_flux_restom,global_surface_air_temperature,toa_radiation,net_atm_energy_imbalance,change_ohc,max_moc,change_sea_level,net_atm_water_imbalance")
+        if set(["change_ohc", "max_moc", "change_sea_level"]) & set(
+            parameters.plots_original
+        ):
+            # NOTE: READS FROM case_dir (existing MPAS-Analysis results) and input (raw MPAS-O data)
+            # WRITES TO results_dir (new ocean time series output)
+            create_ocean_ts(parameters)
     logger.info("Update time series figures")
     # NOTE: PRODUCES OUTPUT IN THE CURRENT DIRECTORY (not necessarily the case directory)
     # Creates the directory parameters.results_dir
-    coupled_global(parameters)
+    run_coupled_global(parameters)
+    # TODO: Add tests for all of the above cases on the zppy side
 
 
 def _get_args() -> Parameters:
@@ -58,32 +67,62 @@ def _get_args() -> Parameters:
         description="Generate Global Time Series plots",
     )
 
-    # For ocean_month
-    parser.add_argument("--use_ocn", type=str, help="Use ocean")
-    parser.add_argument("--input", type=str, help="Input directory")
-    parser.add_argument("--input_subdir", type=str, help="Input subdirectory")
-    parser.add_argument("--moc_file", type=str, help="MOC file")
-
-    # For coupled_global
+    # Used in all cases
+    # > For determining which output type to produce
+    parser.add_argument("--make_viewer", type=str, default="False", help="Make viewer")
+    # > For coupled_global
     parser.add_argument("--case_dir", type=str, help="Case directory")
     parser.add_argument("--experiment_name", type=str, help="Experiment name")
-    parser.add_argument("--figstr", type=str, help="Figure string")
-    parser.add_argument("--color", type=str, help="Color")
-    parser.add_argument("--ts_num_years", type=str, help="Time series number of years")
-    parser.add_argument("--plots_original", type=str, help="Plots original")
-    parser.add_argument("--plots_atm", type=str, help="Plots atmosphere")
-    parser.add_argument("--plots_ice", type=str, help="Plots ice")
-    parser.add_argument("--plots_lnd", type=str, help="Plots land")
-    parser.add_argument("--plots_ocn", type=str, help="Plots ocean")
-    parser.add_argument("--nrows", type=str, help="Number of rows in pdf")
-    parser.add_argument("--ncols", type=str, help="Number of columns in pdf")
+    parser.add_argument("--figstr", type=str, default="", help="Figure string")
+    parser.add_argument("--color", type=str, default="Blue", help="Color")
+    parser.add_argument(
+        "--ts_num_years", type=str, default="5", help="Time series number of years"
+    )
     parser.add_argument("--results_dir", type=str, help="Results directory")
-    parser.add_argument("--regions", type=str, help="Regions")
-    parser.add_argument("--make_viewer", type=str, help="Make viewer")
-
-    # For both
+    parser.add_argument("--regions", type=str, default="glb,n,s", help="Regions")
+    # > For both ocean_month and coupled_global
     parser.add_argument("--start_yr", type=str, help="Start year")
     parser.add_argument("--end_yr", type=str, help="End year")
+
+    # For plots_original
+    # > For ocean_month
+    parser.add_argument(
+        "--use_ocn",
+        type=str,
+        default="False",
+        help="Use ocean (should match ocean plots in plots_original/plots_ocn)",
+    )
+    parser.add_argument("--input", type=str, help="Input directory")
+    parser.add_argument(
+        "--input_subdir",
+        type=str,
+        default="archive/ocn/hist",
+        help="Input subdirectory",
+    )
+    parser.add_argument("--moc_file", type=str, default="None", help="MOC file")
+    # > For coupled_global
+    parser.add_argument(
+        "--plots_original",
+        type=str,
+        default="net_toa_flux_restom,global_surface_air_temperature,toa_radiation,net_atm_energy_imbalance,change_ohc,max_moc,change_sea_level,net_atm_water_imbalance",
+        help="Plots original",
+    )
+
+    # For plots_component
+    # > For coupled_global
+    parser.add_argument(
+        "--plots_atm", type=str, default="None", help="Plots atmosphere"
+    )
+    parser.add_argument("--plots_ice", type=str, default="None", help="Plots ice")
+    parser.add_argument("--plots_lnd", type=str, default="None", help="Plots land")
+    parser.add_argument("--plots_ocn", type=str, default="None", help="Plots ocean")
+
+    # Used for mode_pdf, regardless of plot type
+    # > For coupled_global
+    parser.add_argument(
+        "--ncols", type=str, default="2", help="Number of columns in pdf"
+    )
+    parser.add_argument("--nrows", type=str, default="4", help="Number of rows in pdf")
 
     # Ignore the first arg
     # (zi-global-time-series)

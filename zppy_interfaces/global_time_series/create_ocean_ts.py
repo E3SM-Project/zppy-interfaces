@@ -1,21 +1,58 @@
 # Compute time series of ocean heat content (ohc) using MPAS-O output
 
 import glob
+import os
+import shutil
 from datetime import datetime
 
 import numpy as np
 from mpas_tools.cime.constants import constants
 from netCDF4 import Dataset, chartostring, date2num
 
+from zppy_interfaces.global_time_series.utils import Parameters
 from zppy_interfaces.multi_utils.logger import _setup_child_logger
 
 logger = _setup_child_logger(__name__)
 
 
+def create_ocean_ts(parameters: Parameters):
+    logger.info("Create ocean time series")
+    # Create output directory in results_dir (simplified structure)
+    output_dir = (
+        f"{parameters.results_dir}/ocn/glb/ts/monthly/{parameters.ts_num_years_str}yr"
+    )
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Input: Raw MPAS-O data
+    input_dir: str = f"{parameters.input}/{parameters.input_subdir}"
+
+    # Generate ocean time series in results_dir
+    ocean_month(
+        input_dir,
+        output_dir,
+        parameters.year1,
+        parameters.year2,
+        int(parameters.ts_num_years_str),
+    )
+
+    # Input: MOC file from case_dir (existing MPAS-Analysis results)
+    src: str = (
+        f"{parameters.case_dir}/post/analysis/mpas_analysis/cache/timeseries/moc/{parameters.moc_file}"
+    )
+    # Output: Copy to results_dir (new ocean time series location)
+    dst: str = output_dir + "/"
+    logger.info(f"Copy moc file from {src} to {dst}")
+    shutil.copy(src, dst)
+
+
 def ocean_month(
-    path_in: str, case_dir: str, start_yr: int, end_yr: int, ts_num_years: int
+    path_in: str,
+    path_out: str,
+    start_yr: int,
+    end_yr: int,
+    ts_num_years: int,
 ):
-    path_out = f"{case_dir}/post/ocn/glb/ts/monthly/{ts_num_years}yr"
+    # path_out is now directly provided as the output directory
 
     # Ocean constants
     # specific heat [J/(kg*degC)]
