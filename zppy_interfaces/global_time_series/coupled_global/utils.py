@@ -719,79 +719,75 @@ def set_var_parallel_with_plots(
     if exp[exp_key] != "":
         directory = exp[exp_key]
 
-        if len(var_list) > 1:
-            # Map exp_key to component name for filename
-            component_map = {
-                "atmos": "atm",
-                "ice": "ice",
-                "land": "lnd",
-                "ocean": "ocn",
-            }
-            component_name = component_map.get(exp_key, exp_key)
+        # Map exp_key to component name for filename
+        component_map = {
+            "atmos": "atm",
+            "ice": "ice",
+            "land": "lnd",
+            "ocean": "ocn",
+        }
+        component_name = component_map.get(exp_key, exp_key)
 
-            # Combined processing + plotting
-            plot_config = {
-                "color": exp.get("color", "blue"),
-                "name": exp.get("name", "data"),
-                "yoffset": exp.get("yoffset", 0),
-                "component": component_name,
-            }
+        # Combined processing + plotting
+        plot_config = {
+            "color": exp.get("color", "blue"),
+            "name": exp.get("name", "data"),
+            "yoffset": exp.get("yoffset", 0),
+            "component": component_name,
+        }
 
-            if num_processes is None:
-                num_processes = min(16, len(var_list))
+        if num_processes is None:
+            num_processes = min(16, len(var_list))
 
-            logger.info(f"Processing {len(var_list)} variables")
+        logger.info(f"Processing {len(var_list)} variables")
 
-            worker_results = []
-            for i, var in enumerate(var_list):
-                logger.info(f"Processing {i + 1}/{len(var_list)}: {var.variable_name}")
-                try:
-                    result = process_and_plot_worker(
-                        (var, directory, parameters, plot_config)
+        worker_results = []
+        for i, var in enumerate(var_list):
+            logger.info(f"Processing {i + 1}/{len(var_list)}: {var.variable_name}")
+            try:
+                result = process_and_plot_worker(
+                    (var, directory, parameters, plot_config)
+                )
+                worker_results.append(result)
+                if not result[1]:
+                    logger.error(f"Failed {var.variable_name}: {result[2]}")
+            except Exception as e:
+                logger.error(f"Exception processing {var.variable_name}: {e}")
+                worker_results.append(
+                    (var.variable_name, False, str(e), None, None, None)
+                )
+
+        # Process results
+        for (
+            var_name,
+            success,
+            error_msg,
+            plot_info,
+            data_array,
+            units,
+        ) in worker_results:
+            if success:
+                valid_vars.append(var_name)
+                var_obj = next(v for v in var_list if v.variable_name == var_name)
+                new_var_list.append(var_obj)
+
+                exp["annual"][var_name] = {"glb": (data_array.isel(rgn=0), units)}
+                if data_array.sizes["rgn"] > 1:
+                    exp["annual"][var_name]["n"] = (
+                        data_array.isel(rgn=1),
+                        units,
                     )
-                    worker_results.append(result)
-                    if not result[1]:
-                        logger.error(f"Failed {var.variable_name}: {result[2]}")
-                except Exception as e:
-                    logger.error(f"Exception processing {var.variable_name}: {e}")
-                    worker_results.append(
-                        (var.variable_name, False, str(e), None, None, None)
+                    exp["annual"][var_name]["s"] = (
+                        data_array.isel(rgn=2),
+                        units,
                     )
+                if "year" not in exp["annual"]:
+                    years = data_array.coords["time"].values
+                    exp["annual"]["year"] = [x.year for x in years]
 
-            # Process results
-            for (
-                var_name,
-                success,
-                error_msg,
-                plot_info,
-                data_array,
-                units,
-            ) in worker_results:
-                if success:
-                    valid_vars.append(var_name)
-                    var_obj = next(v for v in var_list if v.variable_name == var_name)
-                    new_var_list.append(var_obj)
-
-                    exp["annual"][var_name] = {"glb": (data_array.isel(rgn=0), units)}
-                    if data_array.sizes["rgn"] > 1:
-                        exp["annual"][var_name]["n"] = (
-                            data_array.isel(rgn=1),
-                            units,
-                        )
-                        exp["annual"][var_name]["s"] = (
-                            data_array.isel(rgn=2),
-                            units,
-                        )
-                    if "year" not in exp["annual"]:
-                        years = data_array.coords["time"].values
-                        exp["annual"]["year"] = [x.year for x in years]
-
-                    del data_array
-                else:
-                    invalid_vars.append(var_name)
-        else:
-            # Single variable - use sequential
-            return set_var(exp, exp_key, var_list, valid_vars, invalid_vars, parameters)
+                del data_array
+            else:
+                invalid_vars.append(var_name)
 
     return new_var_list
 
