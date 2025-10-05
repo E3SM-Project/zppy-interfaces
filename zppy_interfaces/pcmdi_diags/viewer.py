@@ -2,7 +2,7 @@ import glob
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -17,14 +17,25 @@ def collect_config(
     diag_dir: str = "./pcmdi_diags",
     obs_dir: str = "./observations/Atm/time-series",
     pmp_dir: str = "./pcmdi_data",
+    clim_viewer: bool = True,
     clim_period: str = "1985-2014",
-    emov_period: str = "1985-2014",
-    enso_period: str = "1985-2014",
-    clim_regions: Optional[List[str]] = None,
     clim_vars: Optional[List[str]] = None,
+    clim_regions: Optional[List[str]] = None,
     clim_reference: str = "obs",
-    emov_vars: Optional[List[str]] = None,
-    emov_reference: str = "obs",
+    mova_viewer: bool = True,
+    mova_modes: Optional[List[str]] = None,
+    mova_seasons: Optional[List[str]] = None,
+    mova_period: str = "1985-2014",
+    mova_vars: Optional[List[str]] = None,
+    mova_reference: str = "obs",
+    movc_viewer: bool = True,
+    movc_modes: Optional[List[str]] = None,
+    movc_seasons: Optional[List[str]] = None,
+    movc_period: str = "1985-2014",
+    movc_vars: Optional[List[str]] = None,
+    movc_reference: str = "obs",
+    enso_viewer: bool = True,
+    enso_period: str = "1985-2014",
     enso_vars: Optional[List[str]] = None,
     enso_reference: str = "obs",
 ) -> Dict[str, object]:
@@ -76,8 +87,23 @@ def collect_config(
             "zg-500",
         ]
 
-    if emov_vars is None:
-        emov_vars = ["psl", "ts"]
+    if mova_vars is None:
+        mova_vars = ["psl"]
+
+    if mova_modes is None:
+        mova_modes = ["NAM", "PNA", "NPO", "NAO", "SAM", "PSA1", "PSA2"]
+
+    if mova_seasons is None:
+        mova_seasons = ["DJF", "MAM", "JJA", "SON", "yearly", "monthly"]
+
+    if movc_vars is None:
+        movc_vars = ["ts"]
+
+    if movc_modes is None:
+        movc_modes = ["PDO", "NPGO", "AMO"]
+
+    if movc_seasons is None:
+        movc_seasons = ["yearly", "monthly"]
 
     if enso_vars is None:
         enso_vars = [
@@ -107,13 +133,24 @@ def collect_config(
         "subtitle": subtitle,
         "version": version,
         "case_id": case_id,
+        "clim_viewer": clim_viewer,
         "clim_period": clim_period,
         "clim_vars": clim_vars,
         "clim_reference": clim_reference,
-        "clim_region": clim_regions,
-        "emov_period": emov_period,
-        "emov_vars": emov_vars,
-        "emov_reference": emov_reference,
+        "clim_regions": clim_regions,
+        "mova_viewer": mova_viewer,
+        "mova_period": mova_period,
+        "mova_vars": mova_vars,
+        "mova_modes": mova_modes,
+        "mova_seasons": mova_seasons,
+        "mova_reference": mova_reference,
+        "movc_viewer": movc_viewer,
+        "movc_period": movc_period,
+        "movc_vars": movc_vars,
+        "movc_modes": movc_modes,
+        "movc_seasons": movc_seasons,
+        "movc_reference": movc_reference,
+        "enso_viewer": enso_viewer,
         "enso_period": enso_period,
         "enso_vars": enso_vars,
         "enso_reference": enso_reference,
@@ -158,164 +195,241 @@ def add_section(sections: List[Dict[str, object]], title, rows):
 def generate_methodology_html(config):
     """
     Generate the Methodology and Definitions HTML page for the E3SM-PMP Diagnostics Package.
+    Expects:
+      - config["template_dir"], config["out_dir"]
+      - booleans: "clim_viewer", "mova_viewer", "movc_viewer", "enso_viewer"
     """
+
+    # --- Safe getters with defaults
+    def cfg(key, default=None):
+        return config.get(key, default)
+
     # Data for content sections
     general_notes = [
         (
             "Source Code",
-            "See <a href='https://github.com/PCMDI/pcmdi_metrics/' target='_blank'>GitHub</a>. The Program for Climate Model Diagnosis & Intercomparison (PCMDI) Metrics Package (PMP) emphasizes metrics of large- to global-scale annual cycle and both tropical and extra-tropical modes of variability. The package expects model data to be CF-compliant. Sample usage can be found at <a href='https://github.com/PCMDI/pcmdi_metrics/blob/main/doc/jupyter/Demo/README.md' target='_blank'>PMP Website</a>.",
+            (
+                "See <a href='https://github.com/PCMDI/pcmdi_metrics/' target='_blank' rel='noopener'>GitHub</a>. "
+                "The Program for Climate Model Diagnosis &amp; Intercomparison (PCMDI) Metrics Package (PMP) emphasizes metrics "
+                "of large- to global-scale annual cycle and both tropical and extra-tropical modes of variability. "
+                "The package expects model data to be CF-compliant. Sample usage: "
+                "<a href='https://github.com/PCMDI/pcmdi_metrics/blob/main/doc/jupyter/Demo/README.md' target='_blank' rel='noopener'>PMP Website</a>."
+            ),
         ),
         (
             "Reference",
-            "The observations used were collected and processed by the <a href='https://github.com/E3SM-Project/e3sm_diags/' target='_blank'>E3SM Diagnostics</a>. More info: <a href='https://docs.e3sm.org/e3sm_diags/_build/html/main/index.html#/' target='_blank'>Documentation</a>.",
+            (
+                "The observations used were collected and processed by the "
+                "<a href='https://github.com/E3SM-Project/e3sm_diags/' target='_blank' rel='noopener'>E3SM Diagnostics</a>. "
+                "More info: <a href='https://docs.e3sm.org/e3sm_diags/_build/html/main/index.html#/' target='_blank' rel='noopener'>Documentation</a>."
+            ),
         ),
         (
             "Workflow",
-            "The diagnostics were generated based on the <a href='https://docs.e3sm.org/zppy/_build/html/main/index.html' target='_blank'>E3SM-zppy</a> workflow.",
+            (
+                "The diagnostics were generated using the "
+                "<a href='https://docs.e3sm.org/zppy/_build/html/main/index.html' target='_blank' rel='noopener'>E3SM-zppy</a> workflow."
+            ),
         ),
     ]
-    pmp_metrics = [
-        (
-            "Mean Climate",
-            "Mean climate summary statistics. See <a href='https://pcmdi.github.io/pcmdi_metrics/metrics_mean-clim.html' target='_blank'>PMP mean climate webpage</a>.",
-        ),
-        (
-            "ENSO Metrics",
-            "Summary metric for El Niño-Southern Oscillation (ENSO). See <a href='https://pcmdi.github.io/pcmdi_metrics/metrics_enso.html' target='_blank'>PMP ENSO webpage</a>.",
-        ),
-        (
-            "EMoV Metrics",
-            "Summary metric for extra-tropical modes of variability (EMoV). See <a href='https://pcmdi.github.io/pcmdi_metrics/metrics_mov.html' target='_blank'>PMP EMoV webpage</a>.",
-        ),
-        (
-            "Method",
-            "Summary metrics are featured with <a href='https://pcmdi.llnl.gov/research/metrics/v1.3.0/mean_clim/index.html' target='_blank'>Portrait Plot</a> and <a href='https://pcmdi.llnl.gov/research/metrics/v1.3.0/mean_clim/index.html' target='_blank'>Parallel Coordinate Plot</a>.",
-        ),
-        (
-            "References",
-            "See <a href='https://pcmdi.github.io/pcmdi_metrics/metrics.html' target='_blank'>PMP Metrics webpage</a>.",
-        ),
-    ]
-    enso_metrics = [
-        (
-            "Region",
-            "Diagnostics are based on monthly anomalies in the Nino3.4 region (5°S–5°N, 170°–120°W).",
-        ),
-        (
-            "ENSO Perf",
-            "ENSO performance metric collection, composed of 15 metrics to evaluate models on two aspects: a) Background climatology (double ITCZ, equator too dry, too cold cold tongue, shifted trade winds); b) Basic ENSO characteristics (amplitude, skewness, seasonality, SSTA pattern, lifecycle, duration, diversity).",
-        ),
-        (
-            "ENSO Proc",
-            "ENSO processes metric collection, composed of 11 metrics to evaluate models on four aspects: a) Background climatology (too cold cold tongue, shifted trade winds); b) Basic ENSO characteristics (amplitude, skewness, seasonality, SSTA pattern); c) Feedbacks (SSH-SST, SST-heat fluxes, SST-Taux, Taux-SSH); d) Ocean-driven SST change.",
-        ),
-        (
-            "ENSO Telec",
-            "ENSO teleconnection metric collection, composed of 7 metrics to evaluate models on two aspects: a) Basic ENSO characteristics (amplitude, seasonality, SSTA pattern); b) ENSO-related anomalies (precipitation and surface temperature) outside the equatorial Pacific during events.",
-        ),
-        (
-            "Method",
-            "Developed by the ENSO Metrics Working Group of the <a href='https://www.clivar.org/news/clivar-2020-enso-metrics-package' target='_blank'>International CLIVAR Pacific Panel</a>.",
-        ),
-        (
-            "References",
-            "For detailed algorithms and examples, see the <a href='https://pcmdi.github.io/pcmdi_metrics/metrics_enso.html' target='_blank'>ENSO metrics documentation</a>.",
-        ),
-    ]
-    emov_metrics = [
-        (
-            "PDO",
-            "Pacific Decadal Oscillation. The 1st EOF Mode of SST computed over the North Pacific basin (polewards of 20N).",
-        ),
-        (
-            "NPGO",
-            "North Pacific Gyre Oscillation. The 2nd EOF Mode of SST computed over the Northeast Pacific.",
-        ),
-        (
-            "AMO",
-            "Atlantic Multidecadal Oscillation. See the <a href='https://climatedataguide.ucar.edu/climate-data/atlantic-multi-decadal-oscillation-amo?qt-climatedatasetmaintabs=1' target='_blank'>Climate Data Guide</a>.",
-        ),
-        (
-            "NAM",
-            "Northern Annular Mode. The 1st EOF Mode of PSL computed over the NH region within [20-90N, 0-360].",
-        ),
-        (
-            "PNA",
-            "Pacific North American Pattern. The 1st EOFs of PSL computed over [20-85N, 120E-120W].",
-        ),
-        (
-            "NPO",
-            "North Pacific Oscillation. The 2nd EOFs of PSL computed over [20-85N, 120E-120W].",
-        ),
-        (
-            "NAO",
-            "North Atlantic Oscillation. The 1st EOF Mode of PSL computed over [20-80N, 40E-90W].",
-        ),
-        (
-            "SAM",
-            "Southern Annular Mode. The 1st EOF of PSL computed over [20-90S, 0-360].",
-        ),
-        (
-            "PSA1",
-            "Pacific South American Pattern 1. The 2nd EOF of PSL computed over [20-90S, 0-360].",
-        ),
-        (
-            "PSA2",
-            "Pacific South American Patterns 2. The 3rd EOF of PSL computed over [20-90S, 0-360].",
-        ),
-        (
-            "Method",
-            "The Common Basis Function approach (CBF) was employed to analyze variability, projecting model anomalies onto observed modes in addition to the traditional EOF approach.",
-        ),
-        (
-            "References",
-            "For detailed algorithms and examples, see the <a href='https://pcmdi.github.io/pcmdi_metrics/metrics_mov.html' target='_blank'>EMoV metrics documentation</a>.",
-        ),
-    ]
+
+    # -------------------- PMP summary metrics --------------------
+    pmp_metrics = []
+    if cfg("clim_viewer", False):
+        pmp_metrics.append(
+            (
+                "Mean Climate",
+                "Mean climate summary statistics. See <a href='https://pcmdi.github.io/pcmdi_metrics/metrics_mean-clim.html' target='_blank' rel='noopener'>PMP mean climate webpage</a>.",
+            )
+        )
+    if cfg("mova_viewer", False) or cfg("movc_viewer", False):
+        pmp_metrics.append(
+            (
+                "EMoV Metrics",
+                "Summary metric for extra-tropical modes of variability (EMoV). See <a href='https://pcmdi.github.io/pcmdi_metrics/metrics_mov.html' target='_blank' rel='noopener'>PMP EMoV webpage</a>.",
+            )
+        )
+    if cfg("enso_viewer", False):
+        pmp_metrics.append(
+            (
+                "ENSO Metrics",
+                "Summary metric for El Niño–Southern Oscillation (ENSO). See <a href='https://pcmdi.github.io/pcmdi_metrics/metrics_enso.html' target='_blank' rel='noopener'>PMP ENSO webpage</a>.",
+            )
+        )
+    pmp_metrics.extend(
+        [
+            (
+                "Method",
+                "Summary metrics are featured with <a href='https://pcmdi.llnl.gov/research/metrics/v1.3.0/mean_clim/index.html' target='_blank' rel='noopener'>Portrait Plot</a> and "
+                "<a href='https://pcmdi.llnl.gov/research/metrics/v1.3.0/mean_clim/index.html' target='_blank' rel='noopener'>Parallel Coordinate Plot</a>.",
+            ),
+            (
+                "References",
+                "See <a href='https://pcmdi.github.io/pcmdi_metrics/metrics.html' target='_blank' rel='noopener'>PMP Metrics webpage</a>.",
+            ),
+        ]
+    )
+
+    # -------------------- ENSO metrics --------------------
+    enso_metrics = []
+    if cfg("enso_viewer", False):
+        enso_metrics.extend(
+            [
+                (
+                    "Region",
+                    "Diagnostics are based on monthly anomalies in the Niño&nbsp;3.4 region (5&deg;S–5&deg;N, 170&deg;–120&deg;W).",
+                ),
+                (
+                    "ENSO Perf",
+                    "Performance collection (15 metrics) covering: (a) background climatology (double ITCZ, equator too dry, cold tongue bias, shifted trade winds); "
+                    "(b) basic ENSO characteristics (amplitude, skewness, seasonality, SSTA pattern, lifecycle, duration, diversity).",
+                ),
+                (
+                    "ENSO Proc",
+                    "Processes collection (11 metrics) covering: (a) background climatology (cold tongue bias, shifted trade winds); "
+                    "(b) basic characteristics (amplitude, skewness, seasonality, SSTA pattern); "
+                    "(c) feedbacks (SSH–SST, SST–heat fluxes, SST–&tau;<sub>x</sub>, &tau;<sub>x</sub>–SSH); "
+                    "(d) ocean-driven SST change.",
+                ),
+                (
+                    "ENSO Telec",
+                    "Teleconnections collection (7 metrics) covering: (a) basic characteristics (amplitude, seasonality, SSTA pattern); "
+                    "(b) ENSO-related anomalies (precipitation and surface temperature) outside the equatorial Pacific during events.",
+                ),
+                (
+                    "Method",
+                    "Developed by the ENSO Metrics Working Group of the <a href='https://www.clivar.org/news/clivar-2020-enso-metrics-package' target='_blank' rel='noopener'>International CLIVAR Pacific Panel</a>.",
+                ),
+                (
+                    "References",
+                    "See the <a href='https://pcmdi.github.io/pcmdi_metrics/metrics_enso.html' target='_blank' rel='noopener'>ENSO metrics documentation</a> for algorithms and examples.",
+                ),
+            ]
+        )
+
+    # -------------------- EMoV (Atmos/Coupled modes) --------------------
+    emov_metrics = []
+    if cfg("mova_viewer", False):
+        emov_metrics.extend(
+            [
+                (
+                    "NAM",
+                    "Northern Annular Mode. 1st EOF mode of PSL over 20–90&deg;N, 0–360&deg;.",
+                ),
+                (
+                    "PNA",
+                    "Pacific–North American pattern. 1st EOF mode of PSL over 20–85&deg;N, 120&deg;E–120&deg;W.",
+                ),
+                (
+                    "NPO",
+                    "North Pacific Oscillation. 2nd EOF mode of PSL over 20–85&deg;N, 120&deg;E–120&deg;W.",
+                ),
+                (
+                    "NAO",
+                    "North Atlantic Oscillation. 1st EOF mode of PSL over 20–80&deg;N, 40&deg;E–90&deg;W.",
+                ),
+                (
+                    "SAM",
+                    "Southern Annular Mode. 1st EOF mode of PSL over 20–90&deg;S, 0–360&deg;.",
+                ),
+                (
+                    "PSA1",
+                    "Pacific–South American pattern 1. 2nd EOF mode of PSL over 20–90&deg;S, 0–360&deg;.",
+                ),
+                (
+                    "PSA2",
+                    "Pacific–South American pattern 2. 3rd EOF mode of PSL over 20–90&deg;S, 0–360&deg;.",
+                ),
+            ]
+        )
+    if cfg("movc_viewer", False):
+        emov_metrics.extend(
+            [
+                (
+                    "PDO",
+                    "Pacific Decadal Oscillation. 1st EOF mode of SST over the North Pacific (poleward of 20&deg;N).",
+                ),
+                (
+                    "NPGO",
+                    "North Pacific Gyre Oscillation. 2nd EOF mode of SST over the Northeast Pacific.",
+                ),
+                (
+                    "AMO",
+                    "Atlantic Multidecadal Oscillation, typically derived from detrended North Atlantic SST averages (method varies by index).",
+                ),
+            ]
+        )
+    emov_metrics.extend(
+        [
+            (
+                "Method",
+                "The Common Basis Function (CBF) approach is employed in addition to traditional EOFs, projecting model anomalies onto observed modes.",
+            ),
+            (
+                "References",
+                "See the <a href='https://pcmdi.github.io/pcmdi_metrics/metrics_mov.html' target='_blank' rel='noopener'>EMoV metrics documentation</a>.",
+            ),
+        ]
+    )
+
+    # -------------------- Mean climate metrics --------------------
     clim_metrics = [
         (
             "Mean Bias",
-            "Defined as climatological annual/seasonal mean differences between model and observations.",
+            "Climatological annual/seasonal mean differences between model and observations.",
         ),
         (
             "RMSE",
-            "Root-Mean-Square Error (RMSE) is defined as the L2 error norm calculated against observations/reanalysis for large-scale seasonal and mean state climatologies.",
+            "Root-Mean-Square Error (L2 norm) against observations/reanalyses for seasonal and mean-state climatologies.",
         ),
-        (
-            "Centered RMSE",
-            "A variation of RMSE that removes the mean bias before computing the error.",
-        ),
+        ("Centered RMSE", "RMSE of anomalies after removing the mean bias."),
         (
             "Region",
-            "Error metrics for mean climate were calculated over global, hemispheric, tropical, extra-tropical, and other selected domains.",
+            "Metrics computed over global, hemispheric, tropical, extra-tropical, and other selected domains.",
         ),
         (
             "References",
-            "For detailed algorithms and examples, see the <a href='https://pcmdi.llnl.gov/metrics/mean_clim/' target='_blank'>PMP mean climate</a>.",
+            "See <a href='https://pcmdi.llnl.gov/metrics/mean_clim/' target='_blank' rel='noopener'>PMP mean climate</a>.",
         ),
     ]
 
-    # Prepare sections
+    # Build sections (skip empty bodies gracefully if your create_section handles it)
     sections = [
         create_section("General Notes", general_notes),
         create_section("Summary Metrics", pmp_metrics),
-        create_section("El Nino-Southern Oscillation (ENSO)", enso_metrics),
-        create_section("Extra-Tropical Modes of Variability (EMoV)", emov_metrics),
-        create_section("Mean Climate", clim_metrics),
     ]
 
+    # ENSO
+    if cfg("enso_viewer", False):
+        sections.append(
+            create_section("El Niño–Southern Oscillation (ENSO)", enso_metrics)
+        )
+
+    # MOVs (MOVA/MOVC)
+    movs_on = cfg("movs_viewer", None)
+    if movs_on is None:
+        movs_on = cfg("mova_viewer", False) or cfg("movc_viewer", False)
+
+    if movs_on:
+        sections.append(
+            create_section("Extra-Tropical Modes of Variability (EMoV)", emov_metrics)
+        )
+
+    # Mean climate
+    if cfg("clim_viewer", False):
+        sections.append(create_section("Mean Climate", clim_metrics))
+
     # Setup Jinja2 environment and load template
-    env = setup_jinja_env(config["template_dir"])
+    env = setup_jinja_env(cfg("template_dir"))
     template = env.get_template("methodology_template.html")
 
-    # Render the HTML with the sections data
+    # Render and write
     rendered_html = template.render(sections=sections)
+    out_path = os.path.join(cfg("out_dir"), "methodology.html")
+    Path(out_path).write_text(rendered_html)
+    print(f"HTML file written to: {cfg('out_dir')}")
 
-    # Write the rendered HTML to the output file
-    Path(os.path.join(config["out_dir"], "methodology.html")).write_text(rendered_html)
-    print(f"HTML file written to: {config['out_dir']}")
-
-    return
+    return out_path
 
 
 def generate_data_html(config):
@@ -323,133 +437,200 @@ def generate_data_html(config):
     Generate diagnostic output HTML pages for the E3SM-PMP Diagnostics Package.
     """
 
-    clim_vars = ", ".join(config["clim_vars"])
-    emov_vars = ", ".join(config["emov_vars"])
-    enso_vars = ", ".join(config["enso_vars"])
+    # Safe getters with defaults
+    def cfg(key, default=None):
+        return config.get(key, default)
 
-    clim_reference = config["clim_reference"]
-    emov_reference = config["emov_reference"]
-    enso_reference = config["enso_reference"]
+    # Join lists safely
+    def join_list(key):
+        vals = cfg(key, []) or []
+        return ", ".join(vals)
+
+    clim_vars = join_list("clim_vars")
+    mova_vars = join_list("mova_vars")
+    movc_vars = join_list("movc_vars")
+    enso_vars = join_list("enso_vars")
+
+    clim_reference = cfg("clim_reference", "")
+    mova_reference = cfg("mova_reference", "")
+    movc_reference = cfg("movc_reference", "")
+    enso_reference = cfg("enso_reference", "")
 
     sections: List[Dict[str, object]] = []
 
-    # General Notes
+    # ---------------- General Notes ----------------
     general_notes: List[Tuple[str, str]] = [
         (
             "Source Code",
-            f"Diagnosis & Intercomparison (PCMDI) Metrics Package (PMP) <a href='https://github.com/PCMDI/pcmdi_metrics/' target='_blank'>Version {config['version']}</a>.",
+            (
+                "Diagnosis &amp; Intercomparison (PCMDI) Metrics Package (PMP) "
+                f"<a href='https://github.com/PCMDI/pcmdi_metrics/' target='_blank' rel='noopener'>Version {cfg('version','')}</a>."
+            ),
         ),
         (
             "Reference",
-            "The observations used were collected and processed by the <a href='https://github.com/E3SM-Project/e3sm_diags/' target='_blank'>E3SM Diagnostics</a>. More info: <a href='https://docs.e3sm.org/e3sm_diags/_build/html/main/index.html#/' target='_blank'>Documentation</a>.",
+            "The observations used were collected and processed by the "
+            "<a href='https://github.com/E3SM-Project/e3sm_diags/' target='_blank' rel='noopener'>E3SM Diagnostics</a>. "
+            "More info: <a href='https://docs.e3sm.org/e3sm_diags/_build/html/main/index.html#/' target='_blank' rel='noopener'>Documentation</a>.",
         ),
-        ("Experiment", f"{config['case_id']}"),
-        ("Output Path", f"{config['diag_dir']}/metrics_data"),
-        ("Reference Path", f"{config['obs_dir']}"),
-        ("PMP Path", f"{config['pmp_dir']}"),
+        ("Experiment", f"{cfg('case_id','')}"),
+        ("Output Path", f"{cfg('diag_dir','')}/metrics_data"),
+        ("Reference Path", f"{cfg('obs_dir','')}"),
+        ("PMP Path", f"{cfg('pmp_dir','')}"),
     ]
     add_section(sections, "General Notes", general_notes)
 
-    # Metrics for different periods
-    clim_metrics = [
-        (
-            "Metrics",
-            "Mean Bias, RMSE, Centered RMSE, etc., see full list in the <a href='https://pcmdi.github.io/pcmdi_metrics/metrics_mean-clim.html' target='_blank'>document</a>.",
-        ),
-        (
-            "Region",
-            "Global, North hemisphere, Southern Hemisphere, and Tropics. See <strong>'region/regions_specs.json'</strong> under <strong>PMP Path</strong>.",
-        ),
-        (
-            "Variables",
-            f"<strong>Corresponding to CMIP convention</strong>: {clim_vars}.",
-        ),
-        (
-            "References",
-            f"All used <strong>{clim_reference}</strong>, which is defined in 'reference/reference_alias.json' under <strong> PMP Path</strong>. Source data was linked from <strong> Reference Path</strong>.",
-        ),
-        (
-            "Model Diagnostics",
-            "JSON files in <strong>mean_climate</strong> directory under <strong>Output Path</strong>",
-        ),
-        (
-            "CMIP Diagnostics",
-            "Pre-generated PMP diagnostic datasets, see <a href='https://github.com/PCMDI/pcmdi_metrics_results_archive/tree/main/metrics_results/mean_climate' target='_blank'>CMIP mean climate</a>.",
-        ),
-    ]
-    add_section(
-        sections, f"Mean Climate Metrics Data ({config['clim_period']})", clim_metrics
-    )
+    # ---------------- Mean Climate ----------------
+    if cfg("clim_viewer", False):
+        clim_metrics = [
+            (
+                "Metrics",
+                "Mean Bias, RMSE, Centered RMSE, etc.; see full list in the "
+                "<a href='https://pcmdi.github.io/pcmdi_metrics/metrics_mean-clim.html' target='_blank' rel='noopener'>document</a>.",
+            ),
+            (
+                "Region",
+                "Global, Northern Hemisphere, Southern Hemisphere, and Tropics. "
+                "See <strong>region/regions_specs.json</strong> under <strong>PMP Path</strong>.",
+            ),
+            (
+                "Variables",
+                f"<strong>CMIP conventions</strong>: {clim_vars}.",
+            ),
+            (
+                "References",
+                f"All use <strong>{clim_reference}</strong>, defined in <strong>reference/reference_alias.json</strong> under <strong>PMP Path</strong>. "
+                "Source data linked from <strong>Reference Path</strong>.",
+            ),
+            (
+                "Model Diagnostics",
+                "JSON files in <strong>mean_climate</strong> under <strong>Output Path</strong>.",
+            ),
+            (
+                "CMIP Diagnostics",
+                "Pre-generated datasets: "
+                "<a href='https://github.com/PCMDI/pcmdi_metrics_results_archive/tree/main/metrics_results/mean_climate' target='_blank' rel='noopener'>CMIP mean climate</a>.",
+            ),
+        ]
+        add_section(
+            sections,
+            f"Mean Climate Metrics Data ({cfg('clim_period','')})",
+            clim_metrics,
+        )
 
-    emov_metrics = [
-        (
-            "Metrics",
-            "PDO, NPGO, AMO, NAM, PNA, NPO, NAO, SAM, PSA1, PSA2. For NAM, NAO, SAM, PNA, and NPO the results are based on sea-level pressure (psl), while the results for AMO, PDO and NPGO are based on sea surface temperature(ts). See full list in the <a href='https://pcmdi.github.io/pcmdi_metrics/metrics_mov.html' target='_blank'>document</a>.",
-        ),
-        (
-            "Region",
-            "Specific regions defined in <strong>'region/regions_specs.json'</strong> under <strong> PMP Path</strong>.",
-        ),
-        (
-            "Variables",
-            f"<strong>Corresponding to CMIP convention</strong>: {emov_vars}.",
-        ),
-        (
-            "References",
-            f"Corresponding to <strong>Variables</strong>: <strong>{emov_reference}</strong>, which is defined in 'reference/reference_alias.json' under <strong> PMP Path</strong>. Source data was linked from <strong> Reference Path</strong>.",
-        ),
-        (
-            "Model Diagnostics",
-            "JSON files in <strong>variability_modes</strong> directory under <strong>Output Path</strong>",
-        ),
-        (
-            "CMIP Diagnostics",
-            "Pre-generated PMP diagnostic datasets, see <a href='https://github.com/PCMDI/pcmdi_metrics_results_archive/tree/main/metrics_results/variability_modes' target='_blank'>CMIP modes varibility</a>.",
-        ),
-    ]
+    # ---------------- EMoV (Atmos/Coupled modes) ----------------
+    metric_string = variable_string = reference_string = ""
+    mova_view = cfg("mova_viewer", False)
+    movc_view = cfg("movc_viewer", False)
 
-    add_section(sections, f"EMoV Metrics Data ({config['emov_period']})", emov_metrics)
+    if mova_view and movc_view:
+        metric_string = (
+            "The coupled modes considered include the Pacific Decadal Oscillation (PDO), "
+            "North Pacific Gyre Oscillation (NPGO), and Atlantic Multidecadal Oscillation (AMO), "
+            "while the atmospheric modes include the Northern Annular Mode (NAM), Pacific–North American pattern (PNA), "
+            "North Pacific Oscillation (NPO), North Atlantic Oscillation (NAO), Southern Annular Mode (SAM), "
+            "and the Pacific–South American patterns (PSA1 and PSA2). "
+            "Metrics were derived from empirical orthogonal function (EOF) analysis, using sea-level pressure (PSL) for atmospheric modes "
+            "and sea surface temperature (TS) for coupled modes."
+        )
+        variable_string = f"{mova_vars} (ATM) and {movc_vars} (CPL)"
+        reference_string = f"{mova_reference} (ATM) and {movc_reference} (CPL)"
+    elif mova_view:
+        metric_string = (
+            "Atmospheric modes include NAM, PNA, NPO, NAO, SAM, and PSA1/PSA2. "
+            "Metrics were derived from EOF analysis based on sea-level pressure (PSL)."
+        )
+        variable_string = f"{mova_vars} (ATM)"
+        reference_string = f"{mova_reference} (ATM)"
+    elif movc_view:
+        metric_string = (
+            "The coupled modes considered include PDO, NPGO, and AMO. "
+            "Metrics were derived from EOF analysis based on sea surface temperature (TS)."
+        )
+        variable_string = f"{movc_vars} (CPL)"
+        reference_string = f"{movc_reference} (CPL)"
 
-    enso_metrics = [
-        (
-            "Metrics",
-            "Three groups including ENSO_perf, ENSO_proc, ENSO_tel. see full list in the <a href='https://pcmdi.github.io/pcmdi_metrics/metrics_enso.html' target='_blank'>document</a>.",
-        ),
-        ("Region", "Nino3.4 region (5°S–5°N, 170°–120°W)."),
-        (
-            "Variables",
-            f"<strong>Corresponding to CMIP convention</strong>: {enso_vars}.",
-        ),
-        (
-            "References",
-            f"<strong>Corresponding to Variables</strong>: {enso_reference}, which are defined in 'reference/reference_alias.json' under <strong> PMP Path</strong>. Source data was linked from <strong> Reference Path</strong>.",
-        ),
-        (
-            "Model Diagnostics",
-            "JSON files in <strong>enso_metric/ENSO_perf</strong>, <strong>enso_metric/ENSO_proc</strong>, and <strong>enso_metric/ENSO_tel</strong>, saved at <strong> Output Path </strong>.",
-        ),
-        (
-            "CMIP Diagnostics",
-            "PMP diagnostic datasets, see <a href='https://github.com/PCMDI/pcmdi_metrics_results_archive/tree/main/metrics_results/enso_metric' target='_blank'>CMIP ENSO metric</a>.",
-        ),
-    ]
+    if mova_view or movc_view:
+        emov_metrics = [
+            (
+                "Metrics",
+                f"{metric_string} See full descriptions in the "
+                "<a href='https://pcmdi.github.io/pcmdi_metrics/metrics_mov.html' target='_blank' rel='noopener'>document</a>.",
+            ),
+            (
+                "Region",
+                "Regions defined in <strong>region/regions_specs.json</strong> under <strong>PMP Path</strong>.",
+            ),
+            (
+                "Variables",
+                f"<strong>CMIP conventions</strong>: <strong>{variable_string}</strong>.",
+            ),
+            (
+                "References",
+                f"Following <strong>Variables</strong>: <strong>{reference_string}</strong>, defined in "
+                "<strong>reference/reference_alias.json</strong> under <strong>PMP Path</strong>. "
+                "Source data linked from <strong>Reference Path</strong>.",
+            ),
+            (
+                "Model Diagnostics",
+                "JSON files in <strong>variability_modes</strong> under <strong>Output Path</strong>.",
+            ),
+            (
+                "CMIP Diagnostics",
+                "Pre-generated datasets: "
+                "<a href='https://github.com/PCMDI/pcmdi_metrics_results_archive/tree/main/metrics_results/variability_modes' target='_blank' rel='noopener'>CMIP modes variability</a>.",
+            ),
+        ]
+        add_section(
+            sections,
+            f"EMoV Metrics Data (coupled modes: {cfg('movc_period','')}; atmospheric modes: {cfg('mova_period','')})",
+            emov_metrics,
+        )
 
-    add_section(sections, f"ENSO Metrics Data ({config['enso_period']})", enso_metrics)
+    # ---------------- ENSO ----------------
+    if cfg("enso_viewer", False):
+        enso_metrics = [
+            (
+                "Metrics",
+                "Three groups (ENSO_perf, ENSO_proc, ENSO_tel); see full list in the "
+                "<a href='https://pcmdi.github.io/pcmdi_metrics/metrics_enso.html' target='_blank' rel='noopener'>document</a>.",
+            ),
+            ("Region", "Niño&nbsp;3.4 region (5&deg;S–5&deg;N, 170&deg;–120&deg;W)."),
+            ("Variables", f"<strong>CMIP conventions</strong>: {enso_vars}."),
+            (
+                "References",
+                f"<strong>Following Variables</strong>: {enso_reference}, defined in "
+                "<strong>reference/reference_alias.json</strong> under <strong>PMP Path</strong>. "
+                "Source data linked from <strong>Reference Path</strong>.",
+            ),
+            (
+                "Model Diagnostics",
+                "JSON files in <strong>enso_metric/ENSO_perf</strong>, "
+                "<strong>enso_metric/ENSO_proc</strong>, and <strong>enso_metric/ENSO_tel</strong> under <strong>Output Path</strong>.",
+            ),
+            (
+                "CMIP Diagnostics",
+                "Pre-generated datasets: "
+                "<a href='https://github.com/PCMDI/pcmdi_metrics_results_archive/tree/main/metrics_results/enso_metric' target='_blank' rel='noopener'>CMIP ENSO metrics</a>.",
+            ),
+        ]
+        add_section(
+            sections, f"ENSO Metrics Data ({cfg('enso_period','')})", enso_metrics
+        )
 
-    # Setup Jinja2 environment and load template
-    env = setup_jinja_env(config["template_dir"])
+    # ---------------- Render ----------------
+    env = setup_jinja_env(cfg("template_dir"))
     template = env.get_template("data_template.html")
 
-    # Generate HTML content by rendering the template
     output_html = template.render(
         title="E3SM-PMP Diagnostics Package", sections=sections
     )
 
-    # Write the generated HTML to the specified file
-    Path(os.path.join(config["out_dir"], "diag_data.html")).write_text(output_html)
-    print(f"HTML file written to: {config['out_dir']}")
+    out_path = os.path.join(cfg("out_dir"), "diag_data.html")
+    Path(out_path).write_text(output_html)
+    print(f"HTML file written to: {cfg('out_dir')}")
 
-    return
+    return out_path
 
 
 def to_relative_path(absolute_path, base_path=None):
@@ -511,11 +692,17 @@ class SummaryTableBuilder:
             ("RMSE", "rms_xy", "Portrait", "rms_xyt", "ParCoord"),
         ]
 
-    def build_summary_table(self):
+    def build_summary_table(self, regions=None, metrics=None):
         clim_path = safe_join(str(self.fig_dir), "ERROR_metric/mean_climate")
         metric_table = []
 
-        for i, region in enumerate(self.regions):
+        if regions is None:
+            regions = self.regions
+
+        if metrics is None:
+            metrics = self.metrics
+
+        for i, region in enumerate(regions):
             row = []
             if i == 0:
                 row.append(
@@ -523,7 +710,7 @@ class SummaryTableBuilder:
                 )
             row.append({"content": region.upper()})
 
-            for metric in self.metrics:
+            for metric in metrics:
                 if len(metric) == 3:
                     name, prefix, mode = metric
                     filename_pattern = f"{prefix}_{region}_portrait_mean_climate.png"
@@ -614,16 +801,54 @@ class SummaryTableBuilder:
         return row
 
 
-def generate_summary_table(diag_dir, fig_dir):
+def generate_summary_table(
+    diag_dir: str,
+    fig_dir: str,
+    clim_show: Union[bool, str] = True,
+    clim_regions: Optional[Union[List[str], str]] = None,
+    clim_metrics: Optional[List[Tuple[str, ...]]] = None,
+    mova_show: Union[bool, str] = True,
+    movc_show: Union[bool, str] = True,
+    enso_show: Union[bool, str] = True,
+) -> List[list]:
     """
-    Wrapper function to generate climatology table using SummaryTableBuilder.
-    Returns the table as summary_metric_table.
+    Build the summary metrics table (Mean Climate, ENSO, EMoV).
+    Returns a list of rows (each row is a list of cell dicts).
     """
+    # Coerce possible string flags
+    for name in ("clim_show", "mova_show", "movc_show", "enso_show"):
+        val = locals()[name]
+        if not isinstance(val, bool):
+            locals()[name] = str(val).strip().lower() in {
+                "1",
+                "true",
+                "t",
+                "yes",
+                "y",
+                "on",
+            }
+    clim_show, mova_show, movc_show, enso_show = (
+        clim_show,
+        mova_show,
+        movc_show,
+        enso_show,
+    )
+
     builder = SummaryTableBuilder(diag_dir, fig_dir)
-    summary_metric_table = builder.build_summary_table()
-    summary_metric_table.append(builder.build_enso_row())
-    summary_metric_table.append(builder.build_emov_row())
-    return summary_metric_table
+    table: List[list] = []
+
+    if clim_show:
+        table.extend(
+            builder.build_summary_table(regions=clim_regions, metrics=clim_metrics)
+        )
+
+    if enso_show:
+        table.append(builder.build_enso_row())
+
+    if mova_show or movc_show:
+        table.append(builder.build_emov_row())
+
+    return table
 
 
 class CMVARGroupBuilder:
@@ -850,67 +1075,122 @@ class CMVARGroupBuilder:
         return row
 
 
-def generate_cmvar_table(diag_dir, fig_dir):
+def generate_cmvar_table(
+    diag_dir: str,
+    fig_dir: str,
+    enso_show: Union[bool, str] = True,
+    movc_show: Union[bool, str] = True,
+    movc_modes: Optional[Union[List[str], str]] = None,
+) -> List[list]:
     """
-    Generate the Coupled Modes Variability (CMVAR) diagnostic table using CMVARGroupBuilder.
+    Build the Coupled Modes Variability (CMVAR) table (ENSO + coupled ocean modes).
+
+    Returns:
+        list: HTML-ready rows (list of lists of cell dicts).
     """
+    # Coerce flags if they might come from text config
+    if not isinstance(enso_show, bool):
+        enso_show = str(enso_show).strip().lower() in {
+            "1",
+            "true",
+            "t",
+            "yes",
+            "y",
+            "on",
+        }
+    if not isinstance(movc_show, bool):
+        movc_show = str(movc_show).strip().lower() in {
+            "1",
+            "true",
+            "t",
+            "yes",
+            "y",
+            "on",
+        }
+
+    # Accept comma-separated modes
+    if movc_modes is None:
+        movc_modes = ["PDO", "NPGO", "AMO"]
+    elif isinstance(movc_modes, str):
+        movc_modes = [s.strip() for s in movc_modes.split(",") if s.strip()]
+
+    cmvar_table: List[list] = []
+
     builder = CMVARGroupBuilder()
-    cmvar_groups = builder.construct()
-    cmvar_table = []
-    enso_path = safe_join(str(fig_dir), "ENSO_metric")
-    emov_path = safe_join(str(fig_dir), "MOV_metric")
-    for mode_label, group_data in cmvar_groups.items():
-        # Each group_data should have only one key (like 'ENSO_perf', etc.)
-        group_name = next(iter(group_data))
-        var_dict = group_data[group_name]
 
-        variables, (nrows, ncols) = builder.reshape_1d_to_2d(list(var_dict.keys()), 4)
+    # --- ENSO block ---
+    if enso_show:
+        # Prefer existing dir; fallback keeps old behavior
+        enso_path_candidates = (
+            safe_join(str(fig_dir), "enso_metric"),
+            safe_join(str(fig_dir), "ENSO_metric"),
+        )
+        enso_path = next(
+            (p for p in enso_path_candidates if os.path.isdir(p)),
+            enso_path_candidates[-1],
+        )
 
-        for i, row_vars in enumerate(variables):
-            row = []
-            if i == 0:
-                row.append({"content": f"<b>ENSO {mode_label}</b>", "rowspan": nrows})
+        cmvar_groups = builder.construct() or {}
+        for mode_label, group_data in cmvar_groups.items():
+            if not isinstance(group_data, dict) or not group_data:
+                continue
+            group_name = next(iter(group_data))
+            var_dict = group_data[group_name] or {}
 
-            for var in row_vars:
-                if var == "":
-                    row.append({"colspan": 4, "content": "--"})
-                else:
+            variables, (nrows, _ncols) = builder.reshape_1d_to_2d(
+                list(var_dict.keys()), 4
+            )
+
+            for i, row_vars in enumerate(variables):
+                row = []
+                if i == 0:
+                    row.append(
+                        {"content": f"<b>ENSO {mode_label}</b>", "rowspan": nrows}
+                    )
+
+                for var in row_vars:
+                    if not var:
+                        row.append({"colspan": 4, "content": "--"})
+                        continue
                     content = builder.build_cmvar_cell(
                         fig_dir=enso_path,
                         diag_dir=diag_dir,
                         group=group_name,
                         variable=var,
-                        keys_dict=var_dict[var],
+                        keys_dict=var_dict.get(var, {}),
                     )
                     row.append({"colspan": 4, "content": content})
 
-            cmvar_table.append(row)
+                cmvar_table.append(row)
 
-    # Add PDO, NPGO, AMO rows
-    for mode in ["PDO", "NPGO", "AMO"]:
-        mcpl_row = builder.generate_mcpl_row(mode, diag_dir, emov_path)
-        cmvar_table.append(mcpl_row)
+    # --- Coupled modes (PDO/NPGO/AMO) block ---
+    if movc_show:
+        emov_path = safe_join(str(fig_dir), "MOV_metric")
+        for mode in movc_modes:
+            mcpl_row = builder.generate_mcpl_row(mode, diag_dir, emov_path)
+            if mcpl_row:
+                cmvar_table.append(mcpl_row)
 
     return cmvar_table
 
 
 class EMOVGroupBuilder:
-    def __init__(self, diag_dir, fig_dir):
+    def __init__(
+        self,
+        diag_dir,
+        fig_dir,
+        modes_names=None,
+        modes_seasons=None,
+    ):
         self.diag_dir = diag_dir
         self.fig_dir = fig_dir
-        self.modes = {
-            "NAM": "EOF1",
-            "PNA": "EOF1",
-            "NPO": "EOF2",
-            "NAO": "EOF1",
-            "SAM": "EOF1",
-            "PSA1": "EOF2",
-            "PSA2": "EOF3",
-        }
-        self.seasons = ["DJF", "MAM", "JJA", "SON", "yearly", "monthly"]
+        self.modes = self.map_modes(modes_names)
+        self.seasons = self.map_seasons(modes_seasons)
+
+        # (UI label, filename template)
         self.rowspecs = [
             ("Composite (CBF)", "MOV_compose_{}_{}_cbf.png"),
-            ("Composite (EOF)", "MOV_compose_{}_{}_{}.png"),
+            ("Composite (EOF)", "MOV_compose_{}_{}_{}.png"),  # needs 3 args
             ("North Test", "MOV_eoftest_{}_{}_EG_Spec.png"),
             ("EOF1 Pattern", "MOV_pattern_{}_{}_eof1.png"),
             ("EOF1 Telecon.", "MOV_telecon_{}_{}_eof1.png"),
@@ -920,11 +1200,53 @@ class EMOVGroupBuilder:
             ("EOF3 Telecon.", "MOV_telecon_{}_{}_eof3.png"),
         ]
 
+    def map_modes(self, names):
+        default_modes = {
+            "NAM": "EOF1",
+            "PNA": "EOF1",
+            "NAO": "EOF1",
+            "SAM": "EOF1",
+            "NPO": "EOF2",
+            "PSA1": "EOF2",
+            "PSA2": "EOF3",
+        }
+        if names is None:
+            return default_modes
+        return {k: default_modes.get(k, "EOF1") for k in names}
+
+    def map_seasons(self, names):
+        default_seasons = ["DJF", "MAM", "JJA", "SON", "yearly", "monthly"]
+        if names is None:
+            return default_seasons
+
+        seasons = []
+        for sea in names:
+            s = str(sea).strip().lower()
+            if s in {"ann", "year", "yearly"}:
+                seasons.append("yearly")
+            elif s in {"mon", "month", "monthly"}:
+                seasons.append("monthly")
+            else:
+                # preserve canonical case for DJF/MAM/JJA/SON if provided
+                seasons.append(sea)
+        return seasons
+
+    def _format_filename(self, pattern, mode, season, eof_tag):
+        n = pattern.count("{}")
+        if n == 3:
+            return pattern.format(mode, season, eof_tag)
+        elif n == 2:
+            return pattern.format(mode, season)
+        else:
+            # Unexpected template; return as-is to avoid crashing
+            return pattern
+
     def build(self):
         emov_path = safe_join(str(self.fig_dir), "MOV_metric")
         table = []
 
         for mode, eof in self.modes.items():
+            eof_tag = str(eof).lower()  # e.g., "eof1"
             for i, (label, pattern) in enumerate(self.rowspecs):
                 row = []
                 if i == 0:
@@ -943,12 +1265,11 @@ class EMOVGroupBuilder:
                 )
 
                 for season in self.seasons:
-                    try:
-                        filename = pattern.format(mode, season, eof.lower())
-                    except IndexError:
-                        filename = pattern.format(mode, season)
+                    filename = self._format_filename(pattern, mode, season, eof_tag)
 
-                    subdir_parts = ["_".join(filename.split("_")[:2]), season]
+                    # subdir convention: e.g., "MOV_compose/<SEASON>"
+                    prefix = "_".join(filename.split("_")[:2])  # "MOV_compose"
+                    subdir_parts = [prefix, season]
 
                     link = create_image_link(
                         fig_dir=emov_path,
@@ -956,7 +1277,7 @@ class EMOVGroupBuilder:
                         subdirs=subdir_parts,
                         filename_pattern=filename,
                         fallback_filename=filename,
-                        label=season.upper(),
+                        label=str(season).upper(),
                     )
 
                     row.append({"colspan": 4, "content": link})
@@ -966,19 +1287,81 @@ class EMOVGroupBuilder:
         return table
 
 
-def generate_emovs_table(diag_dir, fig_dir):
-    builder = EMOVGroupBuilder(diag_dir, fig_dir)
-    emovs_table = builder.build()
-    return emovs_table
+def generate_emovs_table(
+    diag_dir: str,
+    fig_dir: str,
+    show: Union[bool, str] = True,
+    modes: Optional[Union[List[str], str]] = None,
+) -> List[list]:
+    """
+    Build the Extratropical Modes of Variability (EMoV) table.
+
+    Args:
+        diag_dir: Path to diagnostics directory (for relative links).
+        fig_dir: Path to figures directory.
+        show: Whether to build the table. If a string (e.g., "false"), it will be coerced.
+        modes: List of modes or comma-separated string (e.g., "PDO,NPGO,AMO").
+
+    Returns:
+        list: HTML-ready rows (list of lists of cell dicts).
+    """
+    # Coerce show if it might come in as a string
+    if not isinstance(show, bool):
+        show = str(show).strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+    if not show:
+        return []
+
+    # Accept comma-separated string for modes
+    if modes is None:
+        modes = ["PDO", "NPGO", "AMO"]
+    elif isinstance(modes, str):
+        modes = [s.strip() for s in modes.split(",") if s.strip()]
+
+    builder = EMOVGroupBuilder(
+        diag_dir=diag_dir,
+        fig_dir=fig_dir,
+        modes_names=modes,
+    )
+    return builder.build()
 
 
 class MeanClimateTableBuilder:
-    def __init__(self, diag_dir, fig_dir, variables=None, regions=None):
+    def __init__(self, diag_dir, fig_dir, variables=None, regions=None, seasons=None):
         self.diag_dir = Path(diag_dir)
         self.fig_dir = Path(fig_dir)
-        self.variables = variables or ["pr", "psl", "tas", "ts", "rlds", "rlut"]
-        self.regions = regions or ["global", "land", "ocean", "TROPICS", "NHEX", "SHEX"]
-        self.seasons = ["DJF", "MAM", "JJA", "SON", "AC"]  # AC = Annual Cycle
+        self.variables = self.map_vars(variables)
+        self.regions = self.map_regions(regions)
+        self.seasons = self.map_seasons(seasons)
+
+    def map_vars(self, names):
+        default_vars = ["pr", "psl", "tas", "ts", "rlds", "rlut"]
+        if names is None:
+            variables = default_vars
+        else:
+            variables = names
+        return variables
+
+    def map_regions(self, names):
+        default_regions = ["global", "land", "ocean", "TROPICS", "NHEX", "SHEX"]
+        if names is None:
+            seasons = default_regions
+        else:
+            seasons = names
+        return seasons
+
+    def map_seasons(self, names):
+        default_seasons = ["DJF", "MAM", "JJA", "SON", "AC"]  # AC = Annual Cycle
+        if names is None:
+            return default_seasons
+        seasons = []
+        for sea in names:
+            s = str(sea).strip().lower()
+            if s in {"ann", "year", "yearly"}:
+                seasons.append("AC")
+            else:
+                # preserve canonical case for DJF/MAM/JJA/SON if provided
+                seasons.append(sea)
+        return seasons
 
     def build_table(self):
         """
@@ -1021,22 +1404,47 @@ class MeanClimateTableBuilder:
         return table
 
 
-def generate_clim_table(diag_dir, fig_dir, variables=None, regions=None):
+def generate_clim_table(
+    diag_dir: str,
+    fig_dir: str,
+    show: Union[bool, str] = True,
+    variables: Optional[Union[List[str], str]] = None,
+    regions: Optional[Union[List[str], str]] = None,
+) -> List[list]:
     """
-    Wrapper to generate the climatology diagnostics table.
+    Build the climatology diagnostics table.
 
     Args:
-        diag_dir (str): Path to diagnostics directory.
-        fig_dir (str): Path to figures directory.
-        variable_str (str): Comma-separated variables string.
-        region_str (str): Comma-separated regions string.
+        diag_dir: Path to the diagnostics directory (used to compute relative links).
+        fig_dir: Path to the figures directory.
+        show: Whether to build the table. If a string (e.g., "true"/"false"), it will be coerced.
+        variables: List of variable names (or a comma-separated string). If None, builder defaults are used.
+        regions: List of region names (or a comma-separated string). If None, builder defaults are used.
 
     Returns:
-        list: HTML-ready row data for climatology table.
+        A list of table rows (each row is a list of cell dicts) ready for HTML rendering.
     """
-    builder = MeanClimateTableBuilder(diag_dir, fig_dir, variables, regions)
-    clim_table = builder.build_table()
-    return clim_table
+    # Coerce 'show' if it might come from text config
+    # In case some unexpected guess values are passed
+    if not isinstance(show, bool):
+        show = str(show).strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+
+    # In case comma-separated strings is passed
+    if isinstance(variables, str):
+        variables = [s.strip() for s in variables.split(",") if s.strip()]
+    if isinstance(regions, str):
+        regions = [s.strip() for s in regions.split(",") if s.strip()]
+
+    if not show:
+        return []
+
+    builder = MeanClimateTableBuilder(
+        diag_dir,
+        fig_dir,
+        variables=variables,
+        regions=regions,
+    )
+    return builder.build_table()
 
 
 def generate_viewer_html(config):
@@ -1046,21 +1454,41 @@ def generate_viewer_html(config):
     env = setup_jinja_env(config["template_dir"])
     template = env.get_template("index_template.html")
 
-    # Add 'mean climate' row
-    metric_table = generate_summary_table(config["diag_dir"], config["fig_dir"])
+    # Add 'summary metrics' row
+    metric_table = generate_summary_table(
+        config["diag_dir"],
+        config["fig_dir"],
+        clim_show=config["clim_viewer"],
+        clim_regions=config["clim_regions"],
+        mova_show=config["mova_viewer"],
+        movc_show=config["movc_viewer"],
+        enso_show=config["enso_viewer"],
+    )
 
     # Add 'Coupled Modes Variability' table
-    cmvars_table = generate_cmvar_table(config["diag_dir"], config["fig_dir"])
+    cmvars_table = generate_cmvar_table(
+        config["diag_dir"],
+        config["fig_dir"],
+        enso_show=config["enso_viewer"],
+        movc_show=config["movc_viewer"],
+        movc_modes=config["movc_modes"],
+    )
 
     # Add 'Extratropical Modes Variability' tabel
-    emovs_table = generate_emovs_table(config["diag_dir"], config["fig_dir"])
+    emovs_table = generate_emovs_table(
+        config["diag_dir"],
+        config["fig_dir"],
+        show=config["mova_viewer"],
+        modes=config["mova_modes"],
+    )
 
     # Add 'Mean Climate Map' tabel
     clim_table = generate_clim_table(
         config["diag_dir"],
         config["fig_dir"],
-        config["clim_vars"],
-        config["clim_region"],
+        show=config["clim_viewer"],
+        variables=config["clim_vars"],
+        regions=config["clim_regions"],
     )
 
     # Render final HTML
@@ -1069,7 +1497,8 @@ def generate_viewer_html(config):
         subtitle=config["subtitle"],
         version=config["version"],
         clim_period=config["clim_period"],
-        emov_period=config["emov_period"],
+        mova_period=config["mova_period"],
+        movc_period=config["movc_period"],
         enso_period=config["enso_period"],
         created=datetime.now().strftime("%Y-%m-%d"),
         metric_table=metric_table,

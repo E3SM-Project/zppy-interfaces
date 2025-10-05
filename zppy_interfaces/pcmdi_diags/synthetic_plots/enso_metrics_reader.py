@@ -10,15 +10,12 @@ logger = _setup_child_logger(__name__)
 
 
 class EnsoMetricsReader:
-    def __init__(self, parameter, metric, stat):
+    def __init__(self, parameter, stat, metric_dict, mips, collections):
         self.parameter = parameter
-        self.metric = metric
         self.stat = stat
-        self.metric_dict = self.parameter["diag_vars"][stat]
-        self.metrics_collections = self.metric_dict["collection"]
-        self.mips = [self.parameter["cmip_name"].split(".")[0]] + self.parameter[
-            "model_name"
-        ]
+        self.mips = mips
+        self.metric_dict = metric_dict
+        self.metrics_collections = collections
         self.dict_json_path = {}
 
         self.var_pattern = re.compile(r"\.(\w+)\..*\.v(\d{8})\.json$")

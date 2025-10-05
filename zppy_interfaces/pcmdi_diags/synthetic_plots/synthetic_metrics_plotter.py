@@ -1,7 +1,6 @@
 import os
-import traceback
 from collections import OrderedDict
-from typing import List, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -31,64 +30,109 @@ logger = _setup_child_logger(__name__)
 class SyntheticMetricsPlotter:
     def __init__(
         self,
-        case_name,
-        test_name,
-        table_id,
-        figure_format,
-        figure_sets,
-        metric_dict,
-        save_data,
-        base_test_input_path,
-        results_dir=None,
-        cmip_clim_dir=None,
-        cmip_clim_set=None,
-        cmip_movs_dir=None,
-        cmip_movs_set=None,
-        atm_modes=None,
-        cpl_modes=None,
-        cmip_enso_dir=None,
-        cmip_enso_set=None,
+        case_name: str,
+        test_name: str,
+        table_id: str,
+        figure_format: str,
+        metric_dict: Dict[str, Any],
+        save_data: bool,
+        base_test_input_path: str,
+        results_dir: Optional[str] = None,
+        # Mean-climate viewer
+        clim_viewer: bool = True,
+        clim_vars: Optional[Union[List[str], str]] = None,
+        clim_regions: Optional[Union[List[str], str]] = None,
+        cmip_clim_dir: Optional[str] = None,
+        cmip_clim_set: Optional[str] = None,
+        # Atmosphere modes (MOVA)
+        mova_viewer: bool = True,
+        mova_modes: Optional[Union[List[str], str]] = None,
+        # Coupled modes (MOVC)
+        movc_viewer: bool = True,
+        movc_modes: Optional[Union[List[str], str]] = None,
+        cmip_movs_dir: Optional[str] = None,
+        cmip_movs_set: Optional[str] = None,
+        # ENSO viewer
+        enso_viewer: bool = True,
+        cmip_enso_dir: Optional[str] = None,
+        cmip_enso_set: Optional[str] = None,
     ):
+        # Core
         self.case_name = case_name
         self.test_name = test_name
         self.table_id = table_id
         self.figure_format = figure_format
-        self.figure_sets = figure_sets
         self.metric_dict = metric_dict
-        self.save_data = save_data
+        self.save_data = bool(save_data)
         self.base_test_input_path = base_test_input_path
         self.results_dir = results_dir or "."
+
+        # Mean climate
+        self.clim_viewer = bool(clim_viewer)
+        self.clim_vars = self._to_list(clim_vars)  # [] => all available
+        self.clim_regions = self._to_list(clim_regions)  # [] => all regions
         self.cmip_clim_dir = cmip_clim_dir
         self.cmip_clim_set = cmip_clim_set
+
+        # MOVA
+        self.mova_viewer = bool(mova_viewer)
+        self.mova_modes = self._to_list(mova_modes) if self.mova_viewer else []
+        self.movc_viewer = bool(movc_viewer)
+        self.movc_modes = self._to_list(movc_modes) if self.movc_viewer else []
+        self.movs_viewer = self.mova_viewer or self.movc_viewer
+
         self.cmip_movs_dir = cmip_movs_dir
         self.cmip_movs_set = cmip_movs_set
-        self.atm_modes = atm_modes.split(",") if atm_modes else []
-        self.cpl_modes = cpl_modes.split(",") if cpl_modes else []
+
+        # ENSO
+        self.enso_viewer = bool(enso_viewer)
         self.cmip_enso_dir = cmip_enso_dir
         self.cmip_enso_set = cmip_enso_set
 
-        self.parameter = self._initialize_parameter()
+        # Final bundle for downstream readers/builders
+        self.parameter: Dict[str, Any] = self._initialize_parameter()
+
+    # ---------- helpers ----------
+    @staticmethod
+    def _to_list(value: Optional[Union[List[str], str]]) -> List[str]:
+        """Accept None | list[str] | comma/space-separated str -> List[str]."""
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return [str(v).strip() for v in value if str(v).strip()]
+        s = str(value).strip()
+        if not s:
+            return []
+        parts = s.split(",") if "," in s else s.split()
+        return [p.strip() for p in parts if p.strip()]
 
     def _initialize_parameter(self):
+        # Parse comma-separated lists
+        tests = [t.strip() for t in str(self.test_name).split(",") if t.strip()]
+        cases = [c.strip() for c in str(self.case_name).split(",") if c.strip()]
+
+        if len(tests) != len(cases):
+            raise ValueError(
+                f"test_name count ({len(tests)}) != case_name count ({len(cases)}). "
+                "They must align positionally."
+            )
+
         parsed_test_names = []
         parsed_model_names = []
 
-        for raw_test, raw_case in zip(
-            self.test_name.split(","), self.case_name.split(",")
-        ):
-            parts = raw_test.strip().split(".")
+        for raw_test, raw_case in zip(tests, cases):
+            parts = raw_test.split(".")
             if len(parts) != 4:
                 raise ValueError(
                     f"Invalid test format '{raw_test}'. Expected 'a.b.c.d'"
                 )
-
-            # Construct strings
+            # Re-map 'a.b.c.d' -> 'a.b.c_d' (your original behavior)
             test_id = f"{parts[0]}.{parts[1]}.{parts[2]}_{parts[3]}"
             parsed_test_names.append(test_id)
-
             parsed_model_names.append(raw_case)
 
-        return OrderedDict(
+        # Keep the exact keys your pipeline expects
+        param = OrderedDict(
             {
                 "save_data": self.save_data,
                 "out_dir": os.path.join(self.results_dir, "ERROR_metric"),
@@ -98,78 +142,131 @@ class SyntheticMetricsPlotter:
             }
         )
 
-    def generate(self, metric_sets):
+        return param
+
+    def generate(self) -> None:
         logger.info("Generating synthetic metrics plots ...")
-        at_least_one_success: bool = False
-        for metric in metric_sets:
-            logger.info(f"Processing metric: {metric}")
+        tasks = [
+            (self.clim_viewer, "mean_climate", self._handle_mean_climate),
+            (self.movs_viewer, "variability_modes", self._handle_variability_modes),
+            (self.enso_viewer, "enso_metric", self._handle_enso_metric),
+        ]
+
+        at_least_one_success = False
+        failures = []
+
+        for enabled, metric, handler in tasks:
             self.parameter["test_path"] = self.base_test_input_path.replace(
                 "%(group_type)", metric
             )
             self.parameter["diag_vars"] = self.metric_dict[metric]
-
+            if not enabled:
+                continue
+            logger.info("Processing metric: %s", metric)
             try:
-                if metric == "mean_climate":
-                    self._handle_mean_climate(metric)
-
-                elif metric == "variability_modes":
-                    self._handle_variability_modes(metric)
-
-                elif metric == "enso_metric":
-                    self._handle_enso_metric(metric)
-                else:
-                    raise ValueError(f"Invalid metric={metric}")
+                handler(metric)
                 at_least_one_success = True
-            except Exception:
-                traceback.print_exc()
-                logger.error(f"Failed to handle metric={metric}")
+            except Exception as e:
+                logger.error("Failed to handle metric=%s: %s", metric, e, exc_info=True)
+                failures.append(metric)
+
         if not at_least_one_success:
             raise RuntimeError("No synthetic metrics plots could be generated.")
 
-    def _handle_mean_climate(self, metric):
-        logger.info(f"Handling mean climate for {metric}")
+        if failures:
+            logger.warning("Completed with partial failures: %s", ", ".join(failures))
+
+    def _handle_mean_climate(self, metric: str) -> None:
+        logger.info("Handling mean climate…")
         self.parameter.update(
             {"cmip_path": self.cmip_clim_dir, "cmip_name": self.cmip_clim_set}
         )
 
-        # Instantiate the collector
         collector = ClimMetricsReader(self.parameter)
-        # Collect and merge metrics
         merge_lib = collector.collect()
 
-        # merge_lib = collect_clim_metrics(self.parameter)
+        # Variables (preserve original behavior unless filters are provided)
+        var_list = list(merge_lib.var_list)
+        var_unit_list = list(merge_lib.var_unit_list)
+        if self.clim_vars is not None:
+            name_to_unit = dict(zip(merge_lib.var_list, merge_lib.var_unit_list))
+            missing = [v for v in self.clim_vars if v not in name_to_unit]
+            if missing:
+                logger.warning(
+                    f"[mean_climate] Requested variables not found and will be skipped: {missing}"
+                )
+            var_list = [v for v in self.clim_vars if v in name_to_unit]
+            var_unit_list = [name_to_unit[v] for v in var_list]
+
+        # Regions (preserve order)
+        regions = list(merge_lib.regions)
+        if self.clim_regions is not None:
+            missing_r = [r for r in self.clim_regions if r not in merge_lib.regions]
+            if missing_r:
+                logger.warning(
+                    f"[mean_climate] Requested regions not found and will be skipped: {missing_r}"
+                )
+            regions = [r for r in self.clim_regions if r in merge_lib.regions]
+
+        # Use the same `metric` variable as before (assuming it's defined in scope)
         for stat, vars_ in self.metric_dict[metric].items():
-            logger.debug(
-                f"Running mean climate plot driver for stat={stat} on metric_dict={vars_}"
-            )
+            logger.debug(f"[mean_climate] Running plot driver: stat={stat}")
+            # Keep the exact positional calling convention you had before
             mean_climate_plot_driver(
                 metric,
                 stat,
-                merge_lib.regions,
+                regions,
                 self.parameter["model_name"],
                 vars_,
                 merge_lib.df_dict[stat],
-                merge_lib.var_list,
-                merge_lib.var_unit_list,
+                var_list,
+                var_unit_list,
                 self.parameter["save_data"],
                 self.parameter["out_dir"],
                 self.figure_format,
             )
 
-    def _handle_variability_modes(self, metric):
-        logger.info(f"Handling variability_modes for {metric}")
+    def _handle_variability_modes(self, metric: str) -> None:
+        logger.info("Handling modes variability …")
+
+        # Combine atmospheric and coupled modes (already lists)
+        modes_list = (self.mova_modes or []) + (self.movc_modes or [])
+
+        if not modes_list:
+            logger.warning(
+                "[variability_modes] No modes specified; skipping variability mode plots."
+            )
+            return
+
+        # Update parameters for reader
         self.parameter.update(
             {
                 "cmip_path": self.cmip_movs_dir,
                 "cmip_name": self.cmip_movs_set,
-                "movs_mode": self.atm_modes + self.cpl_modes,
+                "movs_mode": modes_list,
             }
         )
 
+        # Collect metrics
         reader = MoVsMetricsReader(self.parameter)
         merge_lib, mode_season_list = reader.collect_metrics()
 
+        # Ensure metric exists in dictionary
+        if metric not in self.metric_dict:
+            logger.error(
+                f"[variability_modes] Metric '{metric}' not found in metric_dict keys={list(self.metric_dict.keys())}"
+            )
+            return
+
+        # Loop through stats and plot
         for stat, vars_ in self.metric_dict[metric].items():
+            if stat not in merge_lib:
+                logger.warning(
+                    f"[variability_modes] stat='{stat}' not found in merge_lib; available={list(merge_lib.keys())}"
+                )
+                continue
+
+            logger.debug(f"[variability_modes] Running plot driver for stat={stat}")
             variability_modes_plot_driver(
                 metric,
                 stat,
@@ -182,22 +279,100 @@ class SyntheticMetricsPlotter:
                 self.figure_format,
             )
 
-    def _handle_enso_metric(self, metric):
-        logger.info(f"Handling enso_metric for {metric}")
+    def _handle_enso_metric(self, metric: str) -> None:
+        logger.info("Handling ENSO metrics…")
+
+        # Update paths
         self.parameter.update(
             {
                 "cmip_path": self.cmip_enso_dir,
                 "cmip_name": self.cmip_enso_set,
             }
         )
-        for stat in self.metric_dict[metric]:
-            # Step 1: Load metrics JSON paths using the reader
-            reader = EnsoMetricsReader(self.parameter, metric, stat)
-            dict_json_path = reader.run()
-            # Step 2: generate figures
-            enso_plot_driver(
-                metric, stat, dict_json_path, self.parameter, self.figure_format
+
+        # --- Build enso_mips: [<MIP tag from cmip_name>] + model_name(s) ---
+        cmip_name = self.parameter.get("cmip_name", "")
+        mip_tag = (
+            cmip_name.split(".")[0]
+            if isinstance(cmip_name, str) and cmip_name
+            else None
+        )
+
+        model_name = self.parameter.get("model_name", [])
+        if isinstance(model_name, str):
+            model_name = [model_name]
+        elif isinstance(model_name, tuple):
+            model_name = list(model_name)
+        elif not isinstance(model_name, list):
+            logger.warning(
+                f"[enso] Unexpected model_name type: {type(model_name).__name__}; coercing to list if possible."
             )
+            model_name = list(model_name) if model_name is not None else []
+
+        enso_mips = ([mip_tag] if mip_tag else []) + model_name
+        if not enso_mips:
+            logger.warning(
+                "[enso] No MIP/model names resolved for ENSO; continuing with empty list."
+            )
+
+        # --- Collections (optional config) ---
+        enso_collections = self.metric_dict.get("collection", [])
+        if not isinstance(enso_collections, (list, tuple)):
+            logger.warning(
+                f"[enso] 'collection' should be list/tuple; got {type(enso_collections).__name__}. Using empty list."
+            )
+            enso_collections = []
+
+        # --- Validate metric entry ---
+        if metric not in self.metric_dict or not isinstance(
+            self.metric_dict[metric], dict
+        ):
+            logger.error(
+                f"[enso] metric_dict['{metric}'] missing or not a dict. Available: {list(self.metric_dict.keys())}"
+            )
+            return
+
+        diag_vars_all = self.parameter.get("diag_vars", {})
+        if not isinstance(diag_vars_all, dict):
+            logger.error(
+                f"[enso] parameter['diag_vars'] must be a dict; got {type(diag_vars_all).__name__}."
+            )
+            return
+
+        # --- Main loop over stats ---
+        for stat in self.metric_dict[metric].keys():
+            metric_dict = diag_vars_all.get(stat, {})
+            if not metric_dict:
+                logger.warning(
+                    f"[enso] No variables configured for stat='{stat}'. Skipping."
+                )
+                continue
+
+            logger.debug(
+                f"[enso] stat='{stat}', enso_mips={enso_mips}, collections={enso_collections}"
+            )
+            try:
+                reader = EnsoMetricsReader(
+                    self.parameter, stat, metric_dict, enso_mips, enso_collections
+                )
+                dict_json_path = reader.run()
+            except Exception as e:
+                logger.exception(f"[enso] Reader failed for stat='{stat}': {e}")
+                continue
+
+            if not dict_json_path:
+                logger.warning(
+                    f"[enso] Reader returned empty path for stat='{stat}'. Skipping plot."
+                )
+                continue
+
+            try:
+                enso_plot_driver(
+                    metric, stat, dict_json_path, self.parameter, self.figure_format
+                )
+                logger.debug(f"[enso] Plotted stat='{stat}' successfully.")
+            except Exception as e:
+                logger.exception(f"[enso] Plot driver failed for stat='{stat}': {e}")
 
 
 def mean_climate_plot_driver(
@@ -516,14 +691,25 @@ def portrait_metric_plot(
     model_list,
     out_path,
     fig_format,
+    base_fontsize=20,
+    base_figsize=(40, 18),
+    base_legend_lw=1.5,
+    box_as_square=True,
+    missing_color="white",
+    logo_rect=[0, 0, 0, 0],
+    logo_off=True,
 ):
-    # process figure
-    fontsize = 20
-    figsize = (40, 18)
-    legend_box_xy = (1.08, 1.18)
-    legend_box_size = 4
-    legend_lw = 1.5
-    shrink = 0.8
+    # === Figure scaling setup ===
+    fscale = len(var_list) / 30.0
+    fscale = max(0.5, min(fscale, 1.5))  # clamp to avoid extremes
+
+    # Apply scaled parameters
+    fontsize = base_fontsize
+    figsize = (base_figsize[0], base_figsize[1] * fscale)
+    legend_box_xy = (1.08, 1.20)
+    legend_box_size = 4 * fscale
+    legend_lw = base_legend_lw * fscale
+    shrink = 0.8 * fscale
     legend_fontsize = fontsize * 0.8
 
     if group == "mean_climate":
@@ -567,24 +753,24 @@ def portrait_metric_plot(
         data_all_nor,
         xaxis_labels=model_list,
         yaxis_labels=var_list,
-        cbar_label=stat_name,
-        cbar_label_fontsize=fontsize * 1.0,
-        cbar_tick_fontsize=fontsize,
-        box_as_square=True,
+        cbar_label=stat,
+        cbar_label_fontsize=fontsize * 0.95,
+        cbar_tick_fontsize=fontsize * 0.95,
+        box_as_square=box_as_square,
         vrange=var_range,
         figsize=figsize,
         cmap=cmap_color,
         cmap_bounds=cmap_bounds,
         cbar_kw={"extend": "both", "shrink": shrink},
-        missing_color="white",
+        missing_color=missing_color,
         legend_on=legend_on,
         legend_labels=legend_labels,
         legend_box_xy=legend_box_xy,
         legend_box_size=legend_box_size,
         legend_lw=legend_lw,
         legend_fontsize=legend_fontsize,
-        logo_rect=[0, 0, 0, 0],
-        logo_off=True,
+        logo_rect=logo_rect,
+        logo_off=logo_off,
     )
 
     ax.axvline(x=len(model_list) - len(highlight_models), color="k", linewidth=3)
@@ -593,6 +779,12 @@ def portrait_metric_plot(
     for xtick, color in zip(ax.get_xticklabels(), lable_colors):
         xtick.set_color(color)
     ax.yaxis.label.set_color(lable_colors[0])
+
+    # Add title
+    fig.suptitle(
+        f"{region} — {group} ({stat_name})", fontsize=fontsize * 1.1, fontweight="bold"
+    )
+    fig.tight_layout(rect=[0, 0, 1, 0.95])  # leave top 5 % free for title
 
     # Save figure as an image file
     outdir = os.path.join(out_path, region)
@@ -655,58 +847,80 @@ def parcoord_metric_plot(
     model_list,
     out_path,
     fig_format,
+    base_fontsize=20,
+    base_figsize=(60, 20),
+    base_legend_lw=1.5,
+    color_map="tab20_r",
+    xcolors=None,
+    group1_name="CMIP",
+    mean1_name="CMIP (Mean)",
+    group2_name="E3SM",
+    mean2_name="E3SM (Mean)",
+    identify_all_models=True,
+    vertical_center="median",
+    vertical_center_line=True,
+    show_boxplot=False,
+    show_violin=True,
+    violin_colors=("lightgrey", "pink"),
+    logo_rect=[0, 0, 0, 0],
+    logo_off=True,
 ):
     """Function for parallel coordinate plots"""
-    fontsize = 18
-    figsize = (40, 18)
+    # === Figure scaling setup ===
+    fscale = len(var_names) / 30.0
+    fscale = max(0.6, min(fscale, 1.5))  # clamp to avoid extremes
+
+    fontsize = base_fontsize
+    figsize = (base_figsize[0] * fscale, base_figsize[1] * fscale)
+
     legend_ncol = int(7 * figsize[0] / 40.0)
     legend_posistion = (0.50, -0.14)
-    # hide markers for CMIP models
-    identify_all_models = False
+
     # colors for highlight lines
-    xcolors = [
-        "#e41a1c",
-        "#ff7f00",
-        "#4daf4a",
-        "#f781bf",
-        "#a65628",
-        "#984ea3",
-        "#377eb8",
-        "#dede00",
-    ]
+    if xcolors is None:
+        xcolors = [
+            "#e41a1c",
+            "#ff7f00",
+            "#4daf4a",
+            "#f781bf",
+            "#a65628",
+            "#984ea3",
+            "#377eb8",
+            "#dede00",
+        ]
 
     # ensemble mean for E3SM group
     highlight_model1 = get_highlight_models(data_dict.get("model", []), model_name)
     irow_str = data_dict[data_dict["model"] == highlight_model1[0]].index[0]
     irow_end = data_dict[data_dict["model"] == highlight_model1[-1]].index[0] + 1
-    data_dict.loc["E3SM MMM"] = data_dict[irow_str:irow_end].mean(
+    data_dict.loc[mean2_name] = data_dict[irow_str:irow_end].mean(
         numeric_only=True, skipna=True
     )
-    data_dict.at["E3SM MMM", "model"] = "E3SM (MMM)"
+    data_dict.at[mean2_name, "model"] = mean2_name
 
     # ensemble mean for CMIP group
     irow_sub = data_dict[data_dict["model"] == highlight_model1[0]].index[0]
-    data_dict.loc["CMIP MMM"] = data_dict[:irow_sub].mean(
+    data_dict.loc[mean1_name] = data_dict[:irow_sub].mean(
         numeric_only=True, skipna=True
     )
-    data_dict.at["CMIP MMM", "model"] = "CMIP (MMM)"
-    data_dict.loc["E3SM MMM"] = data_dict[irow_sub:].mean(
+    data_dict.at[mean1_name, "model"] = mean1_name
+    data_dict.loc[mean2_name] = data_dict[irow_sub:].mean(
         numeric_only=True, skipna=True
     )
-    data_dict.at["E3SM MMM", "model"] = "E3SM (MMM)"
+    data_dict.at[mean2_name, "model"] = mean2_name
 
     model_list = data_dict["model"].to_list()
-    highlight_model2 = highlight_model1 + ["CMIP (MMM)", "E3SM (MMM)"]
+    highlight_model2 = highlight_model1 + [mean1_name, mean2_name]
 
     # colors for highlight lines
     lncolors = []
     for i, model in enumerate(highlight_model2):
-        if model == "CMIP (MMM)":
+        if model == mean1_name:
             lncolors.append("#000000")
-        elif model == "E3SM (MMM)":
+        elif model == mean2_name:
             lncolors.append("#5b5b5b")  # ("#999999")
         else:
-            lncolors.append(xcolors[i])
+            lncolors.append(xcolors[i % len(xcolors)])
 
     var_name1 = sorted(var_names.copy())
     # label information
@@ -723,7 +937,6 @@ def parcoord_metric_plot(
 
     xlabel = "Metric"
     ylabel = "{} ({})".format(stat_name, stat.upper())
-    color_map = "tab20_r"
 
     if "mean_climate" in [group, region]:
         title = "Model Performance of Annual Climatology ({}, {})".format(
@@ -739,32 +952,36 @@ def parcoord_metric_plot(
         var_labels,
         model_list,
         model_names2=highlight_model1,
-        group1_name="CMIP6",
-        group2_name="E3SM",
+        group1_name=group1_name,
+        group2_name=group2_name,
         models_to_highlight=highlight_model2,
         models_to_highlight_colors=lncolors,
         models_to_highlight_labels=highlight_model2,
         identify_all_models=identify_all_models,
-        vertical_center="median",
-        vertical_center_line=True,
-        title=title,
+        vertical_center=vertical_center,
+        vertical_center_line=vertical_center_line,
+        title="",
         figsize=figsize,
         colormap=color_map,
-        show_boxplot=False,
-        show_violin=True,
-        violin_colors=("lightgrey", "pink"),
+        show_boxplot=show_boxplot,
+        show_violin=show_violin,
+        violin_colors=violin_colors,
         legend_ncol=legend_ncol,
         legend_bbox_to_anchor=legend_posistion,
         legend_fontsize=fontsize * 0.85,
         xtick_labelsize=fontsize * 0.95,
         ytick_labelsize=fontsize * 0.95,
-        logo_rect=[0, 0, 0, 0],
-        logo_off=True,
+        logo_rect=logo_rect,
+        logo_off=logo_off,
     )
 
-    ax.set_xlabel(xlabel, fontsize=fontsize * 1.1)
-    ax.set_ylabel(ylabel, fontsize=fontsize * 1.1)
-    ax.set_title(title, fontsize=fontsize * 1.1)
+    ax.set_xlabel(xlabel, fontsize=fontsize * 1.05)
+    ax.set_ylabel(ylabel, fontsize=fontsize * 1.05)
+    # ax.set_title(title, fontsize=fontsize * 1.05)
+
+    # Add title
+    fig.suptitle(f"{title}", fontsize=fontsize * 1.05, fontweight="bold")
+    fig.tight_layout(rect=[0, 0, 1, 0.95])  # leave top 5 % free for title
 
     # Save figure as an image file
     outdir = os.path.join(out_path, region)
