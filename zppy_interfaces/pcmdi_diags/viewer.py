@@ -464,7 +464,7 @@ def generate_data_html(config):
             "Source Code",
             (
                 "Diagnosis &amp; Intercomparison (PCMDI) Metrics Package (PMP) "
-                f"<a href='https://github.com/PCMDI/pcmdi_metrics/' target='_blank' rel='noopener'>Version {cfg('version','')}</a>."
+                f"<a href='https://github.com/PCMDI/pcmdi_metrics/' target='_blank' rel='noopener'>Version {cfg('version', '')}</a>."
             ),
         ),
         (
@@ -473,10 +473,10 @@ def generate_data_html(config):
             "<a href='https://github.com/E3SM-Project/e3sm_diags/' target='_blank' rel='noopener'>E3SM Diagnostics</a>. "
             "More info: <a href='https://docs.e3sm.org/e3sm_diags/_build/html/main/index.html#/' target='_blank' rel='noopener'>Documentation</a>.",
         ),
-        ("Experiment", f"{cfg('case_id','')}"),
-        ("Output Path", f"{cfg('diag_dir','')}/metrics_data"),
-        ("Reference Path", f"{cfg('obs_dir','')}"),
-        ("PMP Path", f"{cfg('pmp_dir','')}"),
+        ("Experiment", f"{cfg('case_id', '')}"),
+        ("Output Path", f"{cfg('diag_dir', '')}/metrics_data"),
+        ("Reference Path", f"{cfg('obs_dir', '')}"),
+        ("PMP Path", f"{cfg('pmp_dir', '')}"),
     ]
     add_section(sections, "General Notes", general_notes)
 
@@ -514,7 +514,7 @@ def generate_data_html(config):
         ]
         add_section(
             sections,
-            f"Mean Climate Metrics Data ({cfg('clim_period','')})",
+            f"Mean Climate Metrics Data ({cfg('clim_period', '')})",
             clim_metrics,
         )
 
@@ -583,7 +583,7 @@ def generate_data_html(config):
         ]
         add_section(
             sections,
-            f"EMoV Metrics Data (coupled modes: {cfg('movc_period','')}; atmospheric modes: {cfg('mova_period','')})",
+            f"EMoV Metrics Data (coupled modes: {cfg('movc_period', '')}; atmospheric modes: {cfg('mova_period', '')})",
             emov_metrics,
         )
 
@@ -615,7 +615,7 @@ def generate_data_html(config):
             ),
         ]
         add_section(
-            sections, f"ENSO Metrics Data ({cfg('enso_period','')})", enso_metrics
+            sections, f"ENSO Metrics Data ({cfg('enso_period', '')})", enso_metrics
         )
 
     # ---------------- Render ----------------
