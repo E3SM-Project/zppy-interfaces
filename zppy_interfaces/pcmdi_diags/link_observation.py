@@ -185,9 +185,14 @@ def _get_args() -> LinkObservationParameters:
     parser.add_argument("--obs_sets", type=str)
     parser.add_argument("--obs_ts", type=str)
     parser.add_argument("--obstmp_dir", type=str)
+    parser.add_argument("--debug", type=str)
 
     # Ignore the first arg
     # (zi-pcmdi-link-observation)
     args: argparse.Namespace = parser.parse_args(sys.argv[1:])
+
+    if args.debug and args.debug.lower() == "true":
+        logger.setLevel("DEBUG")
+        logger.debug("Debug logging enabled")
 
     return LinkObservationParameters(vars(args))
