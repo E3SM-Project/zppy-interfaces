@@ -241,6 +241,7 @@ def _get_args() -> Dict[str, str]:
     parser.add_argument("--generate_sftlf", type=str)
     parser.add_argument("--case_id", type=str)
     parser.add_argument("--results_dir", type=str)
+    parser.add_argument("--debug", type=str)
 
     # For VariabilityModesParameters
     parser.add_argument("--var_modes", type=str)  # use either atm_mdoes or cpl_modes
@@ -248,6 +249,10 @@ def _get_args() -> Dict[str, str]:
     # Ignore the first arg
     # (zi-pcmdi-variability-modes)
     args: argparse.Namespace = parser.parse_args(sys.argv[1:])
+
+    if args.debug and args.debug.lower() == "true":
+        logger.setLevel("DEBUG")
+        logger.debug("Debug logging enabled")
 
     return vars(args)
 

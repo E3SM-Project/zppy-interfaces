@@ -247,9 +247,14 @@ def _get_args() -> Dict[str, str]:
     parser.add_argument("--pcmdi_external_prefix", type=str)
     parser.add_argument("--pcmdi_viewer_template", type=str)
     parser.add_argument("--save_all_data", type=str2bool)
+    parser.add_argument("--debug", type=str)
 
     # Ignore the first arg
     # (zi-pcmdi-synthetic-plots)
     args: argparse.Namespace = parser.parse_args(sys.argv[1:])
+
+    if args.debug and args.debug.lower() == "true":
+        logger.setLevel("DEBUG")
+        logger.debug("Debug logging enabled")
 
     return vars(args)
