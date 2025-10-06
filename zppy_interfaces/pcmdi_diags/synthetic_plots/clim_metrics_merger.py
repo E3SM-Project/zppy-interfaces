@@ -167,9 +167,17 @@ class ClimMetricsMerger:
         if hasattr(cleaned_model_lib, "var_list") and hasattr(
             self.cmip_lib, "var_list"
         ):
-            self.merged_lib.var_list = (
-                cleaned_model_lib.var_list
-            )  # Keep the shorter list!
+            var_set_cleaned_model_lib = set(cleaned_model_lib.var_list)
+            var_set_cmip_lib = set(self.cmip_lib.var_list)
+            logger.debug(
+                f"Var list sizes - cleaned_model_lib: {len(var_set_cleaned_model_lib)}, cmip_lib: {len(var_set_cmip_lib)}"
+            )
+            logger.debug(
+                f"Var list differences - in cleaned_model_lib not in cmip_lib: {var_set_cleaned_model_lib - var_set_cmip_lib}"
+            )
+            logger.debug(
+                f"Var list differences - in cmip_lib not in cleaned_model_lib: {var_set_cmip_lib - var_set_cleaned_model_lib}"
+            )
 
         # Standardize units after merging
         self.merged_lib = self._check_units(self.merged_lib)
