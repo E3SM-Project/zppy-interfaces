@@ -712,17 +712,56 @@ def portrait_metric_plot(
     shrink = 0.8 * fscale
     legend_fontsize = fontsize * 0.8
 
+    # --- SMALL GUARD A: basic inputs present ---
+    if not var_list:
+        logger.warning("[Portrait]: No variables to plot (var_list empty); returning.")
+        return
+    if not model_list:
+        logger.warning("[Portrait]: No models to plot (model_list empty); returning.")
+        return
+
     if group == "mean_climate":
-        # data for final plot
-        data_all_nor = np.stack(
-            [data_dict["djf"], data_dict["mam"], data_dict["jja"], data_dict["son"]]
-        )
+        # --- SMALL GUARD B: seasonal arrays exist & stack cleanly ---
+        required = ["djf", "mam", "jja", "son"]
+        missing = [k for k in required if (k not in data_dict or data_dict[k] is None)]
+        if missing:
+            logger.warning(
+                "[Portrait]: Missing seasonal arrays for %s; returning. Missing=%s",
+                group,
+                missing,
+            )
+            return
+        try:
+            arrs = [np.asarray(data_dict[k]) for k in required]
+            if any(a.size == 0 for a in arrs):
+                logger.warning(
+                    "[Portrait]: One or more seasonal arrays are empty; returning."
+                )
+                return
+            data_all_nor = np.stack(arrs)
+        except Exception as e:
+            logger.warning(
+                "[Portrait]: Failed to stack seasonal arrays: %s; returning.", e
+            )
+            return
+
         legend_on = True
         legend_labels = ["DJF", "MAM", "JJA", "SON"]
     else:
-        data_all_nor = data_dict
+        # --- SMALL GUARD C: non-seasonal data present ---
+        data_all_nor = np.asarray(data_dict)
+        if data_all_nor.size == 0:
+            logger.warning("[Portrait]: Input data array is empty; returning.")
+            return
         legend_on = False
         legend_labels = []
+
+    # --- SMALL GUARD D: minimal shape sanity (avoid cryptic errors downstream) ---
+    if data_all_nor.ndim < 2:
+        logger.warning(
+            "[Portrait]: Data has ndim=%d (<2); returning.", data_all_nor.ndim
+        )
+        return
 
     highlight_models = get_highlight_models(model_list, model_name)
     lable_colors = []
@@ -742,7 +781,6 @@ def portrait_metric_plot(
     elif stat in ["stdv_pc_ratio_to_obs"]:
         var_range = (0.5, 1.5)
         cmap_color = "jet"
-        cmap_bounds = [0.5, 0.7, 0.9, 1.1, 1.3, 1.5]
         cmap_bounds = [r / 10 for r in range(5, 16, 1)]
     else:
         var_range = (-0.5, 0.5)
@@ -782,7 +820,9 @@ def portrait_metric_plot(
 
     # Add title
     fig.suptitle(
-        f"{region} — {group} ({stat_name})", fontsize=fontsize * 1.1, fontweight="bold"
+        f"{region} — {group} ({stat_name})",
+        fontsize=fontsize * 1.1,
+        fontweight="bold",
     )
     fig.tight_layout(rect=[0, 0, 1, 0.95])  # leave top 5 % free for title
 
@@ -888,29 +928,54 @@ def parcoord_metric_plot(
             "#377eb8",
             "#dede00",
         ]
-
-    # ensemble mean for E3SM group
+    # --- SMALL GUARD 1: highlight models may be missing ---
     highlight_model1 = get_highlight_models(data_dict.get("model", []), model_name)
-    irow_str = data_dict[data_dict["model"] == highlight_model1[0]].index[0]
-    irow_end = data_dict[data_dict["model"] == highlight_model1[-1]].index[0] + 1
-    data_dict.loc[mean2_name] = data_dict[irow_str:irow_end].mean(
-        numeric_only=True, skipna=True
-    )
-    data_dict.at[mean2_name, "model"] = mean2_name
+    if not highlight_model1:
+        # No highlightable models → skip means/highlights later
+        highlight_model1 = []
+        have_highlights = False
+    else:
+        have_highlights = True
 
-    # ensemble mean for CMIP group
-    irow_sub = data_dict[data_dict["model"] == highlight_model1[0]].index[0]
-    data_dict.loc[mean1_name] = data_dict[:irow_sub].mean(
-        numeric_only=True, skipna=True
-    )
-    data_dict.at[mean1_name, "model"] = mean1_name
-    data_dict.loc[mean2_name] = data_dict[irow_sub:].mean(
-        numeric_only=True, skipna=True
-    )
-    data_dict.at[mean2_name, "model"] = mean2_name
+    # Only compute E3SM mean if we found highlight rows in the DF
+    if have_highlights:
+        if (highlight_model1[0] in set(data_dict["model"])) and (
+            highlight_model1[-1] in set(data_dict["model"])
+        ):
+            irow_str = data_dict.index[data_dict["model"] == highlight_model1[0]][0]
+            irow_end = (
+                data_dict.index[data_dict["model"] == highlight_model1[-1]][0] + 1
+            )
+            data_dict.loc[mean2_name] = data_dict.iloc[irow_str:irow_end].mean(
+                numeric_only=True, skipna=True
+            )
+            data_dict.at[mean2_name, "model"] = mean2_name
+        else:
+            have_highlights = False  # fallback if names weren’t found
 
-    model_list = data_dict["model"].to_list()
-    highlight_model2 = highlight_model1 + [mean1_name, mean2_name]
+    # CMIP/E3SM means only if we can split reliably
+    if have_highlights:
+        irow_sub = data_dict.index[data_dict["model"] == highlight_model1[0]][0]
+        data_dict.loc[mean1_name] = data_dict.iloc[:irow_sub].mean(
+            numeric_only=True, skipna=True
+        )
+        data_dict.at[mean1_name, "model"] = mean1_name
+        data_dict.loc[mean2_name] = data_dict.iloc[irow_sub:].mean(
+            numeric_only=True, skipna=True
+        )
+        data_dict.at[mean2_name, "model"] = mean2_name
+
+    # --- SMALL GUARD 1: highlights models
+    if not have_highlights:
+        logger.warning(
+            f"[ParCoord]: No highlightable models found for model_name={model_name}; "
+            f"Skipping highlight and mean calculations."
+        )
+
+    model_list = data_dict["model"].astype(str).to_list()
+    highlight_model2 = highlight_model1 + (
+        [mean1_name, mean2_name] if have_highlights else []
+    )
 
     # colors for highlight lines
     lncolors = []
@@ -922,30 +987,48 @@ def parcoord_metric_plot(
         else:
             lncolors.append(xcolors[i % len(xcolors)])
 
-    var_name1 = sorted(var_names.copy())
+    # --- SMALL GUARD 2: keep only existing, non-empty vars ---
+    var_name1 = sorted(
+        v for v in var_names if (v in data_dict.columns) and data_dict[v].notna().any()
+    )
+    if not var_name1:
+        logger.warning(
+            f"[ParCoord]: Nothing to plot for group={group}, region={region}, stat={stat}. "
+            f"No valid variables found in metrics data (columns checked={len(var_names)})."
+        )
+        return
+
     # label information
     var_labels = []
-    for i, var in enumerate(var_name1):
-        index = var_names.index(var)
-        if var_units is not None:
-            var_labels.append(var_names[index] + "\n" + var_units[index])
+    for v in var_name1:
+        idx = var_names.index(v)
+        if var_units is not None and idx < len(var_units):
+            var_labels.append(var_names[idx] + "\n" + var_units[idx])
         else:
-            var_labels.append(var_names[index])
+            var_labels.append(var_names[idx])
 
     # final plot data
     data_var = data_dict[var_name1].to_numpy()
+
+    # --- SMALL GUARD 3: ensure at least 1 column for parallel-coords ---
+    if data_var.ndim != 2 or data_var.shape[1] == 0:
+        logger.warning(
+            f"[ParCoord]: Not enough data to process parallel coordinate plots "
+            f"(shape={data_var.shape}); returning without plot."
+        )
+        return
 
     xlabel = "Metric"
     ylabel = "{} ({})".format(stat_name, stat.upper())
 
     if "mean_climate" in [group, region]:
-        title = "Model Performance of Annual Climatology ({}, {})".format(
-            stat.upper(), region.upper()
-        )
+        title = f"Model Performance of Annual Climatology ({stat.upper()}, {region.upper()})"
     elif "variability_modes" in [group, region]:
-        title = "Model Performance of Modes Variability ({})".format(stat.upper())
+        title = f"Model Performance of Modes Variability ({stat.upper()})"
     elif "enso" in [group, region]:
-        title = "Model Performance of ENSO ({})".format(stat.upper())
+        title = f"Model Performance of ENSO ({stat.upper()})"
+    else:
+        title = f"Model Performance ({stat.upper()}, {region.upper()})"
 
     fig, ax = parallel_coordinate_plot(
         data_var,
