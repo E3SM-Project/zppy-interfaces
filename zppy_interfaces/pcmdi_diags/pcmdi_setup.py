@@ -257,7 +257,7 @@ class LandSeaMaskGenerator:
             }
         )
 
-        comp = dict(_FillValue=1.0e20, zlib=True, complevel=5)
+        comp = dict(_FillValue=1.0e20)
         encoding = {
             v: comp for v in set(mask_ds.data_vars.keys()) | set(mask_ds.coords.keys())
         }
