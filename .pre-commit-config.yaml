@@ -2,6 +2,7 @@ exclude: "docs|node_modules|migrations|.git|.tox"
 default_stages: [commit]
 fail_fast: true
 
+# make sure these always match dev.yml and qa in pyproject.toml
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
