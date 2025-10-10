@@ -178,10 +178,22 @@ def process_variable(
         # 2. Load only this variable's data
         dataset = xcdat.open_mfdataset(file_paths, center_times=True)
 
+        # For TOTAL metrics, eagerly load area fields to avoid lazy computation issues
+        if var.metric == Metric.TOTAL:
+            if "valid_area_per_gridcell" in dataset:
+                dataset["valid_area_per_gridcell"].load()
+            if "area" in dataset:
+                dataset["area"].load()
+            if "landfrac" in dataset:
+                dataset["landfrac"].load()
+
         try:
             # 3. Compute annual average
             annual_dataset = dataset.temporal.group_average(var.variable_name, "year")
             data_array = annual_dataset.data_vars[var.variable_name]
+
+            # Eagerly load the result to avoid lazy computation issues
+            data_array.load()
 
             # 4. Apply area scaling if needed
             data_array = apply_scaling(data_array, var.metric, dataset)
