@@ -691,23 +691,44 @@ class SummaryTableBuilder:
             ("Pattern Corr.", "cor_xy", "Portrait"),
             ("RMSE", "rms_xy", "Portrait", "rms_xyt", "ParCoord"),
         ]
+        # 1 section column + 1 region column + 3 slots per metric group
+        self.COLS_PER_METRIC = 4
+        self.TOTAL_COLS = 2 + self.COLS_PER_METRIC * len(self.metrics)
+
+    def set_layout_from_metrics(self, metrics):
+        """Update metrics & recompute TOTAL_COLS so all rows align."""
+        if metrics is not None:
+            self.metrics = metrics
+        self.TOTAL_COLS = 2 + self.COLS_PER_METRIC * len(self.metrics)
+
+    # --- helper to keep rows aligned ---
+    def _pad_or_check(self, row):
+        """Keep rows from exceeding TOTAL_COLS; never add filler cells."""
+        w = sum(int(c.get("colspan", 1)) for c in row)
+
+        # exact or short → leave as-is (no empty filler appended)
+        if w <= self.TOTAL_COLS:
+            return row
+
+        # too wide → shrink from the last colspan cell
+        over = w - self.TOTAL_COLS
+        for c in reversed(row):
+            if "colspan" in c:
+                c["colspan"] = max(1, int(c["colspan"]) - over)
+                break
+        return row
 
     def build_summary_table(self, regions=None, metrics=None):
         clim_path = safe_join(str(self.fig_dir), "ERROR_metric/mean_climate")
         metric_table = []
 
-        if regions is None:
-            regions = self.regions
-
-        if metrics is None:
-            metrics = self.metrics
+        regions = self.regions if regions is None else regions
+        metrics = self.metrics if metrics is None else metrics
 
         for i, region in enumerate(regions):
             row = []
             if i == 0:
-                row.append(
-                    {"content": "<b>Mean Climate</b>", "rowspan": len(self.regions)}
-                )
+                row.append({"content": "<b>Mean Climate</b>", "rowspan": len(regions)})
             row.append({"content": region.upper()})
 
             for metric in metrics:
@@ -721,11 +742,15 @@ class SummaryTableBuilder:
                         filename_pattern=filename_pattern,
                         label=mode,
                     )
-                    row.append({"colspan": 4, "content": f"{name}<br>{link}"})
+                    row.append(
+                        {
+                            "colspan": self.COLS_PER_METRIC,
+                            "content": f"{name}<br>{link}",
+                        }
+                    )
 
                 elif len(metric) == 5:
                     name, prefix1, mode1, prefix2, mode2 = metric
-
                     link1 = create_image_link(
                         fig_dir=clim_path,
                         diag_dir=self.diag_dir,
@@ -740,19 +765,24 @@ class SummaryTableBuilder:
                         filename_pattern=f"{prefix2}_{region}_parcoord_mean_climate.png",
                         label=mode2,
                     )
+                    row.append(
+                        {
+                            "colspan": self.COLS_PER_METRIC,
+                            "content": f"{name}<br>{link1} {link2}",
+                        }
+                    )
 
-                    row.append({"colspan": 4, "content": f"{name}<br>{link1} {link2}"})
-
-            metric_table.append(row)
-
+            metric_table.append(self._pad_or_check(row))
         return metric_table
 
     def build_enso_row(self):
-        row: List[Dict[str, object]] = []
+        saved_total = self.TOTAL_COLS
+        self.TOTAL_COLS = 2 + self.COLS_PER_METRIC * len(self.metrics)
+
+        row = []
         row.append({"content": "<b>ENSO</b>"})
         row.append({"content": "TROPICS"})
         enso_path = safe_join(str(self.fig_dir), "ERROR_metric/enso_metric")
-
         link = create_image_link(
             fig_dir=enso_path,
             diag_dir=self.diag_dir,
@@ -760,14 +790,28 @@ class SummaryTableBuilder:
             filename_pattern="enso_metric_skill_portrait.png",
             label="Portrait",
         )
+        row.append(
+            {
+                "colspan": str(self.TOTAL_COLS - 2),
+                "content": f"Performance Skill<br>{link}",
+            }
+        )
 
-        row.append({"colspan": 12, "content": f"Performance Skill<br>{link}"})
+        row = self._pad_or_check(row)
+        self.TOTAL_COLS = saved_total
         return row
 
     def build_emov_row(self):
-        row: List[Dict[str, object]] = []
-        row.append({"content": "<b>EMoVs</b>"})
-        row.append({"content": "Extra-TROPICS"})
+        # --- Section-independent layout ---
+        # Always reserve first 2 columns: section + region
+        saved_total = self.TOTAL_COLS
+        self.TOTAL_COLS = 2 + self.COLS_PER_METRIC * 3  # 3 EMoV metrics
+
+        row = []
+        # Add section name (same column position as "Mean Climate")
+        row.append({"content": "<b>EMoVs</b>"})  # section column
+        row.append({"content": "Extra-TROPICS"})  # region column
+
         emov_path = safe_join(str(self.fig_dir), "ERROR_metric/variability_modes")
 
         modes_metrics = [
@@ -797,7 +841,16 @@ class SummaryTableBuilder:
         for name, f1, mode1, f2, mode2 in modes_metrics:
             link1 = create_image_link(emov_path, self.diag_dir, [], f1, mode1)
             link2 = create_image_link(emov_path, self.diag_dir, [], f2, mode2)
-            row.append({"colspan": 4, "content": f"{name}<br>{link1} {link2}"})
+            row.append(
+                {
+                    "colspan": str(self.COLS_PER_METRIC),
+                    "content": f"{name}<br>{link1} {link2}",
+                }
+            )
+
+        # Ensure correct total columns and restore TOTAL_COLS
+        row = self._pad_or_check(row)
+        self.TOTAL_COLS = saved_total
         return row
 
 
@@ -815,36 +868,38 @@ def generate_summary_table(
     Build the summary metrics table (Mean Climate, ENSO, EMoV).
     Returns a list of rows (each row is a list of cell dicts).
     """
-    # Coerce possible string flags
-    for name in ("clim_show", "mova_show", "movc_show", "enso_show"):
-        val = locals()[name]
-        if not isinstance(val, bool):
-            locals()[name] = str(val).strip().lower() in {
-                "1",
-                "true",
-                "t",
-                "yes",
-                "y",
-                "on",
-            }
-    clim_show, mova_show, movc_show, enso_show = (
-        clim_show,
-        mova_show,
-        movc_show,
-        enso_show,
-    )
+
+    # --- Coerce flags ---
+    truthy = {"1", "true", "t", "yes", "y", "on"}
+    if not isinstance(clim_show, bool):
+        clim_show = str(clim_show).strip().lower() in truthy
+    if not isinstance(mova_show, bool):
+        mova_show = str(mova_show).strip().lower() in truthy
+    if not isinstance(movc_show, bool):
+        movc_show = str(movc_show).strip().lower() in truthy
+    if not isinstance(enso_show, bool):
+        enso_show = str(enso_show).strip().lower() in truthy
+
+    # --- Normalize regions ---
+    if isinstance(clim_regions, str):
+        clim_regions = [r.strip() for r in clim_regions.split(",") if r.strip()]
 
     builder = SummaryTableBuilder(diag_dir, fig_dir)
+    builder.set_layout_from_metrics(clim_metrics)
+
     table: List[list] = []
 
+    # === Mean Climate ===
     if clim_show:
         table.extend(
             builder.build_summary_table(regions=clim_regions, metrics=clim_metrics)
         )
 
+    # === ENSO Section ===
     if enso_show:
         table.append(builder.build_enso_row())
 
+    # === EMoVs Section ===
     if mova_show or movc_show:
         table.append(builder.build_emov_row())
 

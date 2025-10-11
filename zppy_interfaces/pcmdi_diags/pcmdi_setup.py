@@ -377,12 +377,15 @@ def derive_missing_variable(varin, path, model_id):
     base_ds = None
     output_file = None
 
+    vars_without_files: List[str] = []
+
     for i, (src_var, scale) in enumerate(var_dic.items()):
         fpaths = sorted(glob.glob(os.path.join(path, f"*.{src_var}.*.nc")))
         if not fpaths:
-            raise FileNotFoundError(
+            vars_without_files.append(
                 f"No file found for source variable '{src_var}' in {path}"
             )
+            continue
         fpath = fpaths[0]
         ds = xcdat_open(fpath)
         data = ds[src_var] * scale
@@ -396,6 +399,9 @@ def derive_missing_variable(varin, path, model_id):
             )
         else:
             derived_data = derived_data + data
+
+    if vars_without_files:
+        raise FileNotFoundError(" ; ".join(vars_without_files))
 
     if base_ds is not None and derived_data is not None:
         derived_da = xr.DataArray(
