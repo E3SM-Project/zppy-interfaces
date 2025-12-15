@@ -47,7 +47,12 @@ def process_data(
         if exp["moc"] != "":
             ohc_variable = Variable("ohc")
             dataset_wrapper = DatasetWrapper(exp["moc"])
-            exp["annual"]["ohc"], _ = dataset_wrapper.globalAnnual(ohc_variable)
+            ohc_data_array, _ = dataset_wrapper.globalAnnual(ohc_variable)
+            exp["annual"]["ohc"] = ohc_data_array
+            # Populate year key if not already present
+            if "year" not in exp["annual"]:
+                years = ohc_data_array.coords["time"].values
+                exp["annual"]["year"] = [x.year for x in years]
             # anomalies with respect to first year
             exp["annual"]["ohc"][:] = exp["annual"]["ohc"][:] - exp["annual"]["ohc"][0]
 
@@ -55,7 +60,12 @@ def process_data(
         if exp["vol"] != "":
             vol_variable = Variable("volume")
             dataset_wrapper = DatasetWrapper(exp["vol"])
-            exp["annual"]["volume"], _ = dataset_wrapper.globalAnnual(vol_variable)
+            vol_data_array, _ = dataset_wrapper.globalAnnual(vol_variable)
+            exp["annual"]["volume"] = vol_data_array
+            # Populate year key if not already present
+            if "year" not in exp["annual"]:
+                years = vol_data_array.coords["time"].values
+                exp["annual"]["year"] = [x.year for x in years]
             # annomalies with respect to first year
             exp["annual"]["volume"][:] = (
                 exp["annual"]["volume"][:] - exp["annual"]["volume"][0]
