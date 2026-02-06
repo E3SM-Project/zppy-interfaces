@@ -18,7 +18,7 @@ import sys
 import numpy as np
 
 from .parser import initialize_budgets, parse_budget_types, process_log_files
-from .plotting import generate_ascii_output, generate_html_plots
+from .plotting import generate_html_plots
 
 
 def main() -> int:
@@ -47,7 +47,7 @@ Examples:
     parser.add_argument(
         "--budget_types",
         default="water,heat",
-        help="Comma-separated list of budget types to analyze (water,heat)",
+        help="Comma-separated list of budget types to analyze (water,heat,carbon)",
     )
     parser.add_argument(
         "--output_dir",
@@ -59,12 +59,6 @@ Examples:
         action="store_true",
         default=True,
         help="Generate HTML plots (default: True)",
-    )
-    parser.add_argument(
-        "--output_ascii",
-        action="store_true",
-        default=True,
-        help="Generate ASCII summary tables (default: True)",
     )
 
     args = parser.parse_args()
@@ -83,7 +77,7 @@ Examples:
 
     # Parse budget types
     budget_types = parse_budget_types(args.budget_types)
-    valid_types = ["area", "water", "heat"]
+    valid_types = ["area", "water", "heat", "carbon"]
     for bt in budget_types:
         if bt not in valid_types:
             print(f"ERROR: Invalid budget type '{bt}'. Valid types: {valid_types}")
@@ -120,11 +114,6 @@ Examples:
 
     # Generate outputs
     print("\nGenerating output files...")
-
-    # Generate ASCII summaries if requested
-    if args.output_ascii:
-        for budget_type, budget_obj in budgets.items():
-            generate_ascii_output(budget_obj, budget_type, args.output_dir)
 
     # Generate HTML plots if requested
     if args.output_html:

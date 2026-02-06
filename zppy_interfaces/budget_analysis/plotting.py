@@ -7,42 +7,16 @@ import numpy as np
 
 from .parser import Budget
 
+# Seconds per year (365 days)
+DT_SECONDS_PER_YEAR = 365.0 * 24.0 * 60.0 * 60.0
 
-def generate_ascii_output(
-    budget_obj: Budget, budget_name: str, output_dir: str
-) -> None:
-    """Generate ASCII summary table for a budget."""
-    if budget_obj.data is None:
-        print(f"No data available for {budget_name} budget")
-        return
-
-    # Calculate average over the period
-    avg = np.average(budget_obj.data[:, :, :], axis=0)
-
-    # Generate output filename
-    filename = os.path.join(output_dir, f"{budget_name}_budget_summary.txt")
-
-    with open(filename, "w") as f:
-        f.write(f"----- Average {budget_name} budget years {budget_obj.years[0]:04d} ")
-        f.write(f"to {budget_obj.years[-1]:04d} ({budget_obj.units}) -----\n")
-        f.write("\n")
-
-        # Write header
-        ncols = len(budget_obj.cols)  # type: ignore
-        header_line = f"{'':10s}" + "".join([f"{col:>12s} " for col in budget_obj.cols])  # type: ignore
-        f.write(header_line + "\n")
-
-        # Write data rows
-        for row in budget_obj.rows:  # type: ignore
-            irow = budget_obj.irow[row]  # type: ignore
-            data_line = f"{row:10s}" + "".join(
-                [f"{avg[irow, i]:12.6f} " for i in range(ncols)]
-            )
-            f.write(data_line + "\n")
-
-        f.write("-" * 60 + "\n")
-
-    print(f"ASCII summary written to {filename}")
+# Unit conversion factors
+# Water: kg/m2s*1e6 -> mm (since 1 kg/m2 = 1 mm, multiply by dt/1e6)
+WATER_CONVERSION = DT_SECONDS_PER_YEAR / 1e6
+# Energy: W/m2 -> J/m2 *1e9 (since W = J/s, multiply by dt/1e9)
+ENERGY_CONVERSION = DT_SECONDS_PER_YEAR / 1e9
+# Carbon: kg-C/m2s*1e10 -> kg-C/m2 (multiply by dt/1e10)
+CARBON_CONVERSION = DT_SECONDS_PER_YEAR / 1e10
 
 
 def generate_html_plots(
@@ -82,6 +56,20 @@ def generate_html_plots(
         # List of colors for plots
         colors = itertools.cycle(Category10[10])
 
+        # Determine unit conversion factor based on budget type
+        if budget_name == "water":
+            conversion_factor = WATER_CONVERSION
+            converted_units = "mm"
+        elif budget_name == "heat":
+            conversion_factor = ENERGY_CONVERSION
+            converted_units = "J/m2 *1e9"
+        elif budget_name == "carbon":
+            conversion_factor = CARBON_CONVERSION
+            converted_units = "kg-C/m2"
+        else:
+            conversion_factor = 1.0
+            converted_units = b.units
+
         # Create ColumnDataSource
         data = {}
         data["years"] = b.years
@@ -89,7 +77,9 @@ def generate_html_plots(
         for krow, vrow in b.irow.items():  # type: ignore
             for kcol, vcol in b.icol.items():  # type: ignore
                 raw_data = b.data[:, vrow, vcol]  # type: ignore
-                cumsum_data = np.cumsum(raw_data) - raw_data[0]
+                # Apply unit conversion and compute cumulative sum
+                converted_data = raw_data * conversion_factor
+                cumsum_data = np.cumsum(converted_data) - converted_data[0]
                 data[krow + "_" + kcol] = cumsum_data
         source = ColumnDataSource(data=data)
 
@@ -107,7 +97,7 @@ def generate_html_plots(
             height=400,
             width=1200,
             x_axis_label="year",
-            y_axis_label=f"{budget_name} budget ({b.units})",
+            y_axis_label=f"{budget_name} budget ({converted_units})",
         )
         p.add_layout(Legend(), "right")
 
@@ -144,7 +134,7 @@ def generate_html_plots(
 
             plt.title(plot_title)
             plt.xlabel("year")
-            plt.ylabel(f"{budget_name} budget ({b.units})")
+            plt.ylabel(f"{budget_name} budget ({converted_units})")
             plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
             plt.grid(True, alpha=0.3)
             plt.tight_layout()

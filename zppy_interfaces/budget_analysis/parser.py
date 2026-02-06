@@ -70,7 +70,21 @@ class Budget:
         lines = []
         tmp = f.readline()
         while tmp.strip():
-            lines.append(tmp.split())
+            parts = tmp.split()
+            # Handle multi-word row names (e.g., "surface co2", "black carbon")
+            # Find where the numeric data starts
+            row_name_parts = []
+            data_start = 0
+            for j, part in enumerate(parts):
+                try:
+                    float(part)
+                    data_start = j
+                    break
+                except ValueError:
+                    row_name_parts.append(part)
+            row_name = " ".join(row_name_parts)
+            data_values = parts[data_start:]
+            lines.append((row_name, data_values))
             tmp = f.readline()
 
         # Store or check row names
@@ -86,14 +100,13 @@ class Budget:
             self.data = ma.masked_all((len(self.years), len(self.rows), len(self.cols)))
         iyear = self.iyear[year]
 
-        for i, values in enumerate(lines):
-            data_values = values[1:]
+        for i, (row_name, data_values) in enumerate(lines):
             try:
                 # Convert string values to float
                 numeric_values = [float(v) for v in data_values]
                 self.data[iyear, i, :] = numeric_values
             except (ValueError, TypeError) as e:
-                print(f"ERROR converting row '{values[0]}' values {data_values}: {e}")
+                print(f"ERROR converting row '{row_name}' values {data_values}: {e}")
                 # Keep as masked values if conversion fails
 
         return
@@ -110,6 +123,7 @@ def initialize_budgets(budget_types: list[str], years: np.ndarray) -> dict[str, 
         "area": "(seq_diag_print_mct) NET AREA BUDGET (m2/m2): period =   annual: date =",
         "water": "(seq_diag_print_mct) NET WATER BUDGET (kg/m2s*1e6): period =   annual: date =",
         "heat": "(seq_diag_print_mct) NET HEAT BUDGET (W/m2): period =   annual: date =",
+        "carbon": "(seq_diagBGC_print_mct) NET CARBON BUDGET (kg-C/m2s*1e10): period =   annual: date =",
     }
 
     budgets = {}
