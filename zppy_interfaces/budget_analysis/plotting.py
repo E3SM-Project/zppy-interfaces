@@ -19,7 +19,7 @@ ENERGY_CONVERSION = DT_SECONDS_PER_YEAR / 1e9
 CARBON_CONVERSION = DT_SECONDS_PER_YEAR / 1e10
 
 
-def generate_html_plots(
+def generate_html_plots(  # noqa: C901
     budgets: Dict[str, Budget], budget_names: List[str], output_dir: str
 ) -> None:
     """Generate interactive HTML plots using bokeh."""

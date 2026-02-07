@@ -24,6 +24,7 @@ dependencies = [
     "matplotlib",
     "netcdf4",
     "numpy >=2.0,<3.0",
+    "pandas",
     "pcmdi_metrics>=3.9.3",
     "xarray >=2023.02.0",
     "xcdat >=0.7.3,<1.0",

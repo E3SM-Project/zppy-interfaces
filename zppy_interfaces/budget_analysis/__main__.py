@@ -60,6 +60,12 @@ Examples:
         default=True,
         help="Generate HTML plots (default: True)",
     )
+    parser.add_argument(
+        "--mode",
+        choices=["legacy", "whole-model"],
+        default="legacy",
+        help="'legacy' (coupler-only cumulative) or 'whole-model' (multi-source budget checks)",
+    )
 
     args = parser.parse_args()
 
@@ -68,14 +74,21 @@ Examples:
         print("ERROR: start_year must be <= end_year")
         return 1
 
-    # Use provided log path
     log_path = args.log_path
-
     if not os.path.exists(log_path):
         print(f"ERROR: Log path does not exist: {log_path}")
         return 1
 
-    # Parse budget types
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    if args.mode == "whole-model":
+        return _run_whole_model(args)
+
+    return _run_legacy(args)
+
+
+def _run_legacy(args) -> int:
+    """Original coupler-only cumulative budget pipeline."""
     budget_types = parse_budget_types(args.budget_types)
     valid_types = ["area", "water", "heat", "carbon"]
     for bt in budget_types:
@@ -83,43 +96,85 @@ Examples:
             print(f"ERROR: Invalid budget type '{bt}'. Valid types: {valid_types}")
             return 1
 
-    # Create output directory if it doesn't exist
-    os.makedirs(args.output_dir, exist_ok=True)
-
-    print("E3SM Budget Analysis Tool")
-    print("=========================")
+    print("E3SM Budget Analysis Tool (legacy mode)")
+    print("========================================")
     print(f"Years: {args.start_year} to {args.end_year}")
     print(f"Budget types: {budget_types}")
-    print(f"Log path: {log_path}")
-    print(f"Output directory: {args.output_dir}")
+    print(f"Log path: {args.log_path}")
 
-    # Set up years array
     years = np.arange(args.start_year, args.end_year + 1)
-
-    # Initialize budget objects
     budgets = initialize_budgets(budget_types, years)
 
-    # Find and process log files
-    log_pattern = os.path.join(log_path, "cpl.log.*.gz")
-    log_files = sorted(glob.glob(log_pattern))
-
+    log_files = sorted(glob.glob(os.path.join(args.log_path, "cpl.log.*.gz")))
     if not log_files:
-        print(f"ERROR: No coupler log files found at {log_pattern}")
+        print("ERROR: No coupler log files found")
         return 1
 
     print(f"Found {len(log_files)} coupler log files")
-
-    # Process log files
     process_log_files(log_files, budgets)
 
-    # Generate outputs
-    print("\nGenerating output files...")
-
-    # Generate HTML plots if requested
     if args.output_html:
         generate_html_plots(budgets, budget_types, args.output_dir)
 
     print("\nBudget analysis completed successfully!")
+    return 0
+
+
+def _run_whole_model(args) -> int:
+    """Whole-model budget pipeline: ingest -> normalize -> check -> visualize."""
+    import pandas as pd
+
+    from .checks import run_checks
+    from .ingestion.cpl_parser import CplParser
+    from .ingestion.lnd_parser import LndParser
+    from .ingestion.ocn_parser import OcnParser
+    from .normalization import normalize
+    from .viz import generate_budget_report
+
+    print("E3SM Budget Analysis Tool (whole-model mode)")
+    print("=============================================")
+    print(f"Years: {args.start_year} to {args.end_year}")
+    print(f"Log path: {args.log_path}")
+
+    # Ingest
+    print("\nIngesting log files...")
+    cpl_files = sorted(glob.glob(os.path.join(args.log_path, "cpl.log.*.gz")))
+    lnd_files = sorted(glob.glob(os.path.join(args.log_path, "lnd.log.*.gz")))
+    ocn_files = sorted(glob.glob(os.path.join(args.log_path, "ocn.log.*.gz")))
+
+    if not cpl_files:
+        print("ERROR: No coupler log files found")
+        return 1
+    print(f"  {len(cpl_files)} coupler log files")
+    print(f"  {len(lnd_files)} land log files")
+    print(f"  {len(ocn_files)} ocean log files")
+
+    frames = []
+    frames.append(CplParser().parse_files(cpl_files, args.start_year, args.end_year))
+    if lnd_files:
+        frames.append(
+            LndParser().parse_files(lnd_files, args.start_year, args.end_year)
+        )
+    if ocn_files:
+        frames.append(
+            OcnParser().parse_files(ocn_files, args.start_year, args.end_year)
+        )
+    events = pd.concat(frames, ignore_index=True)
+    print(f"  {len(events)} total event rows")
+
+    # Normalize
+    print("\nNormalizing...")
+    events = normalize(events)
+
+    # Check
+    print("\nRunning budget checks...")
+    results = run_checks(events)
+
+    # Visualize
+    print("\nGenerating report...")
+    html_path = generate_budget_report(results, events, args.output_dir)
+
+    print(f"\nBudget analysis completed! Report: {html_path}")
     return 0
 
 
