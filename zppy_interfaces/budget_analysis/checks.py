@@ -28,6 +28,8 @@ class CheckResult:
     rhs: np.ndarray
     residual: np.ndarray  # lhs - rhs
     cumulative_residual: np.ndarray
+    lhs_label: str = "LHS"
+    rhs_label: str = "RHS"
     components: Optional[Dict[str, np.ndarray]] = field(default=None)
 
 
@@ -176,7 +178,17 @@ class InterfaceMatch(BudgetCheck):
         c = merged["normalized_value_cpl"].values
         m = merged["normalized_value_comp"].values
         r = c - m
-        return CheckResult(self.name, self.description, years, c, m, r, np.cumsum(r))
+        return CheckResult(
+            self.name,
+            self.description,
+            years,
+            c,
+            m,
+            r,
+            np.cumsum(r),
+            lhs_label=f"cpl ({self.component})",
+            rhs_label=f"{self.source} (*SUM*)",
+        )
 
 
 class LndClosure(BudgetCheck):
@@ -215,7 +227,17 @@ class LndClosure(BudgetCheck):
         ds = merged["normalized_value_stor"].values
         fi = merged["normalized_value_flux"].values
         r = ds - fi
-        return CheckResult(self.name, self.description, years, ds, fi, r, np.cumsum(r))
+        return CheckResult(
+            self.name,
+            self.description,
+            years,
+            ds,
+            fi,
+            r,
+            np.cumsum(r),
+            lhs_label="ΔStorage (*NET CHANGE*)",
+            rhs_label="∫Flux dt (*SUM*)",
+        )
 
 
 class OcnClosure(BudgetCheck):
@@ -255,7 +277,17 @@ class OcnClosure(BudgetCheck):
         ds = merged["normalized_value_mass"].values
         fi = merged["normalized_value_flux"].values
         r = ds - fi
-        return CheckResult(self.name, self.description, years, ds, fi, r, np.cumsum(r))
+        return CheckResult(
+            self.name,
+            self.description,
+            years,
+            ds,
+            fi,
+            r,
+            np.cumsum(r),
+            lhs_label="ΔMass (mass_change)",
+            rhs_label="Net Flux (*SUM*)",
+        )
 
 
 DEFAULT_WATER_CHECKS: List[BudgetCheck] = [

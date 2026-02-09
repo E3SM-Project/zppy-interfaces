@@ -41,6 +41,11 @@ def generate_budget_report(
             plots.append(
                 _plot_residual(r, f"Interface Residual (cpl - {comp})", "mm/yr")
             )
+            plots.append(
+                _plot_cumulative(
+                    r, f"Interface Cumulative Residual (cpl - {comp})", "mm"
+                )
+            )
 
         elif r.name == "lnd_closure":
             plots.append(Div(text="<h2>Land Water Closure</h2>"))
@@ -95,8 +100,8 @@ def _plot_cumulative(r: CheckResult, title: str, units: str) -> figure:
 def _plot_comparison(r: CheckResult, title: str, units: str) -> figure:
     """Plot LHS and RHS on the same axes."""
     p = _make_figure(title, units)
-    p.line(r.years, r.lhs, line_width=2, color="blue", legend_label="LHS")
-    p.line(r.years, r.rhs, line_width=2, color="orange", legend_label="RHS")
+    p.line(r.years, r.lhs, line_width=2, color="blue", legend_label=r.lhs_label)
+    p.line(r.years, r.rhs, line_width=2, color="orange", legend_label=r.rhs_label)
     p.legend.click_policy = "hide"
     return p
 
