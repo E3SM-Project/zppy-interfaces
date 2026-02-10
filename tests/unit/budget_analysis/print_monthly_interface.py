@@ -7,9 +7,9 @@ import pandas as pd
 
 sys.path.insert(0, ".")
 
-from zppy_interfaces.budget_analysis.ingestion.cpl_parser import CplParser
-from zppy_interfaces.budget_analysis.ingestion.ocn_parser import OcnParser
-from zppy_interfaces.budget_analysis.normalization import normalize
+from zppy_interfaces.budget_analysis.ingestion.cpl_parser import CplParser  # noqa: E402
+from zppy_interfaces.budget_analysis.ingestion.ocn_parser import OcnParser  # noqa: E402
+from zppy_interfaces.budget_analysis.normalization import normalize  # noqa: E402
 
 LOG_PATH = "/pscratch/sd/c/chengzhu/zstash/archive/logs"
 START_YEAR = 1
@@ -32,12 +32,12 @@ cpl_m = df[
 
 ocn_m = df[
     (df.source == "ocn")
-    & (df.term == "*SUM*")
+    & (df.term == "SUM VOLUME FLUXES")
     & (df.table_type == "flux")
     & (df.period == "monthly")
 ].sort_values("time")
 
 print("=== CPL monthly ocn *SUM* ===")
 print(cpl_m[["time", "normalized_value"]].to_string(index=False))
-print(f"\n=== OCN monthly *SUM* ({len(ocn_m)} rows) ===")
+print(f"\n=== OCN monthly SUM VOLUME FLUXES ({len(ocn_m)} rows) ===")
 print(ocn_m[["time", "normalized_value"]].to_string(index=False))

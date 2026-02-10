@@ -351,8 +351,14 @@ DEFAULT_WATER_CHECKS: List[BudgetCheck] = [
 
 DEFAULT_HEAT_CHECKS: List[BudgetCheck] = [
     CplComponentFluxes(quantity="heat"),
-    InterfaceMatch("ocn", "ocn", quantity="heat", comp_sum_term="SUM IMP+EXP HEAT FLUXES"),
+    InterfaceMatch(
+        "ocn", "ocn", quantity="heat", comp_sum_term="SUM IMP+EXP HEAT FLUXES"
+    ),
     OcnClosure(quantity="heat"),
+]
+
+DEFAULT_CARBON_CHECKS: List[BudgetCheck] = [
+    CplComponentFluxes(quantity="carbon"),
 ]
 
 

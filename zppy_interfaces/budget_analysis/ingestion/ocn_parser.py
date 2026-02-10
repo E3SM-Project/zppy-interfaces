@@ -261,7 +261,6 @@ class OcnParser(BaseParser):
 
         line = f.readline()
         while line:
-            # Stop if we hit the next block or have found both sections
             if found_mass and found_energy:
                 break
             if "CONSERVATION CHECKS" in line and "date:" not in line:
@@ -269,126 +268,106 @@ class OcnParser(BaseParser):
 
             if "MASS CONSERVATION CHECK" in line and "SUMMARY" not in line:
                 found_mass = True
-                # Parse flux table
-                fluxes = _parse_mass_fluxes(f)
-                for term, val in fluxes:
-                    rows.append(
-                        {
-                            COL_TIME: year,
-                            COL_COMPONENT: "ocn",
-                            COL_QUANTITY: "water",
-                            COL_TERM: term,
-                            COL_VALUE: val,
-                            COL_UNITS: "kg/m2s*1e6",
-                            COL_SOURCE: "ocn",
-                            COL_PERIOD: "monthly",
-                            COL_TABLE_TYPE: "flux",
-                        }
-                    )
-
-                # Continue reading for SUMMARY
-                line = f.readline()
-                while line:
-                    if "MASS CONSERVATION SUMMARY" in line:
-                        summary = _parse_mass_summary(f)
-                        if summary:
-                            if "mass_change" in summary:
-                                rows.append(
-                                    {
-                                        COL_TIME: year,
-                                        COL_COMPONENT: "ocn",
-                                        COL_QUANTITY: "water",
-                                        COL_TERM: "Mass change",
-                                        COL_VALUE: summary["mass_change"],
-                                        COL_UNITS: "kg/m2s*1e6",
-                                        COL_SOURCE: "ocn",
-                                        COL_PERIOD: "monthly",
-                                        COL_TABLE_TYPE: "flux",
-                                    }
-                                )
-                            if "absolute_mass_error" in summary:
-                                rows.append(
-                                    {
-                                        COL_TIME: year,
-                                        COL_COMPONENT: "ocn",
-                                        COL_QUANTITY: "water",
-                                        COL_TERM: "Absolute mass error",
-                                        COL_VALUE: summary[
-                                            "absolute_mass_error"
-                                        ],
-                                        COL_UNITS: "kg/m2s*1e6",
-                                        COL_SOURCE: "ocn",
-                                        COL_PERIOD: "monthly",
-                                        COL_TABLE_TYPE: "diagnostic",
-                                    }
-                                )
-                        break
-                    elif "SALT CONSERVATION" in line:
-                        break
-                    line = f.readline()
+                rows.extend(self._parse_mass_section(f, year))
 
             elif "ENERGY CONSERVATION CHECK" in line and "SUMMARY" not in line:
                 found_energy = True
-                # Parse heat flux tables
-                heat_fluxes = _parse_heat_fluxes(f)
-                for term, val in heat_fluxes:
-                    rows.append(
-                        {
-                            COL_TIME: year,
-                            COL_COMPONENT: "ocn",
-                            COL_QUANTITY: "heat",
-                            COL_TERM: term,
-                            COL_VALUE: val,
-                            COL_UNITS: "W/m2",
-                            COL_SOURCE: "ocn",
-                            COL_PERIOD: "monthly",
-                            COL_TABLE_TYPE: "flux",
-                        }
-                    )
+                rows.extend(self._parse_energy_section(f, year))
 
-                # Continue reading for ENERGY CONSERVATION SUMMARY
-                line = f.readline()
-                while line:
-                    if "ENERGY CONSERVATION SUMMARY" in line:
-                        summary = _parse_energy_summary(f)
-                        if summary:
-                            if "energy_change" in summary:
-                                rows.append(
-                                    {
-                                        COL_TIME: year,
-                                        COL_COMPONENT: "ocn",
-                                        COL_QUANTITY: "heat",
-                                        COL_TERM: "Energy change",
-                                        COL_VALUE: summary["energy_change"],
-                                        COL_UNITS: "W/m2",
-                                        COL_SOURCE: "ocn",
-                                        COL_PERIOD: "monthly",
-                                        COL_TABLE_TYPE: "flux",
-                                    }
-                                )
-                            if "absolute_energy_error" in summary:
-                                rows.append(
-                                    {
-                                        COL_TIME: year,
-                                        COL_COMPONENT: "ocn",
-                                        COL_QUANTITY: "heat",
-                                        COL_TERM: "Absolute energy error",
-                                        COL_VALUE: summary[
-                                            "absolute_energy_error"
-                                        ],
-                                        COL_UNITS: "W/m2",
-                                        COL_SOURCE: "ocn",
-                                        COL_PERIOD: "monthly",
-                                        COL_TABLE_TYPE: "diagnostic",
-                                    }
-                                )
-                        break
-                    elif "RELATIVE ENERGY" in line:
-                        break
-                    line = f.readline()
+            line = f.readline()
 
-            elif "===" in line or line.strip() == "":
-                pass
+        return rows
+
+    def _parse_mass_section(self, f: TextIO, year: int) -> List[Dict]:
+        """Parse MASS CONSERVATION CHECK: fluxes + summary."""
+        rows: List[Dict] = []
+        base = {
+            COL_TIME: year,
+            COL_COMPONENT: "ocn",
+            COL_QUANTITY: "water",
+            COL_UNITS: "kg/m2s*1e6",
+            COL_SOURCE: "ocn",
+            COL_PERIOD: "monthly",
+        }
+
+        for term, val in _parse_mass_fluxes(f):
+            rows.append(
+                {**base, COL_TERM: term, COL_VALUE: val, COL_TABLE_TYPE: "flux"}
+            )
+
+        line = f.readline()
+        while line:
+            if "MASS CONSERVATION SUMMARY" in line:
+                summary = _parse_mass_summary(f)
+                if summary:
+                    if "mass_change" in summary:
+                        rows.append(
+                            {
+                                **base,
+                                COL_TERM: "Mass change",
+                                COL_VALUE: summary["mass_change"],
+                                COL_TABLE_TYPE: "flux",
+                            }
+                        )
+                    if "absolute_mass_error" in summary:
+                        rows.append(
+                            {
+                                **base,
+                                COL_TERM: "Absolute mass error",
+                                COL_VALUE: summary["absolute_mass_error"],
+                                COL_TABLE_TYPE: "diagnostic",
+                            }
+                        )
+                break
+            elif "SALT CONSERVATION" in line:
+                break
+            line = f.readline()
+
+        return rows
+
+    def _parse_energy_section(self, f: TextIO, year: int) -> List[Dict]:
+        """Parse ENERGY CONSERVATION CHECK: fluxes + summary."""
+        rows: List[Dict] = []
+        base = {
+            COL_TIME: year,
+            COL_COMPONENT: "ocn",
+            COL_QUANTITY: "heat",
+            COL_UNITS: "W/m2",
+            COL_SOURCE: "ocn",
+            COL_PERIOD: "monthly",
+        }
+
+        for term, val in _parse_heat_fluxes(f):
+            rows.append(
+                {**base, COL_TERM: term, COL_VALUE: val, COL_TABLE_TYPE: "flux"}
+            )
+
+        line = f.readline()
+        while line:
+            if "ENERGY CONSERVATION SUMMARY" in line:
+                summary = _parse_energy_summary(f)
+                if summary:
+                    if "energy_change" in summary:
+                        rows.append(
+                            {
+                                **base,
+                                COL_TERM: "Energy change",
+                                COL_VALUE: summary["energy_change"],
+                                COL_TABLE_TYPE: "flux",
+                            }
+                        )
+                    if "absolute_energy_error" in summary:
+                        rows.append(
+                            {
+                                **base,
+                                COL_TERM: "Absolute energy error",
+                                COL_VALUE: summary["absolute_energy_error"],
+                                COL_TABLE_TYPE: "diagnostic",
+                            }
+                        )
+                break
+            elif "RELATIVE ENERGY" in line:
+                break
             line = f.readline()
 
         return rows

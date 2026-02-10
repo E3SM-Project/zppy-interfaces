@@ -19,7 +19,10 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
     - State values (kg/m2*1e6) -> mm
 
     Heat:
-    - Flux rates (W/m2) -> J/m2 (cumulative energy per year)
+    - Flux rates kept in W/m2 (cumulative scaling to J/m2 at plot time)
+
+    Carbon:
+    - Flux rates (kg-C/m2s*1e10) -> kg-C/m2*1e10/yr
     """
     df = df.copy()
     df["normalized_value"] = df[COL_VALUE].copy()
@@ -46,6 +49,14 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
 
     # --- Heat ---
     # Keep W/m2 as-is (no conversion needed)
-    # Cumulative residual plots will accumulate W/m2 values over years
+    # Cumulative residual plots scale to J/m2 at plot time
+
+    # --- Carbon ---
+    # Flux rates: kg-C/m2s * 1e10 -> kg-C/m2*1e10 /yr
+    carbon_flux = (df[COL_QUANTITY] == "carbon") & (df[COL_TABLE_TYPE] == "flux")
+    df.loc[carbon_flux, "normalized_value"] = (
+        df.loc[carbon_flux, COL_VALUE] * SECONDS_PER_YEAR
+    )
+    df.loc[carbon_flux, "normalized_units"] = "kg-C/m2*1e10/yr"
 
     return df

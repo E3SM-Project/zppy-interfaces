@@ -3,12 +3,11 @@
 import glob
 import sys
 
-import pandas as pd
-
 sys.path.insert(0, ".")
 
-from zppy_interfaces.budget_analysis.ingestion.ocn_parser import OcnParser
-from zppy_interfaces.budget_analysis.normalization import normalize
+from zppy_interfaces.budget_analysis.checks import OcnClosure  # noqa: E402
+from zppy_interfaces.budget_analysis.ingestion.ocn_parser import OcnParser  # noqa: E402
+from zppy_interfaces.budget_analysis.normalization import normalize  # noqa: E402
 
 LOG_PATH = "/pscratch/sd/c/chengzhu/zstash/archive/logs"
 START_YEAR = 1
@@ -30,7 +29,11 @@ print()
 mc = water[water["term"] == "Mass change"]
 print(f"=== 'Mass change' rows: {len(mc)} ===")
 if not mc.empty:
-    print(mc[["time", "value", "units", "table_type", "period"]].head(12).to_string(index=False))
+    print(
+        mc[["time", "value", "units", "table_type", "period"]]
+        .head(12)
+        .to_string(index=False)
+    )
 else:
     print("  *** NOT FOUND ***")
 print()
@@ -38,7 +41,11 @@ print()
 svf = water[water["term"] == "SUM VOLUME FLUXES"]
 print(f"=== 'SUM VOLUME FLUXES' rows: {len(svf)} ===")
 if not svf.empty:
-    print(svf[["time", "value", "units", "table_type", "period"]].head(12).to_string(index=False))
+    print(
+        svf[["time", "value", "units", "table_type", "period"]]
+        .head(12)
+        .to_string(index=False)
+    )
 else:
     print("  *** NOT FOUND ***")
 print()
@@ -52,7 +59,11 @@ print()
 ec = heat[heat["term"] == "Energy change"]
 print(f"=== 'Energy change' rows: {len(ec)} ===")
 if not ec.empty:
-    print(ec[["time", "value", "units", "table_type", "period"]].head(12).to_string(index=False))
+    print(
+        ec[["time", "value", "units", "table_type", "period"]]
+        .head(12)
+        .to_string(index=False)
+    )
 else:
     print("  *** NOT FOUND ***")
 print()
@@ -60,7 +71,11 @@ print()
 shf = heat[heat["term"] == "SUM IMP+EXP HEAT FLUXES"]
 print(f"=== 'SUM IMP+EXP HEAT FLUXES' rows: {len(shf)} ===")
 if not shf.empty:
-    print(shf[["time", "value", "units", "table_type", "period"]].head(12).to_string(index=False))
+    print(
+        shf[["time", "value", "units", "table_type", "period"]]
+        .head(12)
+        .to_string(index=False)
+    )
 else:
     print("  *** NOT FOUND ***")
 print()
@@ -69,12 +84,13 @@ print()
 print("=== Testing OcnClosure checks ===")
 df = normalize(ocn)
 
-from zppy_interfaces.budget_analysis.checks import OcnClosure
-
 for q in ["water", "heat"]:
     check = OcnClosure(quantity=q)
     result = check.evaluate(df)
     if result is not None:
-        print(f"  {q} closure: {len(result.years)} years, max |residual| = {abs(result.residual).max():.2e}")
+        print(
+            f"  {q} closure: {len(result.years)} years,"
+            f" max |residual| = {abs(result.residual).max():.2e}"
+        )
     else:
         print(f"  {q} closure: SKIPPED (missing data)")

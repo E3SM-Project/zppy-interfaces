@@ -124,7 +124,12 @@ def _run_whole_model(args) -> int:
     """Whole-model budget pipeline: ingest -> normalize -> check -> visualize."""
     import pandas as pd
 
-    from .checks import DEFAULT_HEAT_CHECKS, DEFAULT_WATER_CHECKS, run_checks
+    from .checks import (
+        DEFAULT_CARBON_CHECKS,
+        DEFAULT_HEAT_CHECKS,
+        DEFAULT_WATER_CHECKS,
+        run_checks,
+    )
     from .ingestion.cpl_parser import CplParser
     from .ingestion.lnd_parser import LndParser
     from .ingestion.ocn_parser import OcnParser
@@ -177,6 +182,7 @@ def _run_whole_model(args) -> int:
     checks_map = {
         "water": DEFAULT_WATER_CHECKS,
         "heat": DEFAULT_HEAT_CHECKS,
+        "carbon": DEFAULT_CARBON_CHECKS,
     }
 
     report_paths = {}

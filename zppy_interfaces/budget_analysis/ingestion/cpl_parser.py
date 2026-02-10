@@ -24,11 +24,13 @@ from .base import BaseParser
 HEADER_PATTERNS: Dict[str, str] = {
     "water": "(seq_diag_print_mct) NET WATER BUDGET (kg/m2s*1e6):",
     "heat": "(seq_diag_print_mct) NET HEAT BUDGET (W/m2):",
+    "carbon": "(seq_diagBGC_print_mct) NET CARBON BUDGET (kg-C/m2s*1e10):",
 }
 
 UNITS: Dict[str, str] = {
     "water": "kg/m2s*1e6",
     "heat": "W/m2",
+    "carbon": "kg-C/m2s*1e10",
 }
 
 
