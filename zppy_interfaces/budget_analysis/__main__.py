@@ -124,16 +124,19 @@ def _run_whole_model(args) -> int:
     """Whole-model budget pipeline: ingest -> normalize -> check -> visualize."""
     import pandas as pd
 
-    from .checks import run_checks
+    from .checks import DEFAULT_HEAT_CHECKS, DEFAULT_WATER_CHECKS, run_checks
     from .ingestion.cpl_parser import CplParser
     from .ingestion.lnd_parser import LndParser
     from .ingestion.ocn_parser import OcnParser
     from .normalization import normalize
-    from .viz import generate_budget_report
+    from .viz import generate_budget_report, generate_landing_page
+
+    budget_types = parse_budget_types(args.budget_types)
 
     print("E3SM Budget Analysis Tool (whole-model mode)")
     print("=============================================")
     print(f"Years: {args.start_year} to {args.end_year}")
+    print(f"Budget types: {budget_types}")
     print(f"Log path: {args.log_path}")
 
     # Ingest
@@ -150,7 +153,11 @@ def _run_whole_model(args) -> int:
     print(f"  {len(ocn_files)} ocean log files")
 
     frames = []
-    frames.append(CplParser().parse_files(cpl_files, args.start_year, args.end_year))
+    frames.append(
+        CplParser(quantities=budget_types).parse_files(
+            cpl_files, args.start_year, args.end_year
+        )
+    )
     if lnd_files:
         frames.append(
             LndParser().parse_files(lnd_files, args.start_year, args.end_year)
@@ -166,15 +173,36 @@ def _run_whole_model(args) -> int:
     print("\nNormalizing...")
     events = normalize(events)
 
-    # Check
-    print("\nRunning budget checks...")
-    results = run_checks(events)
+    # Check and visualize per quantity
+    checks_map = {
+        "water": DEFAULT_WATER_CHECKS,
+        "heat": DEFAULT_HEAT_CHECKS,
+    }
 
-    # Visualize
-    print("\nGenerating report...")
-    html_path = generate_budget_report(results, events, args.output_dir)
+    report_paths = {}
+    for quantity in budget_types:
+        checks = checks_map.get(quantity)
+        if checks is None:
+            print(f"\n  WARNING: No checks defined for '{quantity}', skipping")
+            continue
 
-    print(f"\nBudget analysis completed! Report: {html_path}")
+        print(f"\nRunning {quantity} budget checks...")
+        results = run_checks(events, checks)
+
+        print(f"\nGenerating {quantity} report...")
+        html_path = generate_budget_report(
+            results, events, args.output_dir, quantity=quantity
+        )
+        if html_path:
+            report_paths[quantity] = html_path
+
+    # Landing page
+    if len(report_paths) > 0:
+        index_path = generate_landing_page(args.output_dir, report_paths)
+        print(f"\nBudget analysis completed! Landing page: {index_path}")
+    else:
+        print("\nNo reports generated.")
+
     return 0
 
 

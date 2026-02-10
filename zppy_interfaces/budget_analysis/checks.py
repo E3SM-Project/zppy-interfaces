@@ -103,20 +103,25 @@ class BudgetCheck:
 
 
 class CplComponentFluxes(BudgetCheck):
-    """Per-component net water flux + global residual (*SUM*).
+    """Per-component net flux + global residual (*SUM*).
 
     Components dict includes each component's cumulative net flux
     plus a '*SUM*' entry for the global residual.
+    Supports both water and heat quantities.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, quantity: str = "water") -> None:
         super().__init__(
-            "cpl_component_fluxes",
-            "Coupler cumulative net water flux per component + residual",
+            f"cpl_{quantity}_component_fluxes",
+            f"Coupler cumulative net {quantity} flux per component + residual",
         )
+        self.quantity = quantity
 
     def evaluate(self, df: pd.DataFrame) -> Optional[CheckResult]:
-        rows = _select(df, **{COL_SOURCE: "cpl", COL_TERM: "*SUM*"})
+        rows = _select(
+            df,
+            **{COL_SOURCE: "cpl", COL_TERM: "*SUM*", COL_QUANTITY: self.quantity},
+        )
         if rows.empty:
             return None
         pivot = rows.pivot_table(
@@ -146,27 +151,47 @@ class CplComponentFluxes(BudgetCheck):
 
 
 class InterfaceMatch(BudgetCheck):
-    """Do the coupler and component model agree on net water flux?
+    """Do the coupler and component model agree on net flux?
 
     Compares coupler *SUM* in the component column vs component's *SUM* flux.
-    Works for any component (lnd, ocn, etc.).
+    Works for any component (lnd, ocn, etc.) and quantity (water, heat).
     """
 
-    def __init__(self, component: str, source: str) -> None:
+    def __init__(
+        self,
+        component: str,
+        source: str,
+        quantity: str = "water",
+        comp_sum_term: str = "*SUM*",
+    ) -> None:
         super().__init__(
-            f"{component}_interface_match",
-            f"{component} net water flux: coupler vs {source} model",
+            f"{component}_{quantity}_interface_match",
+            f"{component} net {quantity} flux: coupler vs {source} model",
         )
-        self.component = component  # coupler column name (e.g. "lnd", "ocn")
-        self.source = source  # source tag in event table (e.g. "lnd", "ocn")
+        self.component = component
+        self.source = source
+        self.quantity = quantity
+        self.comp_sum_term = comp_sum_term
 
     def evaluate(self, df: pd.DataFrame) -> Optional[CheckResult]:
         cpl = _select(
-            df, **{COL_SOURCE: "cpl", COL_TERM: "*SUM*", COL_COMPONENT: self.component}
+            df,
+            **{
+                COL_SOURCE: "cpl",
+                COL_TERM: "*SUM*",
+                COL_COMPONENT: self.component,
+                COL_QUANTITY: self.quantity,
+            },
         )[[COL_TIME, "normalized_value"]].set_index(COL_TIME)
 
         comp = _select(
-            df, **{COL_SOURCE: self.source, COL_TERM: "*SUM*", COL_TABLE_TYPE: "flux"}
+            df,
+            **{
+                COL_SOURCE: self.source,
+                COL_TERM: self.comp_sum_term,
+                COL_TABLE_TYPE: "flux",
+                COL_QUANTITY: self.quantity,
+            },
         )[[COL_TIME, "normalized_value"]].set_index(COL_TIME)
 
         if cpl.empty or comp.empty:
@@ -187,7 +212,7 @@ class InterfaceMatch(BudgetCheck):
             r,
             np.cumsum(r),
             lhs_label=f"cpl ({self.component})",
-            rhs_label=f"{self.source} (*SUM*)",
+            rhs_label=f"{self.source} ({self.comp_sum_term})",
         )
 
 
@@ -241,22 +266,42 @@ class LndClosure(BudgetCheck):
 
 
 class OcnClosure(BudgetCheck):
-    """Does ocean mass change equal the net flux?
+    """Does ocean mass/energy change equal the net flux?
 
     Ocean logs are monthly. _select auto-aggregates to annual.
-    Compares mass_change (state) vs *SUM* flux.
+    For water: compares mass_change vs *SUM* flux.
+    For heat: compares energy_change vs *SUM* flux.
     """
 
-    def __init__(self) -> None:
+    CHANGE_TERM: Dict[str, str] = {
+        "water": "Mass change",
+        "heat": "Energy change",
+    }
+
+    SUM_TERM: Dict[str, str] = {
+        "water": "SUM VOLUME FLUXES",
+        "heat": "SUM IMP+EXP HEAT FLUXES",
+    }
+
+    def __init__(self, quantity: str = "water") -> None:
         super().__init__(
-            "ocn_closure",
-            "Ocean water closure: ΔMass vs net flux",
+            f"ocn_{quantity}_closure",
+            f"Ocean {quantity} closure: Δ{'Mass' if quantity == 'water' else 'Energy'} vs net flux",
         )
+        self.quantity = quantity
 
     def evaluate(self, df: pd.DataFrame) -> Optional[CheckResult]:
+        change_term = self.CHANGE_TERM[self.quantity]
+        sum_term = self.SUM_TERM[self.quantity]
+
         mass = _select(
             df,
-            **{COL_SOURCE: "ocn", COL_TERM: "mass_change", COL_TABLE_TYPE: "flux"},
+            **{
+                COL_SOURCE: "ocn",
+                COL_TERM: change_term,
+                COL_TABLE_TYPE: "flux",
+                COL_QUANTITY: self.quantity,
+            },
         )
         if mass.empty:
             return None
@@ -264,7 +309,12 @@ class OcnClosure(BudgetCheck):
 
         flux = _select(
             df,
-            **{COL_SOURCE: "ocn", COL_TERM: "*SUM*", COL_TABLE_TYPE: "flux"},
+            **{
+                COL_SOURCE: "ocn",
+                COL_TERM: sum_term,
+                COL_TABLE_TYPE: "flux",
+                COL_QUANTITY: self.quantity,
+            },
         )
         if flux.empty:
             return None
@@ -277,6 +327,7 @@ class OcnClosure(BudgetCheck):
         ds = merged["normalized_value_mass"].values
         fi = merged["normalized_value_flux"].values
         r = ds - fi
+        change_label = "ΔMass" if self.quantity == "water" else "ΔEnergy"
         return CheckResult(
             self.name,
             self.description,
@@ -285,17 +336,23 @@ class OcnClosure(BudgetCheck):
             fi,
             r,
             np.cumsum(r),
-            lhs_label="ΔMass (mass_change)",
-            rhs_label="Net Flux (*SUM*)",
+            lhs_label=f"{change_label} ({change_term})",
+            rhs_label=f"Net Flux ({sum_term})",
         )
 
 
 DEFAULT_WATER_CHECKS: List[BudgetCheck] = [
-    CplComponentFluxes(),
-    InterfaceMatch("lnd", "lnd"),
-    InterfaceMatch("ocn", "ocn"),
+    CplComponentFluxes(quantity="water"),
+    InterfaceMatch("lnd", "lnd", quantity="water"),
+    InterfaceMatch("ocn", "ocn", quantity="water", comp_sum_term="SUM VOLUME FLUXES"),
     LndClosure(),
-    OcnClosure(),
+    OcnClosure(quantity="water"),
+]
+
+DEFAULT_HEAT_CHECKS: List[BudgetCheck] = [
+    CplComponentFluxes(quantity="heat"),
+    InterfaceMatch("ocn", "ocn", quantity="heat", comp_sum_term="SUM IMP+EXP HEAT FLUXES"),
+    OcnClosure(quantity="heat"),
 ]
 
 

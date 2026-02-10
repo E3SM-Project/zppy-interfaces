@@ -23,10 +23,12 @@ from .base import BaseParser
 # Header patterns for each budget quantity.
 HEADER_PATTERNS: Dict[str, str] = {
     "water": "(seq_diag_print_mct) NET WATER BUDGET (kg/m2s*1e6):",
+    "heat": "(seq_diag_print_mct) NET HEAT BUDGET (W/m2):",
 }
 
 UNITS: Dict[str, str] = {
     "water": "kg/m2s*1e6",
+    "heat": "W/m2",
 }
 
 
@@ -116,7 +118,7 @@ class CplParser(BaseParser):
     """Parse coupler log budget tables into a tidy event table."""
 
     def __init__(self, quantities: Optional[List[str]] = None):
-        self.quantities = quantities or ["water"]
+        self.quantities = quantities or ["water", "heat"]
 
     def parse_files(
         self, log_files: List[str], start_year: int, end_year: int
