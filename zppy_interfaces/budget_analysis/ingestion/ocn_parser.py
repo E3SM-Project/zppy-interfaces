@@ -227,6 +227,9 @@ def _parse_energy_summary(f: TextIO) -> Optional[Dict[str, float]]:
 class OcnParser(BaseParser):
     """Parse ocean log files for mass and energy conservation checks."""
 
+    def __init__(self, frequency: str = "annual") -> None:
+        super().__init__(frequency=frequency)
+
     def parse_files(
         self, log_files: List[str], start_year: int, end_year: int
     ) -> pd.DataFrame:
@@ -244,16 +247,38 @@ class OcnParser(BaseParser):
                             year, month = _parse_date(date_str)
                             if year < start_year or year > end_year:
                                 continue
-                            rows.extend(self._parse_block(f, year, month))
+                            if self.frequency == "monthly":
+                                time = year + (month - 0.5) / 12.0
+                            else:
+                                time = float(year)
+                            rows.extend(self._parse_block(f, time))
             except Exception as e:
                 print(f"WARNING: Error processing {fname}: {e}")
                 continue
 
         if not rows:
             return pd.DataFrame(columns=COLUMNS)
-        return pd.DataFrame(rows, columns=COLUMNS)
+        df = pd.DataFrame(rows, columns=COLUMNS)
 
-    def _parse_block(self, f: TextIO, year: int, month: int) -> List[Dict]:
+        # For annual frequency, aggregate monthly rows to annual means
+        if self.frequency == "annual":
+            group_keys = [
+                COL_TIME,
+                COL_COMPONENT,
+                COL_QUANTITY,
+                COL_TERM,
+                COL_UNITS,
+                COL_SOURCE,
+                COL_TABLE_TYPE,
+            ]
+            df[COL_PERIOD] = "annual"
+            df = df.groupby(group_keys, as_index=False).agg(
+                {COL_VALUE: "mean", COL_PERIOD: "first"}
+            )
+
+        return df
+
+    def _parse_block(self, f: TextIO, time: float) -> List[Dict]:
         """Parse one CONSERVATION CHECKS block for mass and energy data."""
         rows: List[Dict] = []
         found_mass = False
@@ -268,21 +293,21 @@ class OcnParser(BaseParser):
 
             if "MASS CONSERVATION CHECK" in line and "SUMMARY" not in line:
                 found_mass = True
-                rows.extend(self._parse_mass_section(f, year))
+                rows.extend(self._parse_mass_section(f, time))
 
             elif "ENERGY CONSERVATION CHECK" in line and "SUMMARY" not in line:
                 found_energy = True
-                rows.extend(self._parse_energy_section(f, year))
+                rows.extend(self._parse_energy_section(f, time))
 
             line = f.readline()
 
         return rows
 
-    def _parse_mass_section(self, f: TextIO, year: int) -> List[Dict]:
+    def _parse_mass_section(self, f: TextIO, time: float) -> List[Dict]:
         """Parse MASS CONSERVATION CHECK: fluxes + summary."""
         rows: List[Dict] = []
         base = {
-            COL_TIME: year,
+            COL_TIME: time,
             COL_COMPONENT: "ocn",
             COL_QUANTITY: "water",
             COL_UNITS: "kg/m2s*1e6",
@@ -325,11 +350,11 @@ class OcnParser(BaseParser):
 
         return rows
 
-    def _parse_energy_section(self, f: TextIO, year: int) -> List[Dict]:
+    def _parse_energy_section(self, f: TextIO, time: float) -> List[Dict]:
         """Parse ENERGY CONSERVATION CHECK: fluxes + summary."""
         rows: List[Dict] = []
         base = {
-            COL_TIME: year,
+            COL_TIME: time,
             COL_COMPONENT: "ocn",
             COL_QUANTITY: "heat",
             COL_UNITS: "W/m2",

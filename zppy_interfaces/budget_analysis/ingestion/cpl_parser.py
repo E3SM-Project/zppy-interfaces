@@ -39,19 +39,39 @@ def _normalize_component_name(name: str) -> str:
     return name.strip().replace(" ", "_")
 
 
-def _parse_datestamp(datestamp: str) -> int:
-    """Convert coupler datestamp to year.
+def _parse_datestamp(datestamp: str) -> Tuple[int, int]:
+    """Convert coupler datestamp to (year, month).
 
     The date is reported at the start of the next period.
-    E.g. '20101' -> strip last 4 chars -> '2' -> minus 1 -> year 1.
+    E.g. '20101' -> MMDD='0101', year_part='2', year=2-1=1, month=01.
+    For annual period the month is ignored downstream.
     """
-    return int(datestamp[:-4]) - 1
+    mmdd = datestamp[-4:]
+    month = int(mmdd[:2])
+    year = int(datestamp[:-4]) - 1
+    # Roll back one month (date is start of *next* period)
+    if month == 1:
+        month = 12
+        # year already decremented above
+    else:
+        month -= 1
+    return year, month
 
 
-def _parse_header_line(line: str, pattern: str) -> Optional[Tuple[str, int]]:
-    """Extract period and year from a budget header line.
+def _make_time(period: str, year: int, month: int) -> float:
+    """Encode (year, month) as a float time value.
 
-    Returns (period, year) or None on failure.
+    Annual: integer year.  Monthly: year + (month - 0.5) / 12.
+    """
+    if period == "monthly":
+        return year + (month - 0.5) / 12.0
+    return float(year)
+
+
+def _parse_header_line(line: str, pattern: str) -> Optional[Tuple[str, float]]:
+    """Extract period and time from a budget header line.
+
+    Returns (period, time) or None on failure.
     """
     if not line.startswith(pattern):
         return None
@@ -63,11 +83,11 @@ def _parse_header_line(line: str, pattern: str) -> Optional[Tuple[str, int]]:
         return None
 
     period = period_match.group(1)
-    year = _parse_datestamp(date_match.group(1))
-    return period, year
+    year, month = _parse_datestamp(date_match.group(1))
+    return period, _make_time(period, year, month)
 
 
-def _parse_table(f: TextIO, year: int, quantity: str, period: str) -> List[Dict]:
+def _parse_table(f: TextIO, year: float, quantity: str, period: str) -> List[Dict]:
     """Parse one budget table after the header line was consumed."""
     rows: List[Dict] = []
     units = UNITS[quantity]
@@ -119,7 +139,12 @@ def _parse_table(f: TextIO, year: int, quantity: str, period: str) -> List[Dict]
 class CplParser(BaseParser):
     """Parse coupler log budget tables into a tidy event table."""
 
-    def __init__(self, quantities: Optional[List[str]] = None):
+    def __init__(
+        self,
+        quantities: Optional[List[str]] = None,
+        frequency: str = "annual",
+    ):
+        super().__init__(frequency=frequency)
         self.quantities = quantities or ["water", "heat"]
 
     def parse_files(
@@ -137,9 +162,11 @@ class CplParser(BaseParser):
                             result = _parse_header_line(line, pattern)
                             if result is None:
                                 continue
-                            period, year = result
-                            if start_year <= year <= end_year:
-                                rows.extend(_parse_table(f, year, quantity, period))
+                            period, time = result
+                            if period != self.frequency:
+                                continue
+                            if start_year <= time <= end_year + 1:
+                                rows.extend(_parse_table(f, time, quantity, period))
             except Exception as e:
                 print(f"WARNING: Error processing {fname}: {e}")
                 continue

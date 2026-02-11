@@ -172,6 +172,9 @@ def _gather_energy_data(filename: str) -> Tuple[List[Dict], List[Dict]]:
 class AtmParser(BaseParser):
     """Parse atmosphere log files for energy/water conservation diagnostics."""
 
+    def __init__(self, frequency: str = "annual") -> None:
+        super().__init__(frequency=frequency)
+
     def parse_raw(self, log_files: List[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Parse raw per-step data from atm log files.
 
@@ -203,47 +206,67 @@ class AtmParser(BaseParser):
         flux_diag_df = pd.DataFrame(all_flux)
         return nstep_te_df, flux_diag_df
 
+    def _groupby_keys(self) -> List[str]:
+        """Return groupby columns based on frequency."""
+        if self.frequency == "monthly":
+            return ["year", "month"]
+        else:  # annual
+            return ["year"]
+
+    @staticmethod
+    def _make_time(frequency: str, year: int, month: int) -> float:
+        """Encode (year, month) as a float time value."""
+        if frequency == "monthly":
+            return year + (month - 0.5) / 12.0
+        return float(year)
+
     def parse_files(
         self, log_files: List[str], start_year: int, end_year: int
     ) -> pd.DataFrame:
-        """Parse atm logs and return a tidy monthly event table.
+        """Parse atm logs and return a tidy event table.
 
-        Aggregates per-step data to monthly averages for fluxes and
-        beginning/end-of-month values for states.
+        Aggregates per-step data to the configured frequency (monthly
+        or annual) for fluxes and beginning/end-of-period states.
         """
         nstep_te_df, flux_diag_df = self.parse_raw(log_files)
 
         if nstep_te_df.empty and flux_diag_df.empty:
             return pd.DataFrame(columns=COLUMNS)
 
+        group_keys = self._groupby_keys()
         rows: List[Dict] = []
 
-        # --- Flux diagnostics (monthly aggregation) ---
+        # --- Flux diagnostics ---
         if not flux_diag_df.empty:
             flux_df = flux_diag_df[
                 (flux_diag_df["year"] >= start_year)
                 & (flux_diag_df["year"] <= end_year)
             ]
             if not flux_df.empty:
-                for (year, month), grp in flux_df.groupby(["year", "month"]):
+                for _key, grp in flux_df.groupby(group_keys):
+                    time = self._make_time(
+                        self.frequency,
+                        int(grp["year"].iloc[0]),
+                        int(grp["month"].iloc[0]),
+                    )
                     base_water = {
-                        COL_TIME: year,
+                        COL_TIME: time,
                         COL_COMPONENT: "atm",
                         COL_QUANTITY: "water",
                         COL_SOURCE: "atm",
-                        COL_PERIOD: "monthly",
+                        COL_PERIOD: self.frequency,
                     }
                     base_heat = {
-                        COL_TIME: year,
+                        COL_TIME: time,
                         COL_COMPONENT: "atm",
                         COL_QUANTITY: "heat",
                         COL_SOURCE: "atm",
-                        COL_PERIOD: "monthly",
+                        COL_PERIOD: self.frequency,
                     }
 
                     dt = grp["dt"].iloc[0]
 
-                    # Water flux terms (monthly mean rate, kg/m2/s)
+                    # Water flux terms (mean rate, kg/m2/s)
                     if "w_flux" in grp.columns:
                         rows.append(
                             {
@@ -265,7 +288,7 @@ class AtmParser(BaseParser):
                             }
                         )
 
-                    # Water state (begin/end of month)
+                    # Water state (begin/end of period)
                     rows.append(
                         {
                             **base_water,
@@ -285,7 +308,7 @@ class AtmParser(BaseParser):
                         }
                     )
 
-                    # Water diagnostics (monthly mean per step)
+                    # Water diagnostics (mean per step)
                     if "w_residual" in grp.columns:
                         rows.append(
                             {
@@ -307,7 +330,7 @@ class AtmParser(BaseParser):
                             }
                         )
 
-                    # Energy flux terms (monthly mean, W/m2)
+                    # Energy flux terms (mean, W/m2)
                     if "e_dtedt" in grp.columns:
                         rows.append(
                             {
@@ -329,7 +352,7 @@ class AtmParser(BaseParser):
                             }
                         )
 
-                    # Energy diagnostics (monthly mean, W/m2)
+                    # Energy diagnostics (mean, W/m2)
                     if "e_diff" in grp.columns:
                         rows.append(
                             {
@@ -351,19 +374,24 @@ class AtmParser(BaseParser):
                             }
                         )
 
-        # --- Energy fixer state (TE begin/end of month) ---
+        # --- Energy fixer state (TE begin/end of period) ---
         if not nstep_te_df.empty:
             te_df = nstep_te_df[
                 (nstep_te_df["year"] >= start_year) & (nstep_te_df["year"] <= end_year)
             ]
             if not te_df.empty:
-                for (year, month), grp in te_df.groupby(["year", "month"]):
+                for _key, grp in te_df.groupby(group_keys):
+                    time = self._make_time(
+                        self.frequency,
+                        int(grp["year"].iloc[0]),
+                        int(grp["month"].iloc[0]),
+                    )
                     base_heat = {
-                        COL_TIME: year,
+                        COL_TIME: time,
                         COL_COMPONENT: "atm",
                         COL_QUANTITY: "heat",
                         COL_SOURCE: "atm",
-                        COL_PERIOD: "monthly",
+                        COL_PERIOD: self.frequency,
                     }
                     rows.append(
                         {

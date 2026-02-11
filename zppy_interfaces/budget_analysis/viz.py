@@ -9,7 +9,7 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 from bokeh.layouts import column
-from bokeh.models import Div
+from bokeh.models import Div, FixedTicker
 from bokeh.palettes import Category10
 from bokeh.plotting import figure, output_file, save
 
@@ -141,19 +141,26 @@ def generate_landing_page(output_dir: str, report_paths: Dict[str, str]) -> str:
     return index_path
 
 
-def _make_figure(title: str, y_label: str) -> figure:
-    return figure(
+def _make_figure(title: str, y_label: str, years: np.ndarray) -> figure:
+    p = figure(
         title=title,
         height=350,
         width=1200,
-        x_axis_label="year",
+        x_axis_label="time (year)",
         y_axis_label=y_label,
     )
+    # For monthly data, force ticks at integer years so Bokeh doesn't
+    # pick fractional intervals (e.g. 0.2) that don't align with months.
+    # For annual data, let Bokeh auto-tick (handles long runs like 500 yrs).
+    if np.any(years != np.floor(years)):
+        int_years = sorted(set(int(y) for y in years))
+        p.xaxis.ticker = FixedTicker(ticks=int_years)
+    return p
 
 
 def _plot_residual(r: CheckResult, title: str, units: str) -> figure:
     """Plot residual time series with a zero reference line."""
-    p = _make_figure(title, f"residual ({units})")
+    p = _make_figure(title, f"residual ({units})", r.years)
     p.line(r.years, r.residual, line_width=2, color="red")
     p.line(
         r.years,
@@ -169,14 +176,14 @@ def _plot_cumulative(
     r: CheckResult, title: str, units: str, scale: float = 1.0
 ) -> figure:
     """Plot cumulative residual, optionally scaled for unit conversion."""
-    p = _make_figure(title, f"cumulative residual ({units})")
+    p = _make_figure(title, f"cumulative residual ({units})", r.years)
     p.line(r.years, r.cumulative_residual * scale, line_width=2, color="darkred")
     return p
 
 
 def _plot_comparison(r: CheckResult, title: str, units: str) -> figure:
     """Plot LHS and RHS on the same axes."""
-    p = _make_figure(title, units)
+    p = _make_figure(title, units, r.years)
     p.line(r.years, r.lhs, line_width=2, color="blue", legend_label=r.lhs_label)
     p.line(r.years, r.rhs, line_width=2, color="orange", legend_label=r.rhs_label)
     p.legend.click_policy = "hide"
@@ -187,7 +194,9 @@ def _plot_cumulative_components(
     r: CheckResult, quantity: str, units: str, scale: float = 1.0
 ) -> figure:
     """Cumulative net flux per component, with *SUM* residual highlighted."""
-    p = _make_figure(f"Cumulative Net {quantity.title()} Flux per Component", units)
+    p = _make_figure(
+        f"Cumulative Net {quantity.title()} Flux per Component", units, r.years
+    )
     if r.components is None:
         return p
     # Plot component lines, highlight *SUM* as thick dashed red

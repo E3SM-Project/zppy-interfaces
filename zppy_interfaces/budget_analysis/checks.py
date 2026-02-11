@@ -41,7 +41,8 @@ def _select(
     """Filter df by column=value filters, optionally by period.
 
     If period is None, prefer 'annual' if available, else use 'monthly'.
-    For monthly data, aggregate to annual by summing per year.
+    Monthly data is kept at monthly resolution (COL_TIME encodes
+    year + fractional month).
     """
     mask = pd.Series(True, index=df.index)
     for col, val in filters.items():
@@ -58,35 +59,10 @@ def _select(
     elif "annual" in available:
         subset = subset[subset[COL_PERIOD] == "annual"]
     else:
-        # Monthly only — aggregate to annual per year
-        # Rates (flux) get averaged; totals (state, flux_integrated) get summed
-        group_keys = [
-            COL_TIME,
-            COL_COMPONENT,
-            COL_QUANTITY,
-            COL_TERM,
-            COL_SOURCE,
-            COL_TABLE_TYPE,
-        ]
-        flux_rows = subset[subset[COL_TABLE_TYPE] == "flux"]
-        other_rows = subset[subset[COL_TABLE_TYPE] != "flux"]
-        parts = []
-        if not flux_rows.empty:
-            parts.append(
-                flux_rows.groupby(group_keys, as_index=False).agg(
-                    {"normalized_value": "mean", "normalized_units": "first"}
-                )
-            )
-        if not other_rows.empty:
-            parts.append(
-                other_rows.groupby(group_keys, as_index=False).agg(
-                    {"normalized_value": "sum", "normalized_units": "first"}
-                )
-            )
-        if parts:
-            subset = pd.concat(parts, ignore_index=True)
-        else:
-            return subset.iloc[:0]
+        # Monthly — keep at monthly resolution.
+        # COL_TIME already encodes year + fractional month,
+        # so each month has a unique time value.
+        subset = subset[subset[COL_PERIOD] == "monthly"]
 
     return subset.sort_values(COL_TIME)
 
@@ -369,12 +345,18 @@ def run_checks(
     """Run budget checks against the normalized event table."""
     if checks is None:
         checks = DEFAULT_WATER_CHECKS
+    # Determine time unit label from data period
+    periods = df[COL_PERIOD].unique() if not df.empty else []
+    if "monthly" in periods:
+        time_label = "months"
+    else:
+        time_label = "years"
     results = []
     for check in checks:
         result = check.evaluate(df)
         if result is not None:
             results.append(result)
-            print(f"  Check '{check.name}': {len(result.years)} years")
+            print(f"  Check '{check.name}': {len(result.years)} {time_label}")
         else:
             print(f"  WARNING: Check '{check.name}' skipped (missing data)")
     return results

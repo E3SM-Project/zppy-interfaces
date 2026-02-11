@@ -5,7 +5,7 @@ from typing import List
 import pandas as pd
 
 # Column name constants
-COL_TIME = "time"  # int: year the period ends (e.g. year 1 annual → time=1)
+COL_TIME = "time"  # float: year (annual) or year + (month-0.5)/12 (monthly)
 COL_COMPONENT = (
     "component"  # str: "atm", "lnd", "rof", "ocn", "ice_nh", "ice_sh", "glc", "*SUM*"
 )

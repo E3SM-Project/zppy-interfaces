@@ -63,11 +63,19 @@ def main():
     )
     print()
 
-    # --- Tidy event table ---
+    # --- Tidy event table (annual) ---
     events = parser.parse_files(log_files, 1, 1)
-    print("=== Tidy event table ===")
+    print("=== Tidy event table (annual, default) ===")
     print(f"Shape: {events.shape}")
     print(events.to_string())
+    print()
+
+    # --- Tidy event table (monthly) ---
+    monthly_parser = AtmParser(frequency="monthly")
+    events_m = monthly_parser.parse_files(log_files, 1, 1)
+    print("=== Tidy event table (monthly) ===")
+    print(f"Shape: {events_m.shape}")
+    print(events_m.to_string())
 
     print("\nAll checks passed.")
 

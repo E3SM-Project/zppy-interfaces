@@ -45,23 +45,37 @@ FLUX_HEADER = "NET WATER FLUXES : period"
 STATE_HEADER = "WATER STATES (kg/m2*1e6): period"
 
 
-def _parse_datestamp(datestamp: str) -> int:
-    """Convert datestamp to year. Same convention as coupler."""
-    return int(datestamp[:-4]) - 1
+def _parse_datestamp(datestamp: str) -> Tuple[int, int]:
+    """Convert datestamp to (year, month). Same convention as coupler."""
+    mmdd = datestamp[-4:]
+    month = int(mmdd[:2])
+    year = int(datestamp[:-4]) - 1
+    if month == 1:
+        month = 12
+    else:
+        month -= 1
+    return year, month
 
 
-def _parse_period_and_year(line: str) -> Optional[Tuple[str, int]]:
-    """Extract period and year from a header line."""
+def _make_time(period: str, year: int, month: int) -> float:
+    """Encode (year, month) as a float time value."""
+    if period == "monthly":
+        return year + (month - 0.5) / 12.0
+    return float(year)
+
+
+def _parse_period_and_time(line: str) -> Optional[Tuple[str, float]]:
+    """Extract period and time from a header line."""
     period_match = re.search(r"period\s+(\w+):", line)
     date_match = re.search(r"date\s*=\s*(\d+)", line)
     if not period_match or not date_match:
         return None
     period = period_match.group(1)
-    year = _parse_datestamp(date_match.group(1))
-    return period, year
+    year, month = _parse_datestamp(date_match.group(1))
+    return period, _make_time(period, year, month)
 
 
-def _parse_flux_table(f: TextIO, year: int, period: str) -> List[Dict]:
+def _parse_flux_table(f: TextIO, year: float, period: str) -> List[Dict]:
     """Parse a NET WATER FLUXES table.
 
     Format:
@@ -163,7 +177,7 @@ def _parse_flux_table(f: TextIO, year: int, period: str) -> List[Dict]:
     return rows
 
 
-def _parse_state_table(f: TextIO, year: int, period: str) -> List[Dict]:
+def _parse_state_table(f: TextIO, year: float, period: str) -> List[Dict]:
     """Parse a WATER STATES table.
 
     Format:
@@ -273,6 +287,9 @@ def _parse_state_table(f: TextIO, year: int, period: str) -> List[Dict]:
 class LndParser(BaseParser):
     """Parse land log files for water flux and state tables."""
 
+    def __init__(self, frequency: str = "annual") -> None:
+        super().__init__(frequency=frequency)
+
     def parse_files(
         self, log_files: List[str], start_year: int, end_year: int
     ) -> pd.DataFrame:
@@ -284,20 +301,24 @@ class LndParser(BaseParser):
                         stripped = line.strip()
 
                         if stripped.startswith(FLUX_HEADER):
-                            result = _parse_period_and_year(stripped)
+                            result = _parse_period_and_time(stripped)
                             if result is None:
                                 continue
-                            period, year = result
-                            if start_year <= year <= end_year:
-                                rows.extend(_parse_flux_table(f, year, period))
+                            period, time = result
+                            if period != self.frequency:
+                                continue
+                            if start_year <= time <= end_year + 1:
+                                rows.extend(_parse_flux_table(f, time, period))
 
                         elif stripped.startswith(STATE_HEADER):
-                            result = _parse_period_and_year(stripped)
+                            result = _parse_period_and_time(stripped)
                             if result is None:
                                 continue
-                            period, year = result
-                            if start_year <= year <= end_year:
-                                rows.extend(_parse_state_table(f, year, period))
+                            period, time = result
+                            if period != self.frequency:
+                                continue
+                            if start_year <= time <= end_year + 1:
+                                rows.extend(_parse_state_table(f, time, period))
 
             except Exception as e:
                 print(f"WARNING: Error processing {fname}: {e}")

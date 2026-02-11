@@ -66,6 +66,12 @@ Examples:
         default="legacy",
         help="'legacy' (coupler-only cumulative) or 'whole-model' (multi-source budget checks)",
     )
+    parser.add_argument(
+        "--frequency",
+        choices=["monthly", "annual"],
+        default="annual",
+        help="Temporal frequency for budget data: 'monthly' or 'annual' (default: annual)",
+    )
 
     args = parser.parse_args()
 
@@ -143,6 +149,7 @@ def _run_whole_model(args) -> int:
     print("=============================================")
     print(f"Years: {args.start_year} to {args.end_year}")
     print(f"Budget types: {budget_types}")
+    print(f"Frequency: {args.frequency}")
     print(f"Log path: {args.log_path}")
 
     # Ingest
@@ -160,23 +167,30 @@ def _run_whole_model(args) -> int:
     print(f"  {len(ocn_files)} ocean log files")
     print(f"  {len(atm_files)} atmosphere log files")
 
+    freq = args.frequency
     frames = []
     frames.append(
-        CplParser(quantities=budget_types).parse_files(
+        CplParser(quantities=budget_types, frequency=freq).parse_files(
             cpl_files, args.start_year, args.end_year
         )
     )
     if lnd_files:
         frames.append(
-            LndParser().parse_files(lnd_files, args.start_year, args.end_year)
+            LndParser(frequency=freq).parse_files(
+                lnd_files, args.start_year, args.end_year
+            )
         )
     if ocn_files:
         frames.append(
-            OcnParser().parse_files(ocn_files, args.start_year, args.end_year)
+            OcnParser(frequency=freq).parse_files(
+                ocn_files, args.start_year, args.end_year
+            )
         )
     if atm_files:
         frames.append(
-            AtmParser().parse_files(atm_files, args.start_year, args.end_year)
+            AtmParser(frequency=freq).parse_files(
+                atm_files, args.start_year, args.end_year
+            )
         )
     events = pd.concat(frames, ignore_index=True)
     print(f"  {len(events)} total event rows")
