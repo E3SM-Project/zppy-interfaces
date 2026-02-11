@@ -130,6 +130,7 @@ def _run_whole_model(args) -> int:
         DEFAULT_WATER_CHECKS,
         run_checks,
     )
+    from .ingestion.atm_parser import AtmParser
     from .ingestion.cpl_parser import CplParser
     from .ingestion.lnd_parser import LndParser
     from .ingestion.ocn_parser import OcnParser
@@ -149,6 +150,7 @@ def _run_whole_model(args) -> int:
     cpl_files = sorted(glob.glob(os.path.join(args.log_path, "cpl.log.*.gz")))
     lnd_files = sorted(glob.glob(os.path.join(args.log_path, "lnd.log.*.gz")))
     ocn_files = sorted(glob.glob(os.path.join(args.log_path, "ocn.log.*.gz")))
+    atm_files = sorted(glob.glob(os.path.join(args.log_path, "atm.log.*")))
 
     if not cpl_files:
         print("ERROR: No coupler log files found")
@@ -156,6 +158,7 @@ def _run_whole_model(args) -> int:
     print(f"  {len(cpl_files)} coupler log files")
     print(f"  {len(lnd_files)} land log files")
     print(f"  {len(ocn_files)} ocean log files")
+    print(f"  {len(atm_files)} atmosphere log files")
 
     frames = []
     frames.append(
@@ -170,6 +173,10 @@ def _run_whole_model(args) -> int:
     if ocn_files:
         frames.append(
             OcnParser().parse_files(ocn_files, args.start_year, args.end_year)
+        )
+    if atm_files:
+        frames.append(
+            AtmParser().parse_files(atm_files, args.start_year, args.end_year)
         )
     events = pd.concat(frames, ignore_index=True)
     print(f"  {len(events)} total event rows")
