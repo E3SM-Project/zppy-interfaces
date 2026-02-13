@@ -138,6 +138,7 @@ def _run_whole_model(args) -> int:
     )
     from .ingestion.atm_parser import AtmParser
     from .ingestion.cpl_parser import CplParser
+    from .ingestion.ice_parser import IceParser
     from .ingestion.lnd_parser import LndParser
     from .ingestion.ocn_parser import OcnParser
     from .normalization import normalize
@@ -157,6 +158,7 @@ def _run_whole_model(args) -> int:
     cpl_files = sorted(glob.glob(os.path.join(args.log_path, "cpl.log.*.gz")))
     lnd_files = sorted(glob.glob(os.path.join(args.log_path, "lnd.log.*.gz")))
     ocn_files = sorted(glob.glob(os.path.join(args.log_path, "ocn.log.*.gz")))
+    ice_files = sorted(glob.glob(os.path.join(args.log_path, "ice.log.*.gz")))
     atm_files = sorted(glob.glob(os.path.join(args.log_path, "atm.log.*")))
 
     if not cpl_files:
@@ -165,6 +167,7 @@ def _run_whole_model(args) -> int:
     print(f"  {len(cpl_files)} coupler log files")
     print(f"  {len(lnd_files)} land log files")
     print(f"  {len(ocn_files)} ocean log files")
+    print(f"  {len(ice_files)} ice log files")
     print(f"  {len(atm_files)} atmosphere log files")
 
     freq = args.frequency
@@ -184,6 +187,12 @@ def _run_whole_model(args) -> int:
         frames.append(
             OcnParser(frequency=freq).parse_files(
                 ocn_files, args.start_year, args.end_year
+            )
+        )
+    if ice_files:
+        frames.append(
+            IceParser(frequency=freq).parse_files(
+                ice_files, args.start_year, args.end_year
             )
         )
     if atm_files:
