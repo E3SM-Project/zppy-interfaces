@@ -39,23 +39,28 @@ def _normalize_component_name(name: str) -> str:
     return name.strip().replace(" ", "_")
 
 
-def _parse_datestamp(datestamp: str) -> Tuple[int, int]:
+def _parse_datestamp(datestamp: str, period: str = "monthly") -> Tuple[int, int]:
     """Convert coupler datestamp to (year, month).
 
-    The date is reported at the start of the next period.
-    E.g. '20101' -> MMDD='0101', year_part='2', year=2-1=1, month=01.
-    For annual period the month is ignored downstream.
+    For monthly data: '10201' -> year 1, month 1 (roll back one month)
+    For annual data: '20101' -> year 1 (annual summary for year 1, output at start of year 2)
     """
     mmdd = datestamp[-4:]
     month = int(mmdd[:2])
-    year = int(datestamp[:-4]) - 1
-    # Roll back one month (date is start of *next* period)
-    if month == 1:
-        month = 12
-        # year already decremented above
+    year = int(datestamp[:-4])
+
+    if period == "annual":
+        # Annual data: date represents start of year after the summary year
+        # e.g., '20101' = annual summary for year 1, output at start of year 2
+        return year - 1, 12  # Return summary year with month 12 for annual data
     else:
-        month -= 1
-    return year, month
+        # Monthly data: roll back one month (date is start of *next* period)
+        if month == 1:
+            month = 12
+            year -= 1  # Roll back year when going from Jan to Dec
+        else:
+            month -= 1
+        return year, month
 
 
 def _make_time(period: str, year: int, month: int) -> float:
@@ -83,7 +88,7 @@ def _parse_header_line(line: str, pattern: str) -> Optional[Tuple[str, float]]:
         return None
 
     period = period_match.group(1)
-    year, month = _parse_datestamp(date_match.group(1))
+    year, month = _parse_datestamp(date_match.group(1), period)
     return period, _make_time(period, year, month)
 
 
@@ -165,7 +170,9 @@ class CplParser(BaseParser):
                             period, time = result
                             if period != self.frequency:
                                 continue
-                            if start_year <= time <= end_year + 1:
+                            # Extract year from time for consistent filtering
+                            year = int(time)
+                            if start_year <= year <= end_year:
                                 rows.extend(_parse_table(f, time, quantity, period))
             except Exception as e:
                 print(f"WARNING: Error processing {fname}: {e}")

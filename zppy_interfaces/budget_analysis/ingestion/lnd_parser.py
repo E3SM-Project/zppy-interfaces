@@ -45,16 +45,27 @@ FLUX_HEADER = "NET WATER FLUXES : period"
 STATE_HEADER = "WATER STATES (kg/m2*1e6): period"
 
 
-def _parse_datestamp(datestamp: str) -> Tuple[int, int]:
-    """Convert datestamp to (year, month). Same convention as coupler."""
+def _parse_datestamp(datestamp: str, period: str = "monthly") -> Tuple[int, int]:
+    """Convert datestamp to (year, month). Same convention as coupler.
+
+    For monthly data: '10201' -> year 1, month 1 (roll back one month)
+    For annual data: '20101' -> year 1 (annual summary for year 1, output at start of year 2)
+    """
     mmdd = datestamp[-4:]
     month = int(mmdd[:2])
-    year = int(datestamp[:-4]) - 1
-    if month == 1:
-        month = 12
+    year = int(datestamp[:-4])
+
+    if period == "annual":
+        # Annual data: date represents start of year after the summary year
+        return year - 1, 12  # Return summary year with month 12 for annual data
     else:
-        month -= 1
-    return year, month
+        # Monthly data: roll back one month (date is start of *next* period)
+        if month == 1:
+            month = 12
+            year -= 1  # Roll back year when going from Jan to Dec
+        else:
+            month -= 1
+        return year, month
 
 
 def _make_time(period: str, year: int, month: int) -> float:
@@ -71,7 +82,7 @@ def _parse_period_and_time(line: str) -> Optional[Tuple[str, float]]:
     if not period_match or not date_match:
         return None
     period = period_match.group(1)
-    year, month = _parse_datestamp(date_match.group(1))
+    year, month = _parse_datestamp(date_match.group(1), period)
     return period, _make_time(period, year, month)
 
 
@@ -307,7 +318,9 @@ class LndParser(BaseParser):
                             period, time = result
                             if period != self.frequency:
                                 continue
-                            if start_year <= time <= end_year + 1:
+                            # Extract year from time for consistent filtering
+                            year = int(time)
+                            if start_year <= year <= end_year:
                                 rows.extend(_parse_flux_table(f, time, period))
 
                         elif stripped.startswith(STATE_HEADER):
@@ -317,7 +330,9 @@ class LndParser(BaseParser):
                             period, time = result
                             if period != self.frequency:
                                 continue
-                            if start_year <= time <= end_year + 1:
+                            # Extract year from time for consistent filtering
+                            year = int(time)
+                            if start_year <= year <= end_year:
                                 rows.extend(_parse_state_table(f, time, period))
 
             except Exception as e:
