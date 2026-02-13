@@ -102,6 +102,23 @@ def generate_budget_report(
                 )
             )
 
+        elif r.name.startswith("ice_") and r.name.endswith("_closure"):
+            label = "Water" if "water" in r.name else "Heat"
+            change_label = "ΔMass" if label == "Water" else "ΔEnergy"
+            plots.append(Div(text=f"<h2>Ice {label} Closure</h2>"))
+            plots.append(
+                _plot_comparison(r, f"Ice {change_label} vs Net Flux", flux_units)
+            )
+            plots.append(_plot_residual(r, "Ice Closure Residual", flux_units))
+            plots.append(
+                _plot_cumulative(
+                    r,
+                    "Ice Closure Cumulative Residual",
+                    cum_units,
+                    scale,
+                )
+            )
+
     if not plots:
         print(f"No {quantity} plots generated — no check results available")
         return ""

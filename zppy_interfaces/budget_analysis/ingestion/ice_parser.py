@@ -37,7 +37,7 @@ Ice log format (monthly, inside Conservation checks blocks):
 
 import gzip
 import re
-from typing import Dict, List, Optional, TextIO, Tuple
+from typing import Dict, List, TextIO, Tuple
 
 import pandas as pd
 
@@ -104,6 +104,8 @@ def _parse_energy_section(f: TextIO, time: float) -> List[Dict]:
             break
         if "Conservation checks:" in line:
             break
+        if "---" in line and len([c for c in line if c == "-"]) > 10:
+            break
 
         # Parse energy flux terms
         if "(W/m2)" in line:
@@ -157,7 +159,7 @@ def _parse_mass_section(f: TextIO, time: float) -> List[Dict]:
         # Stop at end of section
         if "Conservation checks:" in line:
             break
-        if "===================" in line:
+        if "---" in line and len([c for c in line if c == "-"]) > 10:
             break
 
         # Parse mass flux terms
@@ -202,7 +204,9 @@ class IceParser(BaseParser):
                     for line in f:
                         if "Conservation checks:" in line:
                             # Extract date from same line
-                            date_match = re.search(r"(\d{4}-\d{2}-\d{2}_\d{2}:\d{2}:\d{2})", line)
+                            date_match = re.search(
+                                r"(\d{4}-\d{2}-\d{2}_\d{2}:\d{2}:\d{2})", line
+                            )
                             if not date_match:
                                 continue
                             date_str = date_match.group(1)
@@ -243,11 +247,13 @@ class IceParser(BaseParser):
     def _parse_block(self, f: TextIO, time: float) -> List[Dict]:
         """Parse one Conservation checks block for mass and energy data."""
         rows: List[Dict] = []
+        found_mass = False
+        found_energy = False
 
-        # Read through the conservation block
-        while True:
-            line = f.readline()
-            if not line:  # EOF
+        line = f.readline()
+        while line:
+            # Stop when both sections are processed
+            if found_mass and found_energy:
                 break
 
             # Stop at next conservation block
@@ -256,13 +262,16 @@ class IceParser(BaseParser):
 
             # Parse energy section
             if "Energy conservation check" in line:
+                found_energy = True
                 energy_rows = _parse_energy_section(f, time)
                 rows.extend(energy_rows)
-                # Note: _parse_energy_section will stop when it hits "Mass conservation check"
 
             # Parse mass section
             elif "Mass conservation check" in line:
+                found_mass = True
                 mass_rows = _parse_mass_section(f, time)
                 rows.extend(mass_rows)
+
+            line = f.readline()
 
         return rows

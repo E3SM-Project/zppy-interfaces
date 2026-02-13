@@ -317,12 +317,196 @@ class OcnClosure(BudgetCheck):
         )
 
 
+class IceClosure(BudgetCheck):
+    """Ice mass/energy closure: storage change flux vs net flux.
+
+    For water: compares Mass change flux vs Net mass flux (both kg/m2s -> mm/yr).
+    For heat: compares Energy change flux vs Net energy flux (both W/m2).
+    """
+
+    CHANGE_TERM: Dict[str, str] = {
+        "water": "Mass change flux",
+        "heat": "Energy change flux",
+    }
+
+    FLUX_TERM: Dict[str, str] = {
+        "water": "Net mass flux",
+        "heat": "Net energy flux",
+    }
+
+    def __init__(self, quantity: str = "water") -> None:
+        super().__init__(
+            f"ice_{quantity}_closure",
+            f"Ice {quantity} closure: {'Mass' if quantity == 'water' else 'Energy'} change flux vs net flux",
+        )
+        self.quantity = quantity
+
+    def evaluate(self, df: pd.DataFrame) -> Optional[CheckResult]:
+        change_term = self.CHANGE_TERM[self.quantity]
+        flux_term = self.FLUX_TERM[self.quantity]
+
+        # Get ice storage change flux
+        storage_flux = _select(
+            df,
+            **{
+                COL_SOURCE: "ice",
+                COL_TERM: change_term,
+                COL_QUANTITY: self.quantity,
+                COL_TABLE_TYPE: "flux",
+            },
+        )[[COL_TIME, "normalized_value"]].set_index(COL_TIME)
+
+        # Get ice net flux
+        net_flux = _select(
+            df,
+            **{
+                COL_SOURCE: "ice",
+                COL_TERM: flux_term,
+                COL_QUANTITY: self.quantity,
+                COL_TABLE_TYPE: "flux",
+            },
+        )[[COL_TIME, "normalized_value"]].set_index(COL_TIME)
+
+        if storage_flux.empty or net_flux.empty:
+            return None
+
+        merged = storage_flux.join(
+            net_flux, lsuffix="_change", rsuffix="_net", how="inner"
+        )
+        if merged.empty:
+            return None
+
+        years = merged.index.values
+        change = merged["normalized_value_change"].values
+        net = merged["normalized_value_net"].values
+        residual = change - net
+
+        return CheckResult(
+            self.name,
+            self.description,
+            years,
+            change,
+            net,
+            residual,
+            np.cumsum(residual),
+            lhs_label=f"Storage Change ({change_term})",
+            rhs_label=f"Net Flux ({flux_term})",
+        )
+
+
+class IceInterfaceMatch(BudgetCheck):
+    """Do the coupler and ice model agree on net flux?
+
+    Special case for ice: coupler splits ice into 'ice_nh' and 'ice_sh' components,
+    so we sum both hemispheres to compare with ice model's total.
+    """
+
+    def __init__(self, quantity: str = "water") -> None:
+        super().__init__(
+            f"ice_{quantity}_interface_match",
+            f"Ice net {quantity} flux: coupler (nh+sh) vs ice model",
+        )
+        self.quantity = quantity
+
+    def evaluate(self, df: pd.DataFrame) -> Optional[CheckResult]:
+        # Get coupler data for both ice hemispheres
+        cpl_nh = _select(
+            df,
+            **{
+                COL_SOURCE: "cpl",
+                COL_TERM: "*SUM*",
+                COL_COMPONENT: "ice_nh",
+                COL_QUANTITY: self.quantity,
+            },
+        )[[COL_TIME, "normalized_value"]].set_index(COL_TIME)
+
+        cpl_sh = _select(
+            df,
+            **{
+                COL_SOURCE: "cpl",
+                COL_TERM: "*SUM*",
+                COL_COMPONENT: "ice_sh",
+                COL_QUANTITY: self.quantity,
+            },
+        )[[COL_TIME, "normalized_value"]].set_index(COL_TIME)
+
+        if cpl_nh.empty or cpl_sh.empty:
+            print(f"DEBUG: Missing coupler ice hemisphere data for {self.quantity}")
+            if cpl_nh.empty:
+                print("  Missing ice_nh data")
+            if cpl_sh.empty:
+                print("  Missing ice_sh data")
+            return None
+
+        # Sum both hemispheres
+        cpl_combined = cpl_nh.join(cpl_sh, lsuffix="_nh", rsuffix="_sh", how="inner")
+        if cpl_combined.empty:
+            print("DEBUG: No overlapping time periods between ice_nh and ice_sh")
+            return None
+
+        cpl_combined["normalized_value"] = (
+            cpl_combined["normalized_value_nh"] + cpl_combined["normalized_value_sh"]
+        )
+        cpl_total = cpl_combined[["normalized_value"]]
+
+        # Get ice model data - need to determine the right term
+        # For water, try common mass flux terms, for heat try energy flux terms
+        ice_terms = {
+            "water": ["Net mass flux", "*SUM*", "Mass change flux"],
+            "heat": ["Net energy flux", "*SUM*", "Energy change flux"],
+        }
+
+        ice_model = None
+        used_term = None
+        for term in ice_terms[self.quantity]:
+            ice_candidate = _select(
+                df,
+                **{
+                    COL_SOURCE: "ice",
+                    COL_TERM: term,
+                    COL_TABLE_TYPE: "flux",
+                    COL_QUANTITY: self.quantity,
+                },
+            )[[COL_TIME, "normalized_value"]].set_index(COL_TIME)
+
+            if not ice_candidate.empty:
+                ice_model = ice_candidate
+                used_term = term
+                break
+
+        if ice_model is None:
+            return None
+
+        merged = cpl_total.join(ice_model, lsuffix="_cpl", rsuffix="_ice", how="inner")
+        if merged.empty:
+            return None
+
+        years = merged.index.values
+        c = merged["normalized_value_cpl"].values
+        m = merged["normalized_value_ice"].values
+        r = c - m
+
+        return CheckResult(
+            self.name,
+            self.description,
+            years,
+            c,
+            m,
+            r,
+            np.cumsum(r),
+            lhs_label="cpl (ice_nh + ice_sh)",
+            rhs_label=f"ice ({used_term})",
+        )
+
+
 DEFAULT_WATER_CHECKS: List[BudgetCheck] = [
     CplComponentFluxes(quantity="water"),
     InterfaceMatch("lnd", "lnd", quantity="water"),
     InterfaceMatch("ocn", "ocn", quantity="water", comp_sum_term="SUM VOLUME FLUXES"),
+    IceInterfaceMatch(quantity="water"),
     LndClosure(),
     OcnClosure(quantity="water"),
+    IceClosure(quantity="water"),
 ]
 
 DEFAULT_HEAT_CHECKS: List[BudgetCheck] = [
@@ -330,7 +514,9 @@ DEFAULT_HEAT_CHECKS: List[BudgetCheck] = [
     InterfaceMatch(
         "ocn", "ocn", quantity="heat", comp_sum_term="SUM IMP+EXP HEAT FLUXES"
     ),
+    IceInterfaceMatch(quantity="heat"),
     OcnClosure(quantity="heat"),
+    IceClosure(quantity="heat"),
 ]
 
 DEFAULT_CARBON_CHECKS: List[BudgetCheck] = [

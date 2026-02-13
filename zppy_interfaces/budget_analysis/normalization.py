@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from .schema import COL_QUANTITY, COL_TABLE_TYPE, COL_UNITS, COL_VALUE
+from .schema import COL_QUANTITY, COL_SOURCE, COL_TABLE_TYPE, COL_UNITS, COL_VALUE
 
 # Seconds per year (365-day calendar)
 SECONDS_PER_YEAR = 365.0 * 24.0 * 60.0 * 60.0
@@ -31,10 +31,19 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
     # --- Water ---
     water_mask = df[COL_QUANTITY] == "water"
 
-    # Flux rates: kg/m2s * 1e6 -> mm/yr
+    # Flux rates: kg/m2s * 1e6 -> mm/yr (ocean), kg/m2s -> mm/yr (ice)
     water_flux = water_mask & (df[COL_TABLE_TYPE] == "flux")
-    df.loc[water_flux, "normalized_value"] = (
-        df.loc[water_flux, COL_VALUE] * SECONDS_PER_YEAR / 1e6
+
+    # Ice data: kg/m2s -> mm/yr (no 1e6 factor)
+    ice_flux = water_flux & (df[COL_SOURCE] == "ice")
+    df.loc[ice_flux, "normalized_value"] = (
+        df.loc[ice_flux, COL_VALUE] * SECONDS_PER_YEAR
+    )
+
+    # Ocean/other data: kg/m2s*1e6 -> mm/yr (with 1e6 factor)
+    other_flux = water_flux & (df[COL_SOURCE] != "ice")
+    df.loc[other_flux, "normalized_value"] = (
+        df.loc[other_flux, COL_VALUE] * SECONDS_PER_YEAR / 1e6
     )
     df.loc[water_flux, "normalized_units"] = "mm/yr"
 
