@@ -31,29 +31,37 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
     # --- Water ---
     water_mask = df[COL_QUANTITY] == "water"
 
-    # Flux rates: kg/m2s * 1e6 -> mm/yr (ocean), kg/m2s -> mm/yr (ice)
+    # Flux rates: kg/m2s * 1e6 -> mm/yr (ocean), kg/m2s -> mm/yr (ice, atm)
     water_flux = water_mask & (df[COL_TABLE_TYPE] == "flux")
 
-    # Ice data: kg/m2s -> mm/yr (no 1e6 factor)
-    ice_flux = water_flux & (df[COL_SOURCE] == "ice")
-    df.loc[ice_flux, "normalized_value"] = (
-        df.loc[ice_flux, COL_VALUE] * SECONDS_PER_YEAR
+    # Ice and atm data: kg/m2s -> mm/yr (no 1e6 factor)
+    raw_flux = water_flux & df[COL_SOURCE].isin(["ice", "atm"])
+    df.loc[raw_flux, "normalized_value"] = (
+        df.loc[raw_flux, COL_VALUE] * SECONDS_PER_YEAR
     )
 
     # Ocean/other data: kg/m2s*1e6 -> mm/yr (with 1e6 factor)
-    other_flux = water_flux & (df[COL_SOURCE] != "ice")
-    df.loc[other_flux, "normalized_value"] = (
-        df.loc[other_flux, COL_VALUE] * SECONDS_PER_YEAR / 1e6
+    scaled_flux = water_flux & ~df[COL_SOURCE].isin(["ice", "atm"])
+    df.loc[scaled_flux, "normalized_value"] = (
+        df.loc[scaled_flux, COL_VALUE] * SECONDS_PER_YEAR / 1e6
     )
     df.loc[water_flux, "normalized_units"] = "mm/yr"
 
-    # Integrated fluxes and states: kg/m2 * 1e6 -> mm
+    # Integrated fluxes and states: kg/m2 * 1e6 -> mm (ocean), kg/m2 -> mm (ice, atm)
     water_integrated = water_mask & df[COL_TABLE_TYPE].isin(
         ["flux_integrated", "state"]
     )
-    df.loc[water_integrated, "normalized_value"] = (
-        df.loc[water_integrated, COL_VALUE] / 1e6
+
+    # Ice and atm states: kg/m2 -> mm (no 1e6 factor)
+    raw_integrated = water_integrated & df[COL_SOURCE].isin(["ice", "atm"])
+    df.loc[raw_integrated, "normalized_value"] = df.loc[raw_integrated, COL_VALUE]
+
+    # Ocean/other states: kg/m2 * 1e6 -> mm (with 1e6 factor)
+    scaled_integrated = water_integrated & ~df[COL_SOURCE].isin(["ice", "atm"])
+    df.loc[scaled_integrated, "normalized_value"] = (
+        df.loc[scaled_integrated, COL_VALUE] / 1e6
     )
+
     df.loc[water_integrated, "normalized_units"] = "mm"
 
     # --- Heat ---
