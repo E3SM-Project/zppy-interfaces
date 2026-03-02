@@ -37,10 +37,10 @@ jobs:
       - name: Checkout Code Repository
         uses: actions/checkout@v3
 
-      - name: Set up Python 3.13
+      - name: Set up Python 3.14
         uses: actions/setup-python@v4
         with:
-          python-version: 3.13
+          python-version: 3.14
 
       # Run all pre-commit hooks on all the files.
       # Getting only staged files can be tricky in case a new PR is opened
@@ -57,7 +57,7 @@ jobs:
     timeout-minutes: 15
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     defaults:
       run:
         shell: bash -l {0}
@@ -92,11 +92,6 @@ jobs:
           conda list
           # Ensure we have the right Python version
           python --version
-          # Fix pip issues for Python 3.12+
-          if [[ "${{ matrix.python-version }}" == "3.12" ]] || [[ "${{ matrix.python-version }}" == "3.13" ]]; then
-            python -m ensurepip --upgrade || true
-            python -m pip install --upgrade --force-reinstall pip setuptools wheel
-          fi
 
       - if: ${{ needs.check-jobs-to-skip.outputs.should_skip != 'true' }}
         name: Show Conda Environment Info
