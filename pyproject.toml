@@ -20,10 +20,12 @@ classifiers = [
 
 dependencies = [
     "beautifulsoup4",
+    "bokeh",
     "lxml",
     "matplotlib",
     "netcdf4",
     "numpy >=2.0,<3.0",
+    "pandas",
     "pcmdi_metrics>=3.9.3",
     "xarray >=2023.02.0",
     "xcdat >=0.7.3,<1.0",
@@ -118,6 +120,7 @@ version = { attr = "zppy_interfaces.version.__version__" }
 
 # evolution of options.entry-points
 [project.scripts]
+zi-budget-analysis = "zppy_interfaces.budget_analysis.__main__:main"
 zi-global-time-series = "zppy_interfaces.global_time_series.__main__:main"
 zi-pcmdi-link-observation = "zppy_interfaces.pcmdi_diags.link_observation:main"
 zi-pcmdi-mean-climate = "zppy_interfaces.pcmdi_diags.pcmdi_mean_cimate:main"
