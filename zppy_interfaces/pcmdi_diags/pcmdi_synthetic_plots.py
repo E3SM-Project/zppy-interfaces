@@ -27,50 +27,30 @@ class SyntheticPlotsParameters(object):
     def __init__(self, args: Dict[str, str]):
         self.figure_format: str = args["figure_format"]
         self.www: str = args["www"]
-        self.save_all_data: bool = str(args["save_all_data"]).lower() in (
-            "true",
-            "1",
-            "yes",
-        )
+        self.save_all_data: bool = str2bool(args.get("save_all_data", False))
         self.results_dir: str = args["results_dir"]
         self.case: str = args["case"]
         self.model_name: str = args["model_name"]
         self.model_tableID: str = args["model_tableID"]
         self.web_dir: str = args["web_dir"]
-        self.clim_viewer: bool = str(args["clim_viewer"]).lower() in (
-            "true",
-            "1",
-            "yes",
-        )
-        self.clim_vars: List[str] = args["clim_vars"].split(",")
+        self.clim_viewer: bool = str2bool(args.get("clim_viewer", False))
+        self.clim_vars: List[str] = (args.get("clim_vars") or "").split(",") if args.get("clim_vars") else []
         self.clim_years: str = args["clim_years"]
-        self.clim_regions: List[str] = args["clim_regions"].split(",")
+        self.clim_regions: List[str] = (args.get("clim_regions") or "").split(",") if args.get("clim_regions") else []
         self.cmip_clim_dir: str = args["cmip_clim_dir"]
         self.cmip_clim_set: str = args["cmip_clim_set"]
-        self.mova_viewer: bool = str(args["mova_viewer"]).lower() in (
-            "true",
-            "1",
-            "yes",
-        )
-        self.mova_modes: List[str] = args["mova_modes"].split(",")
-        self.mova_vars: List[str] = args["mova_vars"].split(",")
+        self.mova_viewer: bool = str2bool(args.get("mova_viewer", False))
+        self.mova_modes: List[str] = (args.get("mova_modes") or "").split(",") if args.get("mova_modes") else []
+        self.mova_vars: List[str] = (args.get("mova_vars") or "").split(",") if args.get("mova_vars") else []
         self.mova_years: str = args["mova_years"]
-        self.movc_viewer: bool = str(args["movc_viewer"]).lower() in (
-            "true",
-            "1",
-            "yes",
-        )
-        self.movc_modes: List[str] = args["movc_modes"].split(",")
-        self.movc_vars: List[str] = args["movc_vars"].split(",")
+        self.movc_viewer: bool = str2bool(args.get("movc_viewer", False))
+        self.movc_modes: List[str] = (args.get("movc_modes") or "").split(",") if args.get("movc_modes") else []
+        self.movc_vars: List[str] = (args.get("movc_vars") or "").split(",") if args.get("movc_vars") else []
         self.movc_years: str = args["movc_years"]
         self.cmip_movs_dir: str = args["cmip_movs_dir"]
         self.cmip_movs_set: str = args["cmip_movs_set"]
-        self.enso_viewer: bool = str(args["enso_viewer"]).lower() in (
-            "true",
-            "1",
-            "yes",
-        )
-        self.enso_vars: List[str] = args["enso_vars"].split(",")
+        self.enso_viewer: bool = str2bool(args.get("enso_viewer", False))
+        self.enso_vars: List[str] = (args.get("enso_vars") or "").split(",") if args.get("enso_vars") else []
         self.enso_years: str = args["enso_years"]
         self.cmip_enso_dir: str = args["cmip_enso_dir"]
         self.cmip_enso_set: str = args["cmip_enso_set"]
@@ -164,7 +144,10 @@ def main():
         "e3sm_pmp_logo.png",
     )
     web_logo_dst = os.path.join(out_dir, "e3sm_pmp_logo.png")
-    shutil.copy(web_logo_src, web_logo_dst)
+    if not os.path.exists(web_logo_src):
+        logger.warning(f"Logo file not found, skipping copy: {web_logo_src}")
+    else:
+        shutil.copy(web_logo_src, web_logo_dst)
     # Build config
     config = collect_config(
         title=parameters.pcmdi_webtitle,
@@ -248,13 +231,13 @@ def _get_args() -> Dict[str, str]:
     parser.add_argument("--pcmdi_external_prefix", type=str)
     parser.add_argument("--pcmdi_viewer_template", type=str)
     parser.add_argument("--save_all_data", type=str2bool)
-    parser.add_argument("--debug", type=str)
+    parser.add_argument("--debug", type=str2bool, default=False)
 
     # Ignore the first arg
     # (zi-pcmdi-synthetic-plots)
     args: argparse.Namespace = parser.parse_args(sys.argv[1:])
 
-    if args.debug and args.debug.lower() == "true":
+    if args.debug:
         logger.setLevel("DEBUG")
         logger.debug("Debug logging enabled")
 
