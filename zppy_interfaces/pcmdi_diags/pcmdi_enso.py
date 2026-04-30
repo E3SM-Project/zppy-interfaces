@@ -25,7 +25,10 @@ logger = _setup_child_logger(__name__)
 # Classes #####################################################################
 class ENSOParameters(object):
     def __init__(self, args: Dict[str, str]):
-        self.enso_groups: str = args["enso_groups"]
+        enso_groups = args.get("enso_groups")
+        if not enso_groups:
+            raise ValueError("--enso_groups is required but was not provided.")
+        self.enso_groups: str = enso_groups
 
 
 class EnsoDiagnosticsCollector:
@@ -34,6 +37,11 @@ class EnsoDiagnosticsCollector:
     ):
         self.fig_format = fig_format
         self.refname = refname
+        if len(model_name_parts) != 4:
+            raise ValueError(
+                f"model_name must have 4 dot-separated parts (mip.exp.model.relm), "
+                f"got {len(model_name_parts)}: {model_name_parts}"
+            )
         self.mip, self.exp, self.model, self.relm = model_name_parts
         self.case_id = case_id
         self.model_name = f"{self.mip}.{self.exp}.{self.model}_{self.relm}"
@@ -49,6 +57,10 @@ class EnsoDiagnosticsCollector:
             logger.info(f"Processing {fset}, ({subdir}, {pattern})")
             fdir = self.input_dir.replace("%(output_type)", subdir)
             logger.info(f"Processing fdir={fdir}")
+            if not os.path.isdir(fdir):
+                logger.error(f"Expected output directory does not exist: {fdir}")
+                success = False
+                continue
             found_groups: List[str] = os.listdir(fdir)
             if sorted(groups) != sorted(found_groups):
                 logger.error(
@@ -65,13 +77,23 @@ class EnsoDiagnosticsCollector:
                 fpaths = sorted(glob.glob(template))
 
                 if not fpaths:
+                    group_dir = os.path.join(fdir, group)
+                    dir_contents = os.listdir(group_dir) if os.path.isdir(group_dir) else "<directory missing>"
                     logger.error(
-                        f"fpaths={fpaths}, self.input_dir={self.input_dir}, template={os.path.abspath(template)}, files in template={os.listdir(os.path.join(fdir, group))}"
+                        f"No figures found. input_dir={self.input_dir}, "
+                        f"template={os.path.abspath(template)}, "
+                        f"files in group dir={dir_contents}"
                     )
                     success = False
                 for fpath in fpaths:
                     logger.info(f"Processing fpath={fpath}")
-                    tail = fpath.split("/")[-1].split(f"{self.model}_{self.relm}")[-1]
+                    fname = fpath.split("/")[-1]
+                    marker = f"{self.model}_{self.relm}"
+                    if marker not in fname:
+                        logger.warning(
+                            f"Expected '{marker}' in filename '{fname}'; using full filename as output."
+                        )
+                    tail = fname.split(marker)[-1]
                     outpath = os.path.join(
                         self.output_dir.replace("%(group_type)", fset), group
                     )
@@ -88,8 +110,10 @@ class EnsoDiagnosticsCollector:
         fpaths = sorted(glob.glob(os.path.join(inpath, "*/*.json")))
 
         if not fpaths:
+            dir_contents = os.listdir(inpath) if os.path.isdir(inpath) else "<directory missing>"
             logger.error(
-                f"fpaths={fpaths}, self.input_dir={self.input_dir}, inpath={os.path.abspath(inpath)}, files in inpath={os.listdir(inpath)}"
+                f"No metrics JSON files found. input_dir={self.input_dir}, "
+                f"inpath={os.path.abspath(inpath)}, contents={dir_contents}"
             )
             success = False
         for fpath in fpaths:
@@ -122,8 +146,10 @@ class EnsoDiagnosticsCollector:
         fpaths = sorted(glob.glob(os.path.join(inpath, "*/*.nc")))
 
         if not fpaths:
+            dir_contents = os.listdir(inpath) if os.path.isdir(inpath) else "<directory missing>"
             logger.error(
-                f"fpaths={fpaths}, self.input_dir={self.input_dir}, inpath={os.path.abspath(inpath)}, files in inpath={os.listdir(inpath)}"
+                f"No diagnostic NetCDF files found. input_dir={self.input_dir}, "
+                f"inpath={os.path.abspath(inpath)}, contents={dir_contents}"
             )
             success = False
         for fpath in fpaths:
@@ -199,6 +225,8 @@ def main():
     # Initialize and run collector
     with open("obs_catalogue.json") as _f:
         obs_dict = json.load(_f)
+    if not obs_dict:
+        raise ValueError("obs_catalogue.json is empty; cannot determine observation name.")
     obs_name = list(obs_dict.keys())[0]
     collector = EnsoDiagnosticsCollector(
         fig_format=core_parameters.figure_format,
@@ -349,12 +377,18 @@ def check_enso_input():
                 link_name = found_nc_file[0].replace(
                     f".{cmip_var_name}.", f".{obs_var_name}."
                 )
-                os.symlink(source_file, link_name)
+                if not os.path.exists(link_name):
+                    os.symlink(source_file, link_name)
+                else:
+                    logger.info(f"Symlink already exists, skipping: {link_name}")
             found_txt_file = glob.glob(f"{ts_dir}/{cmip_var_name}_files.txt")
             if found_txt_file:
                 source_file = found_txt_file[0]
                 link_name = f"{ts_dir}/{obs_var_name}_files.txt"
-                os.symlink(source_file, link_name)
+                if not os.path.exists(link_name):
+                    os.symlink(source_file, link_name)
+                else:
+                    logger.info(f"Symlink already exists, skipping: {link_name}")
 
 
 def generate_enso_cmds(
@@ -426,7 +460,7 @@ def check_vars(stdout: str) -> bool:
         bool: True if expected variables are found, False otherwise.
     """
     success: bool = True
-    match_object = re.search(r"list_variables:\s*\[(.*?)\]", stdout)
+    match_object = re.search(r"list_variables:\s*\[(.*?)\]", stdout, re.DOTALL)
     # Special-case "optional" missing variables (these quantities may not be frequently output)
     optional_missing = {"ssh", "thf"}
     if match_object:
