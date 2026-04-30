@@ -1,10 +1,13 @@
 import glob
+import logging
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 from jinja2 import Environment, FileSystemLoader
+
+logger = logging.getLogger(__name__)
 
 
 def collect_config(
@@ -169,6 +172,10 @@ def setup_jinja_env(template_dir):
     """
     Set up the Jinja2 environment
     """
+    if not os.path.isdir(template_dir):
+        raise FileNotFoundError(
+            f"Jinja2 template directory not found: {template_dir}"
+        )
     return Environment(loader=FileSystemLoader(template_dir))
 
 
@@ -427,7 +434,7 @@ def generate_methodology_html(config):
     rendered_html = template.render(sections=sections)
     out_path = os.path.join(cfg("out_dir"), "methodology.html")
     Path(out_path).write_text(rendered_html)
-    print(f"HTML file written to: {cfg('out_dir')}")
+    logger.info(f"HTML file written to: {cfg('out_dir')}")
 
     return out_path
 
@@ -628,7 +635,7 @@ def generate_data_html(config):
 
     out_path = os.path.join(cfg("out_dir"), "diag_data.html")
     Path(out_path).write_text(output_html)
-    print(f"HTML file written to: {cfg('out_dir')}")
+    logger.info(f"HTML file written to: {cfg('out_dir')}")
 
     return out_path
 
@@ -1399,10 +1406,10 @@ class MeanClimateTableBuilder:
     def map_regions(self, names):
         default_regions = ["global", "land", "ocean", "TROPICS", "NHEX", "SHEX"]
         if names is None:
-            seasons = default_regions
+            regions = default_regions
         else:
-            seasons = names
-        return seasons
+            regions = names
+        return regions
 
     def map_seasons(self, names):
         default_seasons = ["DJF", "MAM", "JJA", "SON", "AC"]  # AC = Annual Cycle
@@ -1422,7 +1429,7 @@ class MeanClimateTableBuilder:
         """
         Constructs a list of table row dictionaries for use in an HTML diagnostic viewer.
         """
-        clim_path = safe_join(str(self.fig_dir), "CLIM_patttern")
+        clim_path = safe_join(str(self.fig_dir), "CLIM_pattern")
         table = []
 
         for var in self.variables:
@@ -1564,5 +1571,5 @@ def generate_viewer_html(config):
 
     # Write the generated HTML to the specified file
     Path(os.path.join(config["out_dir"], "index.html")).write_text(output_html)
-    print(f"HTML file written to: {config['out_dir']}")
+    logger.info(f"HTML file written to: {config['out_dir']}")
     return
