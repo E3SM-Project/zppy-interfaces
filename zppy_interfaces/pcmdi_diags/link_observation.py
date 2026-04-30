@@ -44,7 +44,8 @@ class ObservationLinker:
         self.obs_sets = obs_sets
         self.ts_dir_ref_source = ts_dir_ref_source
         self.obstmp_dir = obstmp_dir
-        self.obs_dic = json.load(open(obs_alias_file))
+        with open(obs_alias_file) as _f:
+            self.obs_dic = json.load(_f)
         self.altobs_dic = altobs_dic
 
     def _resolve_obs_file(self, varin, obsid):
