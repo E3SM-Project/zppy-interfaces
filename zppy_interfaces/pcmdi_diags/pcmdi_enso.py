@@ -157,8 +157,8 @@ class EnsoDiagnosticsCollector:
 
 # Functions ###################################################################
 def main():
-    logger.error("zi-pcmdi-enso is not yet supported. Exiting.")
-    sys.exit(1)
+    #logger.error("zi-pcmdi-enso is not yet supported. Exiting.")
+    #sys.exit(1)
     args: Dict[str, str] = _get_args()
     core_parameters = CoreParameters(args)
     enso_parameters = ENSOParameters(args)
@@ -197,7 +197,8 @@ def main():
     # time delay to ensure process completely finished
     time.sleep(5)
     # Initialize and run collector
-    obs_dict = json.load(open("obs_catalogue.json"))
+    with open("obs_catalogue.json") as _f:
+        obs_dict = json.load(_f)
     obs_name = list(obs_dict.keys())[0]
     collector = EnsoDiagnosticsCollector(
         fig_format=core_parameters.figure_format,

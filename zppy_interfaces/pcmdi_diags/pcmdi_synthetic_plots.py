@@ -98,7 +98,8 @@ def main():
         "metrics_data",
         "%(group_type)",
     )
-    metric_dict = json.load(open("synthetic_metrics_list.json"))
+    with open("synthetic_metrics_list.json") as _f:
+        metric_dict = json.load(_f)
     plotter = SyntheticMetricsPlotter(
         # Core
         case_name=parameters.case,
