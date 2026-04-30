@@ -19,9 +19,15 @@ logger = _setup_child_logger(__name__)
 # Classes #####################################################################
 class VariabilityModesParameters(object):
     def __init__(self, args: Dict[str, str]):
-        self.var_modes: List[str] = args["var_modes"].split(",")
+        var_modes = args.get("var_modes")
+        if not var_modes:
+            raise ValueError("--var_modes is required but was not provided.")
+        self.var_modes: List[str] = var_modes.split(",")
         # self.vars is distinct from the list version in CoreParameters
-        self.vars: str = args["vars"]
+        vars_arg = args.get("vars")
+        if not vars_arg:
+            raise ValueError("--vars is required but was not provided.")
+        self.vars: str = vars_arg
 
 
 class VariabilityMetricsCollector:
@@ -66,6 +72,11 @@ class VariabilityMetricsCollector:
                     search_path = os.path.join(indir, mode, "*", template)
                     matched_files = sorted(glob.glob(search_path))
 
+                    if not matched_files:
+                        logger.warning(
+                            f"No figures found for fig_set={fig_set}, mode={mode}, "
+                            f"season={season}: {search_path}"
+                        )
                     for fpath in matched_files:
                         filename = os.path.basename(fpath)
                         outfile = self._classify_output_name(
@@ -91,6 +102,12 @@ class VariabilityMetricsCollector:
             suffix = "eof2"
         elif "EOF3" in filename:
             suffix = "eof3"
+        if suffix == "unknown":
+            logger.warning(
+                f"Could not classify output name for file '{filename}' "
+                f"(fig_set={fig_set}, mode={mode}, season={season}); "
+                f"using suffix 'unknown'."
+            )
         return f"{fig_set}_{mode}_{season}_{suffix}.{self.fig_format}"
 
     def _collect_metrics(self):
@@ -178,29 +195,36 @@ def main():
         try:
             results = run_parallel_jobs(lstcmd, core_parameters.num_workers)
             for i, (stdout, stderr, return_code) in enumerate(results):
-                print(f"\nCommand {i + 1} finished:")
-                print(f"STDOUT: {stdout}")
-                print(f"STDERR: {stderr}")
-                print(f"Return code: {return_code}")
+                logger.info(f"Command {i + 1} finished:")
+                logger.info(f"STDOUT: {stdout}")
+                logger.info(f"STDERR: {stderr}")
+                logger.info(f"Return code: {return_code}")
         except RuntimeError as e:
-            print(f"Execution failed: {e}")
+            logger.error(f"Execution failed: {e}")
+            raise
     elif len(lstcmd) > 0:
         try:
             results = run_serial_jobs(lstcmd)
             for i, (stdout, stderr, return_code) in enumerate(results):
-                print(f"\nCommand {i + 1} finished:")
-                print(f"STDOUT: {stdout}")
-                print(f"STDERR: {stderr}")
-                print(f"Return code: {return_code}")
+                logger.info(f"Command {i + 1} finished:")
+                logger.info(f"STDOUT: {stdout}")
+                logger.info(f"STDERR: {stderr}")
+                logger.info(f"Return code: {return_code}")
         except RuntimeError as e:
-            print(f"Execution failed: {e}")
+            logger.error(f"Execution failed: {e}")
+            raise
     else:
-        print("no jobs to run,continue...")
-    print("successfully finish all jobs....")
+        logger.info("no jobs to run, continuing...")
+    logger.info("successfully finished all jobs.")
     # time delay to ensure process completely finished
     time.sleep(5)
     # Create the collector instance
     split_name: List[str] = core_parameters.model_name.split(".")
+    if len(split_name) != 4:
+        raise ValueError(
+            f"model_name must have 4 dot-separated parts (mip.exp.model.relm), "
+            f"got {len(split_name)}: {core_parameters.model_name}"
+        )
     collector = VariabilityMetricsCollector(
         modes=variability_modes_parameters.var_modes,
         fig_format=core_parameters.figure_format,
@@ -278,7 +302,7 @@ def generate_varmode_cmds(modes, varOBS, reftyrs, reftyre, refname, refpath, cas
             f"--osyear {reftyrs} "
             f"--oeyear {reftyre} "
             f"--reference_data_name {refname} "
-            f"--reference_data_path {refpath} "
+            f"--reference_data_path \"{refpath}\" "
             f"--case_id {case_id}"
         )
         commands.append(cmd)
