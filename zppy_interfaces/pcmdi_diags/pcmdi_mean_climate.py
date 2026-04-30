@@ -21,7 +21,10 @@ logger = _setup_child_logger(__name__)
 # Classes #####################################################################
 class MeanClimateParameters(object):
     def __init__(self, args: Dict[str, str]):
-        self.regions: List[str] = args["regions"].split(",")
+        regions = args.get("regions")
+        if not regions:
+            raise ValueError("--regions is required but was not provided.")
+        self.regions: List[str] = regions.split(",")
 
 
 class MeanClimateMetricsCollector:
@@ -38,6 +41,11 @@ class MeanClimateMetricsCollector:
         self.regions = regions
         self.variables = variables
         self.fig_format = fig_format
+        if len(model_info) != 4:
+            raise ValueError(
+                f"model_info must have 4 parts (mip, exp, model, relm), "
+                f"got {len(model_info)}: {model_info}"
+            )
         self.mip, self.exp, self.model, self.relm = model_info
         self.case_id = case_id
         self.input_template = input_template
@@ -53,7 +61,7 @@ class MeanClimateMetricsCollector:
 
     def _collect_figures(self):
         fig_sets = OrderedDict()
-        fig_sets["CLIM_patttern"] = ["graphics", "*"]
+        fig_sets["CLIM_pattern"] = ["graphics", "*"]
 
         for fset, (fig_type, prefix) in fig_sets.items():
             for region in self.regions:
@@ -68,6 +76,11 @@ class MeanClimateMetricsCollector:
                         )
                         fpaths = sorted(glob.glob(search_path))
 
+                        if not fpaths:
+                            logger.warning(
+                                f"No figures found for var={var}, region={region}, "
+                                f"season={season}: {search_path}"
+                            )
                         for fpath in fpaths:
                             refname = os.path.basename(fpath).split("_")[0]
                             filname = f"{refname}_{region}_{season}.{self.fig_format}"
@@ -106,8 +119,14 @@ class MeanClimateMetricsCollector:
         fpaths = sorted(glob.glob(os.path.join(inpath, "*.json")))
 
         for fpath in fpaths:
-            refname = os.path.basename(fpath).split("_")[:2]
-            filname = f"{refname[0]}.{refname[1]}.{self.model_name}.{self.case_id}.json"
+            parts = os.path.basename(fpath).split("_")
+            if len(parts) < 2:
+                logger.error(
+                    f"Unexpected metrics filename format (need at least 2 '_'-separated "
+                    f"parts): {os.path.basename(fpath)}, skipping."
+                )
+                continue
+            filname = f"{parts[0]}.{parts[1]}.{self.model_name}.{self.case_id}.json"
             outfile = os.path.join(outpath, filname)
             os.rename(fpath, outfile)
 
@@ -134,25 +153,27 @@ def main():
         try:
             results = run_parallel_jobs(lstcmd, core_parameters.num_workers)
             for i, (stdout, stderr, return_code) in enumerate(results):
-                print(f"\nCommand {i + 1} finished:")
-                print(f"STDOUT: {stdout}")
-                print(f"STDERR: {stderr}")
-                print(f"Return code: {return_code}")
+                logger.info(f"Command {i + 1} finished:")
+                logger.info(f"STDOUT: {stdout}")
+                logger.info(f"STDERR: {stderr}")
+                logger.info(f"Return code: {return_code}")
         except RuntimeError as e:
-            print(f"Execution failed: {e}")
+            logger.error(f"Execution failed: {e}")
+            raise
     elif len(lstcmd) > 0:
         try:
             results = run_serial_jobs(lstcmd)
             for i, (stdout, stderr, return_code) in enumerate(results):
-                print(f"\nCommand {i + 1} finished:")
-                print(f"STDOUT: {stdout}")
-                print(f"STDERR: {stderr}")
-                print(f"Return code: {return_code}")
+                logger.info(f"Command {i + 1} finished:")
+                logger.info(f"STDOUT: {stdout}")
+                logger.info(f"STDERR: {stderr}")
+                logger.info(f"Return code: {return_code}")
         except RuntimeError as e:
-            print(f"Execution failed: {e}")
+            logger.error(f"Execution failed: {e}")
+            raise
     else:
-        print("no jobs to run,continue....")
-    print("successfully finish all jobs....")
+        logger.info("no jobs to run, continuing...")
+    logger.info("successfully finished all jobs.")
     # time delay to ensure process completely finished
     time.sleep(5)
     # orgnize diagnostic output
@@ -254,4 +275,9 @@ def generate_mean_clim_cmds(variables, obs_dic, case_id):
                 ]
             )
             commands.append(cmd)
+        else:
+            logger.warning(
+                f"Variable '{var_key}' not found in obs_dic; "
+                f"no mean_climate command will be generated for it."
+            )
     return commands

@@ -120,7 +120,7 @@ version = { attr = "zppy_interfaces.version.__version__" }
 [project.scripts]
 zi-global-time-series = "zppy_interfaces.global_time_series.__main__:main"
 zi-pcmdi-link-observation = "zppy_interfaces.pcmdi_diags.link_observation:main"
-zi-pcmdi-mean-climate = "zppy_interfaces.pcmdi_diags.pcmdi_mean_cimate:main"
+zi-pcmdi-mean-climate = "zppy_interfaces.pcmdi_diags.pcmdi_mean_climate:main"
 zi-pcmdi-variability-modes = "zppy_interfaces.pcmdi_diags.pcmdi_variability_modes:main"
 zi-pcmdi-enso = "zppy_interfaces.pcmdi_diags.pcmdi_enso:main"
 zi-pcmdi-synthetic-plots = "zppy_interfaces.pcmdi_diags.pcmdi_synthetic_plots:main"
