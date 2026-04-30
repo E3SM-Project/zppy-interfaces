@@ -132,17 +132,17 @@ class DataCatalogueBuilder:
 
     def _extract_metadata(self, filepath, varin, var):
         filename = os.path.basename(filepath)
-        logger.info(f"Extracting metadata from {filename}, dervied from {filepath}")
+        logger.info(f"Extracting metadata from {filename}, derived from {filepath}")
         parts = filename.split(".")
         if len(parts) < 7:
             # Example file in tmp-dir/ts:
             # e3sm.amip.v3-LR.0101.Amon.ts.200501-201412.nc
-            logger.error(
+            raise ValueError(
                 f"Filename {filename} does not have at least 7 parts when split by '.', unexpected format."
             )
         yymm_range = parts[6].split("-")
         if len(yymm_range) != 2:
-            logger.error(
+            raise ValueError(
                 f"Filename {filename} has unexpected date range format in part '{parts[6]}'."
             )
         logger.info(

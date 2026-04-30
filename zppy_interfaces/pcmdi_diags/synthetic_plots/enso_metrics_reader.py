@@ -79,7 +79,13 @@ class EnsoMetricsReader:
                 with open(json_path) as ff:
                     data_json = json.load(ff)
 
-            old_key = list(data_json["RESULTS"]["model"].keys())[0]
+            results_block = data_json.get("RESULTS", {})
+            model_block = results_block.get("model", {})
+            if not model_block:
+                raise KeyError(
+                    f"Expected non-empty 'RESULTS.model' dict in {json_path}"
+                )
+            old_key = list(model_block.keys())[0]
 
             data_json["RESULTS"]["model"][mip] = data_json["RESULTS"]["model"].pop(
                 old_key
