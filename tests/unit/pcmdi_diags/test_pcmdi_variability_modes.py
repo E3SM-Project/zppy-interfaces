@@ -60,7 +60,7 @@ def test_generate_varmode_cmds():
         "v20250923",
     )
     expected = [
-        "variability_modes_driver.py -p parameterfile.py --variability_mode mode1 --eofn_mod 1 --eofn_obs 1 --varOBS varOBS --osyear reftyrs --oeyear reftyre --reference_data_name refname --reference_data_path refpath --case_id v20250923",
-        "variability_modes_driver.py -p parameterfile.py --variability_mode mode2 --eofn_mod 1 --eofn_obs 1 --varOBS varOBS --osyear reftyrs --oeyear reftyre --reference_data_name refname --reference_data_path refpath --case_id v20250923",
+        'variability_modes_driver.py -p parameterfile.py --variability_mode mode1 --eofn_mod 1 --eofn_obs 1 --varOBS varOBS --osyear reftyrs --oeyear reftyre --reference_data_name refname --reference_data_path "refpath" --case_id v20250923',
+        'variability_modes_driver.py -p parameterfile.py --variability_mode mode2 --eofn_mod 1 --eofn_obs 1 --varOBS varOBS --osyear reftyrs --oeyear reftyre --reference_data_name refname --reference_data_path "refpath" --case_id v20250923',
     ]
     assert actual == expected
