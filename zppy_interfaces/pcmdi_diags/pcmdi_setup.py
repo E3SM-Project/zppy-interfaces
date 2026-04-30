@@ -18,8 +18,14 @@ logger = _setup_child_logger(__name__)
 # Classes #####################################################################
 class CoreParameters(object):
     def __init__(self, args: Dict[str, str]):
-        self.num_workers: int = int(args["num_workers"])
-        self.multiprocessing: bool = args["multiprocessing"].lower() == "true"
+        num_workers = args.get("num_workers")
+        if num_workers is None:
+            raise ValueError("--num_workers is required but was not provided.")
+        self.num_workers: int = int(num_workers)
+        multiprocessing = args.get("multiprocessing")
+        if multiprocessing is None:
+            raise ValueError("--multiprocessing is required but was not provided.")
+        self.multiprocessing: bool = multiprocessing.lower() == "true"
         self.subsection: str = args["subsection"]
         self.test_data_path: str = args["climo_ts_dir_primary"]
         self.reference_data_path: str = args["climo_ts_dir_ref"]
@@ -31,7 +37,10 @@ class CoreParameters(object):
         self.model_name_ref: str = args[
             "model_name_ref"
         ]  # run_type == "model_vs_model" only
-        self.variables: List[str] = args["vars"].split(",")
+        vars_arg = args.get("vars")
+        if not vars_arg:
+            raise ValueError("--vars is required but was not provided.")
+        self.variables: List[str] = vars_arg.split(",")
         self.tableID_ref: str = args["tableID_ref"]  # run_type == "model_vs_model" only
         # Whether to generate the land/sea mask
         self.generate_flag: str = args["generate_sftlf"]
@@ -94,7 +103,7 @@ class DataCatalogueBuilder:
                 and os.path.exists(ref_files[0])
             ):
                 logger.info(
-                    f"Extracting & assigining metadata for {varin}, the base var name of {var}"
+                    f"Extracting & assigning metadata for {varin}, the base var name of {var}"
                 )
                 for fileset, info_dict, dataset, dataset_set in [
                     (test_files[0], self.test_info, self.variables, self.test_set),
@@ -106,7 +115,7 @@ class DataCatalogueBuilder:
                     )
             else:
                 logger.info(
-                    f"NOT extracting & assigining metadata for {varin}, the base var name of {var}."
+                    f"NOT extracting & assigning metadata for {varin}, the base var name of {var}."
                 )
             logger.info(f"test_files={test_files}")
             logger.info(f"ref_files={ref_files}")
@@ -209,8 +218,8 @@ class LandSeaMaskGenerator:
         )
 
         if not os.path.exists(catalog_path):
-            print(
-                f"Warning: Catalogue not found at {catalog_path}, absolute path {os.path.abspath(catalog_path)}"
+            logger.warning(
+                f"Catalogue not found at {catalog_path}, absolute path {os.path.abspath(catalog_path)}"
             )
             return
 
@@ -235,10 +244,10 @@ class LandSeaMaskGenerator:
 
         try:
             mask = create_land_sea_mask(ds, method="regionmask")
-            print("Land mask estimated using regionmask method.")
+            logger.info("Land mask estimated using regionmask method.")
         except Exception:
             mask = create_land_sea_mask(ds, method="pcmdi")
-            print("Land mask estimated using PCMDI method.")
+            logger.info("Land mask estimated using PCMDI method.")
 
         mask = mask * 100.0
         mask.attrs.update(
@@ -276,12 +285,26 @@ def set_up(parameters: CoreParameters) -> CoreOutput:
         parameters.multiprocessing if parameters.num_workers >= 2 else False
     )
     # Dataset identifiers
-    test_data_set: List[str] = [parameters.model_name.split(".")[1]]
+    model_name_parts = parameters.model_name.split(".")
+    if len(model_name_parts) < 2:
+        raise ValueError(
+            f"model_name must have at least 2 dot-separated parts, "
+            f"got: {parameters.model_name}"
+        )
+    test_data_set: List[str] = [model_name_parts[1]]
     reference_data_set: List[str]
     if parameters.run_type == "model_vs_obs":
         reference_data_set = parameters.obs_sets.split(",")
     elif parameters.run_type == "model_vs_model":
-        reference_data_set = [parameters.model_name_ref.split(".")[1]]
+        if not parameters.model_name_ref:
+            raise ValueError("model_name_ref is required for run_type=model_vs_model")
+        ref_parts = parameters.model_name_ref.split(".")
+        if len(ref_parts) < 2:
+            raise ValueError(
+                f"model_name_ref must have at least 2 dot-separated parts, "
+                f"got: {parameters.model_name_ref}"
+            )
+        reference_data_set = [ref_parts[1]]
     else:
         raise ValueError(f"Invalid run_type={parameters.run_type}")
     ###############################################################
@@ -345,8 +368,8 @@ def set_up(parameters: CoreParameters) -> CoreOutput:
         "pcmdi_diags",
         "%(output_type)",
         "%(metric_type)",
-        parameters.model_name.split(".")[0],
-        parameters.model_name.split(".")[1],
+        model_name_parts[0],
+        model_name_parts[1],
         parameters.case_id,
     )
     # Diagnostic output path templates
@@ -424,6 +447,6 @@ def derive_missing_variable(varin, path, model_id):
         )
 
         out_ds.to_netcdf(output_file)
-        print(f"Derived variable '{varin}' written to {output_file}")
+        logger.info(f"Derived variable '{varin}' written to {output_file}")
 
     return
