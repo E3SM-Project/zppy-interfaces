@@ -199,8 +199,9 @@ def main():
     check_enso_input()
     lstcmd = generate_enso_cmds(enso_parameters.enso_groups, core_parameters.case_id)
     logger.info(
-        f"input_template={core_output.input_template}; if the directories based on this template are empty, lstcmd={lstcmd} failed to produce output."
+        f"input_template={core_output.input_template}; If directories derived from this template are empty, it may indicate that lstcmd did not produce output."
     )
+
     if (len(lstcmd) > 0) and core_parameters.multiprocessing:
         logger.info(f"Running parallel jobs for {lstcmd}")
         try:
