@@ -479,7 +479,7 @@ def check_vars(stdout: str) -> bool:
         for var in requested_variables:
             found_nc_file = glob.glob(f"ts/*.{var}.*.nc")
             found_txt_file = glob.glob(f"ts/{var}_files.txt")
-            if (not found_nc_file) or (not found_txt_file):
+            if (not found_nc_file) and (not found_txt_file):
                 variables_missing_data.append(var)
                 # Check for references
                 if var in ALT_OBS_MAP:
