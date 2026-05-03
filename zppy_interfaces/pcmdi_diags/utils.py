@@ -57,7 +57,7 @@ def run_parallel_jobs(cmds: List[str], num_workers: int) -> List[Tuple[str, str,
     procs = []
 
     for i, cmd in enumerate(cmds):
-        proc = Popen(shlex.split(cmd), stdout=PIPE, stderr=PIPE, shell=False, text=True)
+	proc = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True, text=True)
         procs.append((cmd, proc))
 
         # Run the batch if full or if it's the last command
