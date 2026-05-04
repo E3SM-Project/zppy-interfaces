@@ -316,7 +316,7 @@ class SyntheticMetricsPlotter:
             )
 
         # --- Collections (optional config) ---
-        enso_collections = self.metric_dict.get("collection", [])
+        enso_collections = self.metric_dict[metric].get("collection", [])
         if not isinstance(enso_collections, (list, tuple)):
             logger.warning(
                 f"[enso] 'collection' should be list/tuple; got {type(enso_collections).__name__}. Using empty list."
