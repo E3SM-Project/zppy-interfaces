@@ -136,7 +136,33 @@ class EnsoDiagnosticsCollector:
                 if "diveDown" in reffile
                 else base_filename
             )
-            os.rename(fpath, os.path.join(outpath, outfile))
+            dest = os.path.join(outpath, outfile)
+
+            # Strip metrics with an empty "metric" comparison dict before saving.
+            # These arise when the ENSO driver had no reference data for a variable
+            # (e.g. ssh, thf). Keeping them causes enso_portrait_plot to crash with
+            # "max() iterable argument is empty".
+            with open(fpath) as _f:
+                data = json.load(_f)
+            try:
+                for _model, _members in data["RESULTS"]["model"].items():
+                    for _member, _entry in _members.items():
+                        value_block = _entry.get("value", {})
+                        incomplete = [
+                            m for m, v in value_block.items() if not v.get("metric")
+                        ]
+                        if incomplete:
+                            logger.warning(
+                                f"{reffile}: dropping {len(incomplete)} incomplete "
+                                f"metric(s) with empty 'metric' dict: {incomplete}"
+                            )
+                            for m in incomplete:
+                                del value_block[m]
+            except (KeyError, AttributeError) as e:
+                logger.warning(f"Could not prune incomplete metrics in {fpath}: {e}")
+            with open(dest, "w") as _f:
+                json.dump(data, _f, indent=4, separators=(",", ": "), sort_keys=False)
+            os.remove(fpath)
         return success
 
     def collect_diags(self) -> bool:
