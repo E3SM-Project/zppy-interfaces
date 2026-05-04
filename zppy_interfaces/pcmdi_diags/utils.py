@@ -99,7 +99,7 @@ def run_serial_jobs(cmds: List[str]) -> List[Tuple[str, str, int]]:
 
     for i, cmd in enumerate(cmds):
         logger.info(f"Running [{i + 1}/{len(cmds)}]: {cmd}")
-        proc = Popen(shlex.split(cmd), stdout=PIPE, stderr=PIPE, shell=False, text=True)
+        proc = Popen(shlex.split(cmd), stdout=PIPE, stderr=PIPE, shell=True, text=True)
         stdout, stderr = proc.communicate()
         return_code = proc.returncode
 
