@@ -316,12 +316,8 @@ class SyntheticMetricsPlotter:
             )
 
         # --- Collections (optional config) ---
-        enso_collections = self.metric_dict[metric].get("collection", [])
-        if not isinstance(enso_collections, (list, tuple)):
-            logger.warning(
-                f"[enso] 'collection' should be list/tuple; got {type(enso_collections).__name__}. Using empty list."
-            )
-            enso_collections = []
+        # Resolved per-stat inside the loop below, as the JSON structure is
+        # metric_dict["enso_metric"][stat]["collection"].
 
         # --- Validate metric entry ---
         if metric not in self.metric_dict or not isinstance(
@@ -347,6 +343,14 @@ class SyntheticMetricsPlotter:
                     f"[enso] No variables configured for stat='{stat}'. Skipping."
                 )
                 continue
+
+            enso_collections = self.metric_dict[metric][stat].get("collection", [])
+            if not isinstance(enso_collections, (list, tuple)):
+                logger.warning(
+                    f"[enso] 'collection' for stat='{stat}' should be list/tuple; "
+                    f"got {type(enso_collections).__name__}. Using empty list."
+                )
+                enso_collections = []
 
             logger.debug(
                 f"[enso] stat='{stat}', enso_mips={enso_mips}, collections={enso_collections}"
