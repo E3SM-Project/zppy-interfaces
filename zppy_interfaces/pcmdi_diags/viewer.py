@@ -173,9 +173,7 @@ def setup_jinja_env(template_dir):
     Set up the Jinja2 environment
     """
     if not os.path.isdir(template_dir):
-        raise FileNotFoundError(
-            f"Jinja2 template directory not found: {template_dir}"
-        )
+        raise FileNotFoundError(f"Jinja2 template directory not found: {template_dir}")
     return Environment(loader=FileSystemLoader(template_dir))
 
 
