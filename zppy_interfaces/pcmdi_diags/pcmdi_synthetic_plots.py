@@ -34,23 +34,39 @@ class SyntheticPlotsParameters(object):
         self.model_tableID: str = args["model_tableID"]
         self.web_dir: str = args["web_dir"]
         self.clim_viewer: bool = str2bool(args.get("clim_viewer", False))
-        self.clim_vars: List[str] = (args.get("clim_vars") or "").split(",") if args.get("clim_vars") else []
+        self.clim_vars: List[str] = (
+            (args.get("clim_vars") or "").split(",") if args.get("clim_vars") else []
+        )
         self.clim_years: str = args["clim_years"]
-        self.clim_regions: List[str] = (args.get("clim_regions") or "").split(",") if args.get("clim_regions") else []
+        self.clim_regions: List[str] = (
+            (args.get("clim_regions") or "").split(",")
+            if args.get("clim_regions")
+            else []
+        )
         self.cmip_clim_dir: str = args["cmip_clim_dir"]
         self.cmip_clim_set: str = args["cmip_clim_set"]
         self.mova_viewer: bool = str2bool(args.get("mova_viewer", False))
-        self.mova_modes: List[str] = (args.get("mova_modes") or "").split(",") if args.get("mova_modes") else []
-        self.mova_vars: List[str] = (args.get("mova_vars") or "").split(",") if args.get("mova_vars") else []
+        self.mova_modes: List[str] = (
+            (args.get("mova_modes") or "").split(",") if args.get("mova_modes") else []
+        )
+        self.mova_vars: List[str] = (
+            (args.get("mova_vars") or "").split(",") if args.get("mova_vars") else []
+        )
         self.mova_years: str = args["mova_years"]
         self.movc_viewer: bool = str2bool(args.get("movc_viewer", False))
-        self.movc_modes: List[str] = (args.get("movc_modes") or "").split(",") if args.get("movc_modes") else []
-        self.movc_vars: List[str] = (args.get("movc_vars") or "").split(",") if args.get("movc_vars") else []
+        self.movc_modes: List[str] = (
+            (args.get("movc_modes") or "").split(",") if args.get("movc_modes") else []
+        )
+        self.movc_vars: List[str] = (
+            (args.get("movc_vars") or "").split(",") if args.get("movc_vars") else []
+        )
         self.movc_years: str = args["movc_years"]
         self.cmip_movs_dir: str = args["cmip_movs_dir"]
         self.cmip_movs_set: str = args["cmip_movs_set"]
         self.enso_viewer: bool = str2bool(args.get("enso_viewer", False))
-        self.enso_vars: List[str] = (args.get("enso_vars") or "").split(",") if args.get("enso_vars") else []
+        self.enso_vars: List[str] = (
+            (args.get("enso_vars") or "").split(",") if args.get("enso_vars") else []
+        )
         self.enso_years: str = args["enso_years"]
         self.cmip_enso_dir: str = args["cmip_enso_dir"]
         self.cmip_enso_set: str = args["cmip_enso_set"]

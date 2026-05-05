@@ -78,7 +78,11 @@ class EnsoDiagnosticsCollector:
 
                 if not fpaths:
                     group_dir = os.path.join(fdir, group)
-                    dir_contents = os.listdir(group_dir) if os.path.isdir(group_dir) else "<directory missing>"
+                    dir_contents = (
+                        os.listdir(group_dir)
+                        if os.path.isdir(group_dir)
+                        else "<directory missing>"
+                    )
                     logger.error(
                         f"No figures found. input_dir={self.input_dir}, "
                         f"template={os.path.abspath(template)}, "
@@ -110,7 +114,9 @@ class EnsoDiagnosticsCollector:
         fpaths = sorted(glob.glob(os.path.join(inpath, "*/*.json")))
 
         if not fpaths:
-            dir_contents = os.listdir(inpath) if os.path.isdir(inpath) else "<directory missing>"
+            dir_contents = (
+                os.listdir(inpath) if os.path.isdir(inpath) else "<directory missing>"
+            )
             logger.error(
                 f"No metrics JSON files found. input_dir={self.input_dir}, "
                 f"inpath={os.path.abspath(inpath)}, contents={dir_contents}"
@@ -172,7 +178,9 @@ class EnsoDiagnosticsCollector:
         fpaths = sorted(glob.glob(os.path.join(inpath, "*/*.nc")))
 
         if not fpaths:
-            dir_contents = os.listdir(inpath) if os.path.isdir(inpath) else "<directory missing>"
+            dir_contents = (
+                os.listdir(inpath) if os.path.isdir(inpath) else "<directory missing>"
+            )
             logger.error(
                 f"No diagnostic NetCDF files found. input_dir={self.input_dir}, "
                 f"inpath={os.path.abspath(inpath)}, contents={dir_contents}"
@@ -209,8 +217,8 @@ class EnsoDiagnosticsCollector:
 
 # Functions ###################################################################
 def main():
-    #logger.error("zi-pcmdi-enso is not yet supported. Exiting.")
-    #sys.exit(1)
+    # logger.error("zi-pcmdi-enso is not yet supported. Exiting.")
+    # sys.exit(1)
     args: Dict[str, str] = _get_args()
     core_parameters = CoreParameters(args)
     enso_parameters = ENSOParameters(args)
@@ -253,7 +261,9 @@ def main():
     with open("obs_catalogue.json") as _f:
         obs_dict = json.load(_f)
     if not obs_dict:
-        raise ValueError("obs_catalogue.json is empty; cannot determine observation name.")
+        raise ValueError(
+            "obs_catalogue.json is empty; cannot determine observation name."
+        )
     obs_name = list(obs_dict.keys())[0]
     collector = EnsoDiagnosticsCollector(
         fig_format=core_parameters.figure_format,

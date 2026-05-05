@@ -302,7 +302,7 @@ def generate_varmode_cmds(modes, varOBS, reftyrs, reftyre, refname, refpath, cas
             f"--osyear {reftyrs} "
             f"--oeyear {reftyre} "
             f"--reference_data_name {refname} "
-            f"--reference_data_path \"{refpath}\" "
+            f'--reference_data_path "{refpath}" '
             f"--case_id {case_id}"
         )
         commands.append(cmd)
