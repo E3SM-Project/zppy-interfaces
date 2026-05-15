@@ -1,4 +1,3 @@
-import shlex
 import time
 from subprocess import PIPE, Popen
 from typing import Dict, List, Tuple
@@ -122,4 +121,3 @@ def run_serial_jobs(cmds: List[str]) -> List[Tuple[str, str, int]]:
         results.append((stdout, stderr, return_code))
 
     return results
-
