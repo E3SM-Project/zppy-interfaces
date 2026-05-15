@@ -594,10 +594,9 @@ def check_enso_input():
             f"variable name {obs_var_name}, if present"
         )
 
-        found_nc_file = (
-            glob.glob(os.path.join(ts_dir, f"*.{cmip_var_name}.*.nc"))
-            + glob.glob(os.path.join(ts_dir, f"{cmip_var_name}_*.nc"))
-        )
+        found_nc_file = glob.glob(
+            os.path.join(ts_dir, f"*.{cmip_var_name}.*.nc")
+        ) + glob.glob(os.path.join(ts_dir, f"{cmip_var_name}_*.nc"))
 
         if found_nc_file:
             source_file = found_nc_file[0]
@@ -610,9 +609,7 @@ def check_enso_input():
             elif source_basename.startswith(f"{cmip_var_name}_"):
                 link_name = os.path.join(
                     ts_dir,
-                    source_basename.replace(
-                        f"{cmip_var_name}_", f"{obs_var_name}_", 1
-                    ),
+                    source_basename.replace(f"{cmip_var_name}_", f"{obs_var_name}_", 1),
                 )
             else:
                 logger.warning(
@@ -739,9 +736,8 @@ def check_vars(stdout: str) -> bool:
         # Support both common filename conventions:
         #   ts/*.<var>.*.nc
         #   ts/<var>_*.nc
-        found_nc_file = (
-            glob.glob(os.path.join(ts_dir, f"*.{var}.*.nc"))
-            + glob.glob(os.path.join(ts_dir, f"{var}_*.nc"))
+        found_nc_file = glob.glob(os.path.join(ts_dir, f"*.{var}.*.nc")) + glob.glob(
+            os.path.join(ts_dir, f"{var}_*.nc")
         )
         found_txt_file = glob.glob(os.path.join(ts_dir, f"{var}_files.txt"))
 
@@ -752,10 +748,9 @@ def check_vars(stdout: str) -> bool:
             # This may indicate that variable derivation/mapping was not applied.
             if var in ALT_OBS_MAP:
                 alt_var = ALT_OBS_MAP[var]
-                found_nc_file_alt = (
-                    glob.glob(os.path.join(ts_dir, f"*.{alt_var}.*.nc"))
-                    + glob.glob(os.path.join(ts_dir, f"{alt_var}_*.nc"))
-                )
+                found_nc_file_alt = glob.glob(
+                    os.path.join(ts_dir, f"*.{alt_var}.*.nc")
+                ) + glob.glob(os.path.join(ts_dir, f"{alt_var}_*.nc"))
                 found_txt_file_alt = glob.glob(
                     os.path.join(ts_dir, f"{alt_var}_files.txt")
                 )
