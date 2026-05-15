@@ -581,33 +581,60 @@ def normalize_enso_model_catalogue(
 def check_enso_input():
     current_dir: str = os.path.abspath(os.getcwd())
     ts_dir: str = os.path.join(current_dir, "ts")
+
     if not os.path.exists(ts_dir):
         raise FileNotFoundError(f"{ts_dir} (input for enso_driver) does not exist.")
+
     if not os.listdir(ts_dir):
         raise FileNotFoundError(f"{ts_dir} is empty.")
-    else:
-        for obs_var_name, cmip_var_name in ALT_OBS_MAP.items():
-            logger.info(
-                f"Symlinking cmip-standard {cmip_var_name} to observational variable name {obs_var_name}, if present"
-            )
-            found_nc_file = glob.glob(f"{ts_dir}/*.{cmip_var_name}.*.nc")
-            if found_nc_file:
-                source_file = found_nc_file[0]
-                link_name = found_nc_file[0].replace(
+
+    for obs_var_name, cmip_var_name in ALT_OBS_MAP.items():
+        logger.info(
+            f"Symlinking cmip-standard {cmip_var_name} to observational "
+            f"variable name {obs_var_name}, if present"
+        )
+
+        found_nc_file = (
+            glob.glob(os.path.join(ts_dir, f"*.{cmip_var_name}.*.nc"))
+            + glob.glob(os.path.join(ts_dir, f"{cmip_var_name}_*.nc"))
+        )
+
+        if found_nc_file:
+            source_file = found_nc_file[0]
+            source_basename = os.path.basename(source_file)
+
+            if f".{cmip_var_name}." in source_basename:
+                link_name = source_file.replace(
                     f".{cmip_var_name}.", f".{obs_var_name}."
                 )
+            elif source_basename.startswith(f"{cmip_var_name}_"):
+                link_name = os.path.join(
+                    ts_dir,
+                    source_basename.replace(
+                        f"{cmip_var_name}_", f"{obs_var_name}_", 1
+                    ),
+                )
+            else:
+                logger.warning(
+                    f"Could not infer symlink name for source file: {source_file}"
+                )
+                link_name = None
+
+            if link_name:
                 if not os.path.exists(link_name):
                     os.symlink(source_file, link_name)
                 else:
                     logger.info(f"Symlink already exists, skipping: {link_name}")
-            found_txt_file = glob.glob(f"{ts_dir}/{cmip_var_name}_files.txt")
-            if found_txt_file:
-                source_file = found_txt_file[0]
-                link_name = f"{ts_dir}/{obs_var_name}_files.txt"
-                if not os.path.exists(link_name):
-                    os.symlink(source_file, link_name)
-                else:
-                    logger.info(f"Symlink already exists, skipping: {link_name}")
+
+        found_txt_file = glob.glob(os.path.join(ts_dir, f"{cmip_var_name}_files.txt"))
+        if found_txt_file:
+            source_file = found_txt_file[0]
+            link_name = os.path.join(ts_dir, f"{obs_var_name}_files.txt")
+
+            if not os.path.exists(link_name):
+                os.symlink(source_file, link_name)
+            else:
+                logger.info(f"Symlink already exists, skipping: {link_name}")
 
 
 def generate_enso_cmds(
@@ -712,8 +739,9 @@ def check_vars(stdout: str) -> bool:
         # Support both common filename conventions:
         #   ts/*.<var>.*.nc
         #   ts/<var>_*.nc
-        found_nc_file = glob.glob(os.path.join(ts_dir, f"*.{var}.*.nc")) + glob.glob(
-            os.path.join(ts_dir, f"{var}_*.nc")
+        found_nc_file = (
+            glob.glob(os.path.join(ts_dir, f"*.{var}.*.nc"))
+            + glob.glob(os.path.join(ts_dir, f"{var}_*.nc"))
         )
         found_txt_file = glob.glob(os.path.join(ts_dir, f"{var}_files.txt"))
 
@@ -724,13 +752,13 @@ def check_vars(stdout: str) -> bool:
             # This may indicate that variable derivation/mapping was not applied.
             if var in ALT_OBS_MAP:
                 alt_var = ALT_OBS_MAP[var]
-                found_nc_file_alt = glob.glob(
-                    os.path.join(ts_dir, f"*.{alt_var}.*.nc")
-                ) + glob.glob(os.path.join(ts_dir, f"{alt_var}_*.nc"))
+                found_nc_file_alt = (
+                    glob.glob(os.path.join(ts_dir, f"*.{alt_var}.*.nc"))
+                    + glob.glob(os.path.join(ts_dir, f"{alt_var}_*.nc"))
+                )
                 found_txt_file_alt = glob.glob(
                     os.path.join(ts_dir, f"{alt_var}_files.txt")
                 )
-
                 if found_nc_file_alt or found_txt_file_alt:
                     logger.warning(
                         f"Found alternative variable '{alt_var}' for expected variable "
