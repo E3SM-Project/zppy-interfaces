@@ -494,62 +494,93 @@ def check_vars(stdout: str) -> bool:
         stdout (str): Standard output from the command execution.
 
     Returns:
-        bool: True if expected variables are found, False otherwise.
+        bool: True if expected variables are found, or if only optional
+        process-level variables are missing. False otherwise.
     """
-    success: bool = True
-    match_object = re.search(r"list_variables:\s*\[(.*?)\]", stdout, re.DOTALL)
-    # Special-case "optional" missing variables (these quantities may not be frequently output)
-    optional_missing = {"ssh", "thf"}
-    if match_object:
-        variables_content = match_object.group(1)
-        # Split by comma and clean up each variable name
-        requested_variables = []
-        for var in variables_content.split(","):
-            # Remove quotes, whitespace, and extract just the variable name
-            clean_var = re.sub(r"['\"\s]", "", var.strip())
-            if clean_var:  # Only care about non-empty strings
-                requested_variables.append(clean_var)
-        # Now, check if we actually have data for these variables
-        current_dir: str = os.path.abspath(os.getcwd())
-        variables_missing_data: List[str] = []
-        for var in requested_variables:
-            found_nc_file = glob.glob(f"ts/*.{var}.*.nc")
-            found_txt_file = glob.glob(f"ts/{var}_files.txt")
-            if (not found_nc_file) and (not found_txt_file):
-                variables_missing_data.append(var)
-                # Check for references
-                if var in ALT_OBS_MAP:
-                    alt_var = ALT_OBS_MAP[var]
-                    found_nc_file_alt = glob.glob(f"ts/*.{alt_var}.*.nc")
-                    found_txt_file_alt = glob.glob(f"ts/{alt_var}_files.txt")
-                    if found_nc_file_alt or found_txt_file_alt:
-                        logger.error(
-                            f"Found alternative variable '{alt_var}' for '{var}' in {current_dir}/ts. This indicates that the variable derivation/mapping has not been applied correctly."
-                        )
-        ts_dir = os.path.join(current_dir, "ts")
-        if variables_missing_data:
-            if set(variables_missing_data) <= optional_missing:
-                # Only ssh/thf are missing → warn but do not fail
-                logger.warning(
-                    f"Optional variables missing: {variables_missing_data} in directory{ts_dir}"
-                )
-                success = True
-            else:
-                # Other variables missing → error and fail
-                logger.error(
-                    f"Variables missing data: {variables_missing_data} in directory {ts_dir}"
-                )
-                logger.error(f"Full contents of {ts_dir}: {os.listdir(ts_dir)}")
-                success = False
-        else:
-            logger.info(
-                f"All requested variables {requested_variables} found in directory {ts_dir}"
-            )
-    else:
-        logger.error("No variable list found in stdout.")
-        success = False
-    return success
+    match_object = re.search(r"list_variables\s*[:=]\s*\[(.*?)\]", stdout, re.DOTALL)
 
+    # Allow ENSO diagnostics to continue if only selected variables are missing.
+    # ssh and thf are rarely available process-level variables and are mainly used
+    # by selected ENSO process diagnostics, not the core ENSO performance diagnostics.
+    #
+    # v4 note: EAMxx does not always output taux and tauy by default, so we also
+    # treat them as soft-missing variables here to avoid stopping the full ENSO
+    # workflow when surface wind stress diagnostics are unavailable.
+    optional_missing = {"ssh", "thf", "taux", "tauy"}
+
+    if not match_object:
+        logger.error("No variable list found in stdout.")
+        return False
+
+    variables_content = match_object.group(1)
+
+    requested_variables: List[str] = []
+    for var in variables_content.split(","):
+        clean_var = re.sub(r"['\"\s]", "", var.strip())
+        if clean_var:
+            requested_variables.append(clean_var)
+
+    current_dir: str = os.path.abspath(os.getcwd())
+    ts_dir = os.path.join(current_dir, "ts")
+
+    variables_missing_data: List[str] = []
+
+    for var in requested_variables:
+        # Support both common filename conventions:
+        #   ts/*.<var>.*.nc
+        #   ts/<var>_*.nc
+        found_nc_file = (
+            glob.glob(f"ts/*.{var}.*.nc")
+            + glob.glob(f"ts/{var}_*.nc")
+        )
+        found_txt_file = glob.glob(f"ts/{var}_files.txt")
+
+        if (not found_nc_file) or (not found_txt_file):
+            variables_missing_data.append(var)
+
+            # Check whether an alternative/source variable exists.
+            # This may indicate that variable derivation/mapping was not applied.
+            if var in ALT_OBS_MAP:
+                alt_var = ALT_OBS_MAP[var]
+                found_nc_file_alt = (
+                    glob.glob(f"ts/*.{alt_var}.*.nc")
+                    + glob.glob(f"ts/{alt_var}_*.nc")
+                )
+                found_txt_file_alt = glob.glob(f"ts/{alt_var}_files.txt")
+
+                if found_nc_file_alt or found_txt_file_alt:
+                    logger.error(
+                        f"Found alternative variable '{alt_var}' for expected variable "
+                        f"'{var}' in {ts_dir}. "
+                        f"NetCDF found: {bool(found_nc_file_alt)}; "
+                        f"txt found: {bool(found_txt_file_alt)}. "
+                        "This indicates that the variable derivation/mapping may not "
+                        "have been applied correctly."
+                    )
+
+    if variables_missing_data:
+        if set(variables_missing_data) <= optional_missing:
+            logger.warning(
+                f"Optional process-level variables missing: {variables_missing_data} "
+                f"in directory {ts_dir}; continuing ENSO diagnostics."
+            )
+            return True
+
+        logger.error(
+            f"Variables missing data: {variables_missing_data} in directory {ts_dir}"
+        )
+
+        if os.path.isdir(ts_dir):
+            logger.error(f"Full contents of {ts_dir}: {os.listdir(ts_dir)}")
+        else:
+            logger.error(f"Directory does not exist: {ts_dir}")
+
+        return False
+
+    logger.info(
+        f"All requested variables {requested_variables} found in directory {ts_dir}"
+    )
+    return True
 
 def check_output_dirs(stdout: str) -> bool:
     current_dir: str = os.path.abspath(os.getcwd())
