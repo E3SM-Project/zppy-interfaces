@@ -512,10 +512,10 @@ def normalize_enso_model_catalogue(
                     entry["var_name"] = logical_var
                     changed = True
 
-                if (
-                    source_var in catalogue
-                    and entry.get("var_in_file") not in {logical_var, source_var}
-                ):
+                if source_var in catalogue and entry.get("var_in_file") not in {
+                    logical_var,
+                    source_var,
+                }:
                     entry["var_in_file"] = source_var
                     changed = True
 
@@ -617,9 +617,7 @@ def generate_enso_cmds(
     driver_script="enso_driver.py",
 ):
     enso_groups = [
-        group.strip()
-        for group in enso_groups_str.split(",")
-        if group.strip()
+        group.strip() for group in enso_groups_str.split(",") if group.strip()
     ]
     commands = [
         "{} -p {} --metricsCollection {} --case_id {}".format(
@@ -714,9 +712,8 @@ def check_vars(stdout: str) -> bool:
         # Support both common filename conventions:
         #   ts/*.<var>.*.nc
         #   ts/<var>_*.nc
-        found_nc_file = (
-            glob.glob(os.path.join(ts_dir, f"*.{var}.*.nc"))
-            + glob.glob(os.path.join(ts_dir, f"{var}_*.nc"))
+        found_nc_file = glob.glob(os.path.join(ts_dir, f"*.{var}.*.nc")) + glob.glob(
+            os.path.join(ts_dir, f"{var}_*.nc")
         )
         found_txt_file = glob.glob(os.path.join(ts_dir, f"{var}_files.txt"))
 
@@ -727,10 +724,9 @@ def check_vars(stdout: str) -> bool:
             # This may indicate that variable derivation/mapping was not applied.
             if var in ALT_OBS_MAP:
                 alt_var = ALT_OBS_MAP[var]
-                found_nc_file_alt = (
-                    glob.glob(os.path.join(ts_dir, f"*.{alt_var}.*.nc"))
-                    + glob.glob(os.path.join(ts_dir, f"{alt_var}_*.nc"))
-                )
+                found_nc_file_alt = glob.glob(
+                    os.path.join(ts_dir, f"*.{alt_var}.*.nc")
+                ) + glob.glob(os.path.join(ts_dir, f"{alt_var}_*.nc"))
                 found_txt_file_alt = glob.glob(
                     os.path.join(ts_dir, f"{alt_var}_files.txt")
                 )
