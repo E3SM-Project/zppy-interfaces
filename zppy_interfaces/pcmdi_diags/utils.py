@@ -99,14 +99,27 @@ def run_serial_jobs(cmds: List[str]) -> List[Tuple[str, str, int]]:
 
     for i, cmd in enumerate(cmds):
         logger.info(f"Running [{i + 1}/{len(cmds)}]: {cmd}")
+
         proc = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True, text=True)
         stdout, stderr = proc.communicate()
         return_code = proc.returncode
 
-        if return_code != 0:
-            logger.error(f"ERROR: Process failed: '{cmd}'\nError: {stderr.strip()}")
-            raise RuntimeError(f"Subprocess failed: {cmd}")
+        stdout = stdout.strip()
+        stderr = stderr.strip()
 
-        results.append((stdout.strip(), stderr.strip(), return_code))
+        if return_code != 0:
+            logger.error(
+                f"ERROR: Process failed [{i + 1}/{len(cmds)}]: '{cmd}'\n"
+                f"Return code: {return_code}\n"
+                f"STDOUT:\n{stdout}\n"
+                f"STDERR:\n{stderr}"
+            )
+            raise RuntimeError(
+                f"Subprocess failed [{i + 1}/{len(cmds)}] "
+                f"with return code {return_code}: {cmd}"
+            )
+
+        results.append((stdout, stderr, return_code))
 
     return results
+
