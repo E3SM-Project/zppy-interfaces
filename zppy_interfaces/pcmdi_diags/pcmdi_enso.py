@@ -3,6 +3,7 @@ import glob
 import json
 import os
 import re
+import shutil
 import sys
 import time
 from collections import OrderedDict
@@ -53,21 +54,32 @@ class EnsoDiagnosticsCollector:
     def collect_figures(self, groups) -> bool:
         logger.info("Entering EnsoDiagnosticsCollector.collect_figures")
         success: bool = True
+
         for fset, (subdir, pattern) in self.fig_sets.items():
             logger.info(f"Processing {fset}, ({subdir}, {pattern})")
             fdir = self.input_dir.replace("%(output_type)", subdir)
             logger.info(f"Processing fdir={fdir}")
+
             if not os.path.isdir(fdir):
                 logger.error(f"Expected output directory does not exist: {fdir}")
                 success = False
                 continue
-            found_groups: List[str] = os.listdir(fdir)
-            if sorted(groups) != sorted(found_groups):
+
+            found_groups: List[str] = [
+                name
+                for name in os.listdir(fdir)
+                if os.path.isdir(os.path.join(fdir, name))
+            ]
+            missing_groups = sorted(set(groups) - set(found_groups))
+
+            if missing_groups:
                 logger.error(
-                    f"Groups mismatch: expected {sorted(groups)}, found {sorted(found_groups)} in {fdir}"
+                    f"Missing expected group directories: {missing_groups}; "
+                    f"found {sorted(found_groups)} in {fdir}"
                 )
                 success = False
                 continue
+
             for group in groups:
                 logger.info(f"Processing group={group}")
                 template = os.path.join(fdir, group, f"{pattern}.{self.fig_format}")
@@ -89,22 +101,36 @@ class EnsoDiagnosticsCollector:
                         f"files in group dir={dir_contents}"
                     )
                     success = False
+
                 for fpath in fpaths:
                     logger.info(f"Processing fpath={fpath}")
-                    fname = fpath.split("/")[-1]
+                    fname = os.path.basename(fpath)
                     marker = f"{self.model}_{self.relm}"
-                    if marker not in fname:
+
+                    if marker in fname:
+                        tail = fname.split(marker, 1)[-1]
+                        outfile = f"{group}{tail}"
+                    else:
                         logger.warning(
-                            f"Expected '{marker}' in filename '{fname}'; using full filename as output."
+                            f"Expected '{marker}' in filename '{fname}'; "
+                            "using full filename as output."
                         )
-                    tail = fname.split(marker)[-1]
+                        outfile = fname
+
                     outpath = os.path.join(
                         self.output_dir.replace("%(group_type)", fset), group
                     )
                     logger.info(f"outpath={outpath}")
                     os.makedirs(outpath, exist_ok=True)
-                    outfile = f"{group}{tail}"
-                    os.rename(fpath, os.path.join(outpath, outfile))
+
+                    dest = os.path.join(outpath, outfile)
+                    if os.path.isdir(dest):
+                        raise IsADirectoryError(f"Destination is a directory: {dest}")
+                    if os.path.exists(dest):
+                        logger.warning(f"Destination already exists, replacing: {dest}")
+                        os.remove(dest)
+                    shutil.move(fpath, dest)
+
         return success
 
     def collect_metrics(self) -> bool:
@@ -122,10 +148,11 @@ class EnsoDiagnosticsCollector:
                 f"inpath={os.path.abspath(inpath)}, contents={dir_contents}"
             )
             success = False
+
         for fpath in fpaths:
             logger.info(f"Processing fpath={fpath}")
-            refmode = fpath.split("/")[-2]
-            reffile = fpath.split("/")[-1]
+            refmode = os.path.basename(os.path.dirname(fpath))
+            reffile = os.path.basename(fpath)
             outpath = os.path.join(
                 self.output_dir.replace("%(group_type)", "metrics_data"),
                 self.diag_metric,
@@ -144,12 +171,9 @@ class EnsoDiagnosticsCollector:
             )
             dest = os.path.join(outpath, outfile)
 
-            # Strip metrics with an empty "metric" comparison dict before saving.
-            # These arise when the ENSO driver had no reference data for a variable
-            # (e.g. ssh, thf). Keeping them causes enso_portrait_plot to crash with
-            # "max() iterable argument is empty".
             with open(fpath) as _f:
                 data = json.load(_f)
+
             try:
                 for _model, _members in data["RESULTS"]["model"].items():
                     for _member, _entry in _members.items():
@@ -166,9 +190,31 @@ class EnsoDiagnosticsCollector:
                                 del value_block[m]
             except (KeyError, AttributeError) as e:
                 logger.warning(f"Could not prune incomplete metrics in {fpath}: {e}")
-            with open(dest, "w") as _f:
-                json.dump(data, _f, indent=4, separators=(",", ": "), sort_keys=False)
+
+            if os.path.isdir(dest):
+                raise IsADirectoryError(f"Destination is a directory: {dest}")
+
+            if os.path.exists(dest):
+                logger.warning(f"Destination already exists, replacing: {dest}")
+
+            tmp_dest = f"{dest}.tmp"
+            try:
+                with open(tmp_dest, "w") as _f:
+                    json.dump(
+                        data,
+                        _f,
+                        indent=4,
+                        separators=(",", ": "),
+                        sort_keys=False,
+                    )
+                os.replace(tmp_dest, dest)
+            except Exception:
+                if os.path.exists(tmp_dest):
+                    os.remove(tmp_dest)
+                raise
+
             os.remove(fpath)
+
         return success
 
     def collect_diags(self) -> bool:
@@ -188,8 +234,8 @@ class EnsoDiagnosticsCollector:
             success = False
         for fpath in fpaths:
             logger.info(f"Processing fpath={fpath}")
-            refmode = fpath.split("/")[-2]
-            reffile = fpath.split("/")[-1]
+            refmode = os.path.basename(os.path.dirname(fpath))
+            reffile = os.path.basename(fpath)
             outpath = os.path.join(
                 self.output_dir.replace("%(group_type)", "metrics_data"),
                 self.diag_metric,
@@ -198,7 +244,14 @@ class EnsoDiagnosticsCollector:
             logger.info(f"outpath={outpath}")
             os.makedirs(outpath, exist_ok=True)
 
-            os.rename(fpath, os.path.join(outpath, reffile))
+            dest = os.path.join(outpath, reffile)
+            if os.path.isdir(dest):
+                raise IsADirectoryError(f"Destination is a directory: {dest}")
+            if os.path.exists(dest):
+                logger.warning(f"Destination already exists, replacing: {dest}")
+                os.remove(dest)
+            shutil.move(fpath, dest)
+
         return success
 
     def run(self, groups):
@@ -231,6 +284,7 @@ def main():
     build_enso_obsvar_landmask(core_output.obs_dic, core_parameters.variables)
     # now start enso driver
     check_enso_input()
+    normalize_enso_model_catalogue(core_parameters.variables)
     lstcmd = generate_enso_cmds(enso_parameters.enso_groups, core_parameters.case_id)
     logger.info(
         f"input_template={core_output.input_template}; If directories derived from this template are empty, it may indicate that lstcmd did not produce output."
@@ -243,7 +297,7 @@ def main():
             check_enso_output(results)
         except RuntimeError as e:
             logger.error(f"Execution failed: {e}")
-            raise e
+            raise
     elif (len(lstcmd) > 0) and not core_parameters.multiprocessing:
         logger.info(f"Running serial jobs for {lstcmd}")
         try:
@@ -251,7 +305,7 @@ def main():
             check_enso_output(results)
         except RuntimeError as e:
             logger.error(f"Execution failed: {e}")
-            raise e
+            raise
     else:
         logger.info("no jobs to run...")
     logger.info("successfully finish all jobs....")
@@ -273,7 +327,11 @@ def main():
         input_dir=core_output.input_template,
         output_dir=core_output.out_path,
     )
-    enso_groups: List[str] = enso_parameters.enso_groups.split(",")
+    enso_groups: List[str] = [
+        group.strip()
+        for group in enso_parameters.enso_groups.split(",")
+        if group.strip()
+    ]
     collector.run(enso_groups)
 
 
@@ -396,6 +454,130 @@ def build_enso_obsvar_landmask(
     logger.info(f"[INFO] Landmask mapping written to: {output_file}")
 
 
+def normalize_enso_model_catalogue(
+    variables: List[str],
+    catalogue_file: str = "pcmdi_diags/ts_enso_catalogue.json",
+) -> None:
+    """
+    Ensure the ENSO model catalogue exposes both logical diagnostic names
+    and available source-variable names when aliases are used.
+
+    Example:
+        EAM/EAMxx may provide SST as source variable 'ts', while ENSO
+        diagnostics may expect logical variable 'sst'. If either 'ts' or
+        'sst' appears in the variable list/catalogue, make sure the logical
+        'sst' catalogue entry exists and points to the available source data.
+    """
+    if not os.path.exists(catalogue_file):
+        logger.warning(
+            f"ENSO model catalogue not found, skipping normalization: {catalogue_file}"
+        )
+        return
+
+    with open(catalogue_file) as f:
+        catalogue = json.load(f, object_pairs_hook=OrderedDict)
+
+    changed = False
+
+    # Normalize requested variables to simple variable keys.
+    requested_vars = {
+        re.split(r"[_-]", var)[0] if "_" in var or "-" in var else var
+        for var in variables
+    }
+
+    for logical_var, source_var in ALT_OBS_MAP.items():
+        # Only act when this alias is relevant to the requested variables
+        # or already present in the catalogue.
+        alias_is_relevant = (
+            logical_var in requested_vars
+            or source_var in requested_vars
+            or logical_var in catalogue
+            or source_var in catalogue
+        )
+
+        if not alias_is_relevant:
+            continue
+
+        # Case 1:
+        # The catalogue already has logical_var, e.g. "sst".
+        # Make sure it has the expected metadata.
+        if logical_var in catalogue:
+            refset = catalogue[logical_var].get("set")
+            model_name = catalogue[logical_var].get(refset)
+
+            if refset and model_name and model_name in catalogue[logical_var]:
+                entry = catalogue[logical_var][model_name]
+
+                if entry.get("var_name") != logical_var:
+                    entry["var_name"] = logical_var
+                    changed = True
+
+                if (
+                    source_var in catalogue
+                    and entry.get("var_in_file") not in {logical_var, source_var}
+                ):
+                    entry["var_in_file"] = source_var
+                    changed = True
+
+            continue
+
+        # Case 2:
+        # The catalogue lacks logical_var, e.g. no "sst",
+        # but has source_var, e.g. "ts". Add logical_var from source_var.
+        if source_var not in catalogue:
+            logger.warning(
+                f"Cannot add logical ENSO variable '{logical_var}' to catalogue "
+                f"because source variable '{source_var}' is missing from "
+                f"{catalogue_file}."
+            )
+            continue
+
+        logger.info(
+            f"Adding logical ENSO catalogue entry '{logical_var}' using source "
+            f"variable '{source_var}'."
+        )
+
+        catalogue[logical_var] = catalogue[source_var].copy()
+
+        refset = catalogue[logical_var].get("set")
+        model_name = catalogue[logical_var].get(refset)
+
+        if refset and model_name and model_name in catalogue[logical_var]:
+            catalogue[logical_var][model_name] = catalogue[logical_var][
+                model_name
+            ].copy()
+
+            entry = catalogue[logical_var][model_name]
+            entry["var_in_file"] = source_var
+            entry["var_name"] = logical_var
+
+            old_file_path = entry.get("file_path", "")
+            old_template = entry.get("template", "")
+
+            # Prefer the symlinked logical filename, e.g. *.sst.*.nc,
+            # because check_enso_input() creates this link before normalization.
+            entry["file_path"] = old_file_path.replace(
+                f".{source_var}.", f".{logical_var}."
+            )
+            entry["template"] = old_template.replace(
+                f".{source_var}.", f".{logical_var}."
+            )
+
+        changed = True
+
+    if changed:
+        with open(catalogue_file, "w") as f:
+            json.dump(
+                catalogue,
+                f,
+                indent=4,
+                sort_keys=False,
+                separators=(",", ": "),
+            )
+
+        logger.info(f"Normalized ENSO model catalogue: {catalogue_file}")
+
+
 def check_enso_input():
     current_dir: str = os.path.abspath(os.getcwd())
     ts_dir: str = os.path.join(current_dir, "ts")
@@ -434,28 +616,22 @@ def generate_enso_cmds(
     param_file="parameterfile.py",
     driver_script="enso_driver.py",
 ):
-    """
-    Generate ENSO driver command-line strings for given metric groups.
-
-    Parameters:
-        enso_groups_str: Comma-separated list of ENSO metric groups.
-        case_id: Case identifier.
-        param_file: Parameter file used by the driver script.
-        driver_script: ENSO driver script filename.
-
-    Returns:
-        cmds: List of shell command strings to run.
-    """
-    enso_groups = enso_groups_str.split(",")
+    enso_groups = [
+        group.strip()
+        for group in enso_groups_str.split(",")
+        if group.strip()
+    ]
     commands = [
         "{} -p {} --metricsCollection {} --case_id {}".format(
             driver_script, param_file, group, case_id
         )
         for group in enso_groups
     ]
+
     current_dir: str = os.path.abspath(os.getcwd())
     logger.info(f"Commands will be run from current_dir={current_dir}")
     dir_contents: List[str] = os.listdir(current_dir)
+
     if param_file not in dir_contents:
         logger.error(
             f"Parameter file '{param_file}' not found in current directory: {current_dir}"
@@ -468,21 +644,30 @@ def generate_enso_cmds(
 def check_enso_output(results):
     logger.info("Checking ENSO output.")
     success: bool = True
+
     for i, (stdout, stderr, return_code) in enumerate(results):
         logger.info(f"Command {i + 1} finished:")
         logger.info(f"STDOUT: {stdout}")
         logger.info(f"STDERR: {stderr}")
         logger.info(f"Return code: {return_code}")
+
+        if return_code != 0:
+            logger.error(f"Command {i + 1} failed with return code {return_code}.")
+            success = False
+
         if not check_vars(stdout):
             logger.error(f"Command {i + 1} failed to produce expected variables.")
             success = False
+
         if not check_output_dirs(stdout):
             logger.error(
                 f"Command {i + 1} failed to produce expected output directories."
             )
             success = False
+
     if not success:
         raise RuntimeError("ENSO output check failed.")
+
     logger.info("ENSO output check passed.")
 
 
@@ -530,10 +715,10 @@ def check_vars(stdout: str) -> bool:
         #   ts/*.<var>.*.nc
         #   ts/<var>_*.nc
         found_nc_file = (
-            glob.glob(f"ts/*.{var}.*.nc")
-            + glob.glob(f"ts/{var}_*.nc")
+            glob.glob(os.path.join(ts_dir, f"*.{var}.*.nc"))
+            + glob.glob(os.path.join(ts_dir, f"{var}_*.nc"))
         )
-        found_txt_file = glob.glob(f"ts/{var}_files.txt")
+        found_txt_file = glob.glob(os.path.join(ts_dir, f"{var}_files.txt"))
 
         if (not found_nc_file) or (not found_txt_file):
             variables_missing_data.append(var)
@@ -543,13 +728,15 @@ def check_vars(stdout: str) -> bool:
             if var in ALT_OBS_MAP:
                 alt_var = ALT_OBS_MAP[var]
                 found_nc_file_alt = (
-                    glob.glob(f"ts/*.{alt_var}.*.nc")
-                    + glob.glob(f"ts/{alt_var}_*.nc")
+                    glob.glob(os.path.join(ts_dir, f"*.{alt_var}.*.nc"))
+                    + glob.glob(os.path.join(ts_dir, f"{alt_var}_*.nc"))
                 )
-                found_txt_file_alt = glob.glob(f"ts/{alt_var}_files.txt")
+                found_txt_file_alt = glob.glob(
+                    os.path.join(ts_dir, f"{alt_var}_files.txt")
+                )
 
                 if found_nc_file_alt or found_txt_file_alt:
-                    logger.error(
+                    logger.warning(
                         f"Found alternative variable '{alt_var}' for expected variable "
                         f"'{var}' in {ts_dir}. "
                         f"NetCDF found: {bool(found_nc_file_alt)}; "
@@ -582,25 +769,42 @@ def check_vars(stdout: str) -> bool:
     )
     return True
 
+
 def check_output_dirs(stdout: str) -> bool:
     current_dir: str = os.path.abspath(os.getcwd())
     success: bool = True
+
     for output_type in ["graphics", "diagnostic_results", "metrics_results"]:
-        match_object = re.search(f"output directory for {output_type}:(.*)", stdout)
-        if match_object:
-            subdir = match_object.group(1).strip()
-            combined_dir = os.path.join(current_dir, subdir)
-            if not os.path.exists(combined_dir):
-                logger.error(
-                    f"{output_type} output directory does not exist: {combined_dir}"
-                )
-                success = False
-            else:
-                if not os.listdir(combined_dir):
-                    logger.error(
-                        f"{output_type} output directory is empty: {combined_dir}"
-                    )
-                    success = False
-                # else: success = True
-        # else: success = True # Don't assume we have any particular directory
+        match_object = re.search(
+            rf"output directory for {re.escape(output_type)}:(.*)",
+            stdout,
+        )
+
+        if not match_object:
+            logger.warning(
+                f"No output directory line found for {output_type} in stdout."
+            )
+            continue
+
+        subdir = match_object.group(1).strip()
+        combined_dir = os.path.join(current_dir, subdir)
+
+        if not os.path.exists(combined_dir):
+            logger.error(
+                f"{output_type} output directory does not exist: {combined_dir}"
+            )
+            success = False
+            continue
+
+        if not os.path.isdir(combined_dir):
+            logger.error(
+                f"{output_type} output path exists but is not a directory: {combined_dir}"
+            )
+            success = False
+            continue
+
+        if not os.listdir(combined_dir):
+            logger.error(f"{output_type} output directory is empty: {combined_dir}")
+            success = False
+
     return success
