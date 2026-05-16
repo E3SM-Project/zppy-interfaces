@@ -379,6 +379,60 @@ class SyntheticMetricsPlotter:
                 logger.exception(f"[enso] Plot driver failed for stat='{stat}': {e}")
 
 
+def _prepare_mean_climate_portrait_variables(
+    df_dict,
+    seasons,
+    region,
+    stat,
+    var_list,
+    var_unit_list,
+):
+    var_names = sorted(var_list.copy())
+    name_to_unit = dict(zip(var_list, var_unit_list))
+    season_data = {}
+    season_var_sets = []
+
+    for season in seasons:
+        if season not in df_dict or region not in df_dict[season]:
+            logger.warning(
+                "[mean_climate] Missing data for season=%s region=%s; "
+                "skipping portrait plot for stat=%s.",
+                season,
+                region,
+                stat,
+            )
+            return {}, [], []
+
+        data_dict, available_vars, _ = drop_vars(
+            df_dict[season][region].copy(),
+            var_names.copy(),
+            [name_to_unit[v] for v in var_names],
+        )
+        season_data[season] = data_dict
+        season_var_sets.append(set(available_vars))
+
+    common_vars = [var for var in var_names if all(var in s for s in season_var_sets)]
+    skipped_vars = [var for var in var_names if var not in common_vars]
+    if skipped_vars:
+        logger.warning(
+            "[mean_climate] Variables unavailable for all seasons in "
+            "region=%s stat=%s and will be skipped: %s",
+            region,
+            stat,
+            skipped_vars,
+        )
+    if not common_vars:
+        logger.warning(
+            "[mean_climate] No variables available for portrait plot "
+            "region=%s stat=%s; skipping.",
+            region,
+            stat,
+        )
+        return {}, [], []
+
+    return season_data, common_vars, [name_to_unit[v] for v in common_vars]
+
+
 def mean_climate_plot_driver(
     metric,
     stat,
@@ -410,15 +464,22 @@ def mean_climate_plot_driver(
                         metric, region, stat
                     )
                 )
-                var_names = sorted(var_list.copy())
-                # label information
-                var_units = []
-                for i, var in enumerate(var_names):
-                    index = var_list.index(var)
-                    var_units.append(var_unit_list[index])
+                season_data, var_names, var_units = (
+                    _prepare_mean_climate_portrait_variables(
+                        df_dict,
+                        metric_dict["season"],
+                        region,
+                        stat,
+                        var_list,
+                        var_unit_list,
+                    )
+                )
+                if not season_data:
+                    continue
+
                 data_nor = dict()
                 for season in metric_dict["season"]:
-                    data_dict = df_dict[season][region].copy()
+                    data_dict = season_data[season]
                     if stat == "cor_xy":
                         data_nor[season] = data_dict[var_names].to_numpy().T
                     else:
@@ -856,6 +917,9 @@ def drop_vars(data_dict, var_names, var_units=None):
     protected_columns = {"model", "run", "model_run", "num_runs"}
     columns_to_drop = []
 
+    missing_columns = [var for var in var_names if var not in data_dict.columns]
+    columns_to_drop.extend(missing_columns)
+
     for column in data_dict.columns:
         if column in protected_columns:
             continue
@@ -864,7 +928,7 @@ def drop_vars(data_dict, var_names, var_units=None):
             columns_to_drop.append(column)
 
     # Drop columns from DataFrame
-    data_dict = data_dict.drop(columns=columns_to_drop)
+    data_dict = data_dict.drop(columns=columns_to_drop, errors="ignore")
 
     # Update var_names and var_units if applicable
     updated_var_names = [v for v in var_names if v not in columns_to_drop]

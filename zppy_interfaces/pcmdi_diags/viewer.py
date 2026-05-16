@@ -430,7 +430,8 @@ def generate_methodology_html(config):
 
     # Render and write
     rendered_html = template.render(sections=sections)
-    out_path = os.path.join(cfg("out_dir"), "methodology.html")
+    Path(cfg("out_dir", ".")).mkdir(parents=True, exist_ok=True)
+    out_path = os.path.join(cfg("out_dir", "."), "methodology.html")
     Path(out_path).write_text(rendered_html)
     logger.info(f"HTML file written to: {cfg('out_dir')}")
 
@@ -449,6 +450,8 @@ def generate_data_html(config):
     # Join lists safely
     def join_list(key):
         vals = cfg(key, []) or []
+        if isinstance(vals, str):
+            return vals
         return ", ".join(vals)
 
     clim_vars = join_list("clim_vars")
@@ -631,7 +634,8 @@ def generate_data_html(config):
         title="E3SM-PMP Diagnostics Package", sections=sections
     )
 
-    out_path = os.path.join(cfg("out_dir"), "diag_data.html")
+    Path(cfg("out_dir", ".")).mkdir(parents=True, exist_ok=True)
+    out_path = os.path.join(cfg("out_dir", "."), "diag_data.html")
     Path(out_path).write_text(output_html)
     logger.info(f"HTML file written to: {cfg('out_dir')}")
 
@@ -667,7 +671,7 @@ def create_image_link(
 ):
     sub_path = Path(*subdirs)
     search_path = Path(fig_dir) / sub_path / filename_pattern
-    matches = glob.glob(str(search_path))
+    matches = sorted(glob.glob(str(search_path)))
 
     if matches:
         file_name = Path(matches[0]).name
@@ -922,6 +926,10 @@ class CMVARGroupBuilder:
             "AUS": {"All": "07", "El/La": "12"},
         }
 
+    @staticmethod
+    def map_coupled_mode_to_eof_tag(mode):
+        return {"NPGO": "eof2"}.get(str(mode).strip().upper(), "eof1")
+
     def create_metric_group(self, *metrics):
         return {
             name: f"divedown{str(i + 1).zfill(2)}" for i, name in enumerate(metrics)
@@ -1068,6 +1076,8 @@ class CMVARGroupBuilder:
         return content
 
     def generate_mcpl_row(self, mode, diag_dir, fig_dir):
+        mode = str(mode).strip().upper()
+        eof_tag = self.map_coupled_mode_to_eof_tag(mode)
         groups = {
             "MOV_eoftest": {
                 "EOF Spectr": {
@@ -1079,8 +1089,8 @@ class CMVARGroupBuilder:
                 "EOF Compos": {
                     "CBF(Yearly)": {"cbf": "yearly"},
                     "CBF(Monthly)": {"cbf": "monthly"},
-                    "EOF(Yearly)": {"cbf": "yearly"},
-                    "EOF(Monthly)": {"cbf": "monthly"},
+                    "EOF(Yearly)": {eof_tag: "yearly"},
+                    "EOF(Monthly)": {eof_tag: "monthly"},
                 }
             },
             "MOV_pattern": {
@@ -1272,7 +1282,8 @@ class EMOVGroupBuilder:
         }
         if names is None:
             return default_modes
-        return {k: default_modes.get(k, "EOF1") for k in names}
+        modes = [str(name).strip().upper() for name in names if str(name).strip()]
+        return {mode: default_modes.get(mode, "EOF1") for mode in modes}
 
     def map_seasons(self, names):
         default_seasons = ["DJF", "MAM", "JJA", "SON", "yearly", "monthly"]
@@ -1360,7 +1371,7 @@ def generate_emovs_table(
         diag_dir: Path to diagnostics directory (for relative links).
         fig_dir: Path to figures directory.
         show: Whether to build the table. If a string (e.g., "false"), it will be coerced.
-        modes: List of modes or comma-separated string (e.g., "PDO,NPGO,AMO").
+        modes: List of modes or comma-separated string (e.g., "NAM,PNA,NPO").
 
     Returns:
         list: HTML-ready rows (list of lists of cell dicts).
@@ -1373,7 +1384,7 @@ def generate_emovs_table(
 
     # Accept comma-separated string for modes
     if modes is None:
-        modes = ["PDO", "NPGO", "AMO"]
+        modes = ["NAM", "PNA", "NPO", "NAO", "SAM", "PSA1", "PSA2"]
     elif isinstance(modes, str):
         modes = [s.strip() for s in modes.split(",") if s.strip()]
 
@@ -1568,6 +1579,7 @@ def generate_viewer_html(config):
     )
 
     # Write the generated HTML to the specified file
+    Path(config["out_dir"]).mkdir(parents=True, exist_ok=True)
     Path(os.path.join(config["out_dir"], "index.html")).write_text(output_html)
     logger.info(f"HTML file written to: {config['out_dir']}")
     return
