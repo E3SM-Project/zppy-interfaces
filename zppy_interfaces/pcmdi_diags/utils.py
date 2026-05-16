@@ -49,6 +49,9 @@ def run_parallel_jobs(cmds: List[str], num_workers: int) -> List[Tuple[str, str,
     Returns:
     - List of tuples: (stdout, stderr, return_code) for each command.
     """
+    if num_workers < 1:
+        raise ValueError(f"num_workers must be >= 1, got {num_workers}")
+
     results = []
     procs = []
 
@@ -58,16 +61,20 @@ def run_parallel_jobs(cmds: List[str], num_workers: int) -> List[Tuple[str, str,
 
         # Run the batch if full or if it's the last command
         if len(procs) >= num_workers or i == len(cmds) - 1:
-            logger.info(f"Running {count_child_processes()} subprocesses...")
-            for cmd, proc in procs:
-                stdout, stderr = proc.communicate()
-                return_code = proc.returncode
+            logger.info(f"Running batch of {len(procs)} subprocesses...")
+            for batch_cmd, batch_proc in procs:
+                stdout, stderr = batch_proc.communicate()
+                return_code = batch_proc.returncode
 
                 if return_code != 0:
+                    # Terminate any remaining running processes in the batch
+                    for _, remaining_proc in procs:
+                        if remaining_proc.poll() is None:
+                            remaining_proc.terminate()
                     logger.error(
-                        f"ERROR: Process failed: '{cmd}'\nError: {stderr.strip()}"
+                        f"ERROR: Process failed: '{batch_cmd}'\nError: {stderr.strip()}"
                     )
-                    raise RuntimeError(f"Subprocess failed: {cmd}")
+                    raise RuntimeError(f"Subprocess failed: {batch_cmd}")
 
                 results.append((stdout.strip(), stderr.strip(), return_code))
 
@@ -91,14 +98,26 @@ def run_serial_jobs(cmds: List[str]) -> List[Tuple[str, str, int]]:
 
     for i, cmd in enumerate(cmds):
         logger.info(f"Running [{i + 1}/{len(cmds)}]: {cmd}")
+
         proc = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True, text=True)
         stdout, stderr = proc.communicate()
         return_code = proc.returncode
 
-        if return_code != 0:
-            logger.error(f"ERROR: Process failed: '{cmd}'\nError: {stderr.strip()}")
-            raise RuntimeError(f"Subprocess failed: {cmd}")
+        stdout = stdout.strip()
+        stderr = stderr.strip()
 
-        results.append((stdout.strip(), stderr.strip(), return_code))
+        if return_code != 0:
+            logger.error(
+                f"ERROR: Process failed [{i + 1}/{len(cmds)}]: '{cmd}'\n"
+                f"Return code: {return_code}\n"
+                f"STDOUT:\n{stdout}\n"
+                f"STDERR:\n{stderr}"
+            )
+            raise RuntimeError(
+                f"Subprocess failed [{i + 1}/{len(cmds)}] "
+                f"with return code {return_code}: {cmd}"
+            )
+
+        results.append((stdout, stderr, return_code))
 
     return results
