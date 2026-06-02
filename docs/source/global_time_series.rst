@@ -109,12 +109,12 @@ The following parameters are accepted by ``zi-global-time-series``.
        simpler results listing and component PDFs.
    * - ``--case_dir``
      - Yes
-     - -
+     - N/A
      - Case directory used to locate existing post-processing output, including
        cached MOC time-series files for ocean-enabled classic plots.
    * - ``--experiment_name``
      - Yes
-     - -
+     - N/A
      - Label used for the experiment in generated plot metadata.
    * - ``--figstr``
      - No
@@ -131,7 +131,7 @@ The following parameters are accepted by ``zi-global-time-series``.
        directory layout.
    * - ``--results_dir``
      - Yes
-     - -
+     - N/A
      - Base output directory for figures, HTML, and any generated ocean
        time-series files.
    * - ``--regions``
@@ -141,11 +141,11 @@ The following parameters are accepted by ``zi-global-time-series``.
        to ``glb``, ``n``, and ``s``.
    * - ``--start_yr``
      - Yes
-     - -
+     - N/A
      - First simulation year to include.
    * - ``--end_yr``
      - Yes
-     - -
+     - N/A
      - Last simulation year to include.
    * - ``--use_ocn``
      - No
@@ -154,7 +154,7 @@ The following parameters are accepted by ``zi-global-time-series``.
        plots.
    * - ``--input``
      - Yes when ``use_ocn=True``
-     - -
+     - N/A
      - Base directory containing raw MPAS-O input used to construct ocean
        time-series files.
    * - ``--input_subdir``

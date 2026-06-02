@@ -68,78 +68,78 @@ commands.
      - Description
    * - ``--num_workers``
      - Yes
-     - -
+     - N/A
      - Maximum number of workers used when multiprocessing is enabled.
    * - ``--multiprocessing``
      - Yes
-     - -
+     - N/A
      - Boolean-like string controlling parallel execution. The setup code still
        disables parallel execution when ``num_workers`` is less than 2.
    * - ``--subsection``
      - Yes
-     - -
+     - N/A
      - Label used in generated catalogue file names such as
        ``<path>_<subsection>_catalogue.json``.
    * - ``--climo_ts_dir_primary``
      - Yes
-     - -
+     - N/A
      - Directory containing the primary model climatology or time-series files.
    * - ``--climo_ts_dir_ref``
      - Yes
-     - -
+     - N/A
      - Directory containing the reference model or observational files.
    * - ``--model_name``
      - Yes
-     - -
+     - N/A
      - Primary model identifier. The code expects four dot-separated parts:
        ``mip.exp.model.realm``.
    * - ``--model_tableID``
      - Yes
-     - -
+     - N/A
      - Table identifier paired with ``model_name`` for output naming.
    * - ``--figure_format``
      - Yes
-     - -
+     - N/A
      - Graphics file format expected from the underlying diagnostics.
    * - ``--run_type``
      - Yes
-     - -
+     - N/A
      - Must be ``model_vs_obs`` or ``model_vs_model``.
    * - ``--obs_sets``
      - Required for ``model_vs_obs``
-     - -
+     - N/A
      - Comma-separated observation set identifiers used when the run compares a
        model against observations.
    * - ``--model_name_ref``
      - Required for ``model_vs_model``
-     - -
+     - N/A
      - Reference model name used when the run compares one model against
        another.
    * - ``--vars``
      - Yes
-     - -
+     - N/A
      - Comma-separated variable list. Base variable names are extracted by
        splitting on ``_`` and ``-`` where needed.
    * - ``--tableID_ref``
      - Required for ``model_vs_model``
-     - -
+     - N/A
      - Table identifier paired with ``model_name_ref``.
    * - ``--generate_sftlf``
      - Yes
-     - -
+     - N/A
      - Boolean-like string controlling land-sea mask generation. The code
        treats ``true``, ``y``, and ``yes`` as enabled.
    * - ``--case_id``
      - Yes
-     - -
+     - N/A
      - Case identifier appended to generated commands and output file names.
    * - ``--results_dir``
      - Yes
-     - -
+     - N/A
      - Base directory where organized outputs are written.
    * - ``--debug``
      - No
-     - -
+     - N/A
      - Enables debug logging when set to ``true``.
 
 Boolean parsing notes
@@ -190,33 +190,33 @@ Parameter reference
      - Description
    * - ``--model_name_ref``
      - Yes
-     - -
+     - N/A
      - Reference model name used to build linked observation file names.
    * - ``--tableID_ref``
      - Yes
-     - -
+     - N/A
      - Reference table identifier paired with ``model_name_ref``.
    * - ``--vars``
      - Yes
-     - -
+     - N/A
      - Comma-separated variables to link or derive.
    * - ``--obs_sets``
      - Yes
-     - -
+     - N/A
      - Observation set identifiers. When multiple sets are supplied and the
        count matches ``vars``, each variable uses its corresponding set;
        otherwise the first set is reused for all variables.
    * - ``--obs_ts``
      - Yes
-     - -
+     - N/A
      - Root directory containing the source observation time series.
    * - ``--obstmp_dir``
      - Yes
-     - -
+     - N/A
      - Output directory where symlinks or renamed files are written.
    * - ``--debug``
      - No
-     - -
+     - N/A
      - Enables debug logging when set to ``true``.
 
 zi-pcmdi-mean-climate
@@ -255,7 +255,7 @@ Additional parameters
      - Description
    * - ``--regions``
      - Yes
-     - -
+     - N/A
      - Comma-separated list of regions used both for command preparation and
        for organizing the collected outputs.
 
@@ -293,7 +293,7 @@ Additional parameters
      - Description
    * - ``--var_modes``
      - Yes
-     - -
+     - N/A
      - Comma-separated list of variability modes to process. Specific modes
        such as ``NPO``, ``NPGO``, ``PSA1``, and ``PSA2`` automatically select a
        higher EOF number than the default of 1.
@@ -332,7 +332,7 @@ Additional parameters
      - Description
    * - ``--enso_groups``
      - Yes
-     - -
+     - N/A
      - Comma-separated ENSO metric group names intended for
        ``enso_driver.py --metricsCollection``.
 
@@ -370,147 +370,147 @@ Parameter reference
      - Description
    * - ``--synthetic_sets``
      - Yes
-     - -
+     - N/A
      - Synthetic plot set selection accepted by the CLI entry point.
    * - ``--figure_format``
      - Yes
-     - -
+     - N/A
      - Graphics format used for generated summary plots.
    * - ``--www``
      - Yes
-     - -
+     - N/A
      - Base web directory that contains ``put_model_here/pcmdi_diags`` inputs.
    * - ``--results_dir``
      - Yes
-     - -
+     - N/A
      - Results subdirectory below both the input and output web locations.
    * - ``--case``
      - Yes
-     - -
+     - N/A
      - Case name shown in generated plots and viewer pages.
    * - ``--model_name``
      - Yes
-     - -
+     - N/A
      - Model name shown in generated plots and viewer pages.
    * - ``--model_tableID``
      - Yes
-     - -
+     - N/A
      - Table identifier shown in generated plots and viewer pages.
    * - ``--web_dir``
      - Yes
-     - -
+     - N/A
      - Output web root where the viewer and summary products are written.
    * - ``--clim_viewer``
      - Yes
-     - -
+     - N/A
      - Boolean controlling whether climatology summary products are included.
    * - ``--clim_vars``
      - Yes
-     - -
+     - N/A
      - Comma-separated climatology variables used in the viewer.
    * - ``--clim_years``
      - Yes
-     - -
+     - N/A
      - Year range label for climatology products.
    * - ``--clim_regions``
      - Yes
-     - -
+     - N/A
      - Comma-separated climatology region list used in the viewer.
    * - ``--cmip_clim_dir``
      - Yes
-     - -
+     - N/A
      - Directory containing CMIP climatology comparison data.
    * - ``--cmip_clim_set``
      - Yes
-     - -
+     - N/A
      - Name of the CMIP climatology set used by the viewer.
    * - ``--mova_viewer``
      - Yes
-     - -
+     - N/A
      - Boolean controlling whether atmospheric variability summaries are
        included.
    * - ``--mova_modes``
      - Yes
-     - -
+     - N/A
      - Comma-separated atmospheric variability modes used in summary products.
    * - ``--mova_vars``
      - Yes
-     - -
+     - N/A
      - Comma-separated atmospheric variability variables accepted by the CLI.
    * - ``--mova_years``
      - Yes
-     - -
+     - N/A
      - Year range label for atmospheric variability products.
    * - ``--movc_viewer``
      - Yes
-     - -
+     - N/A
      - Boolean controlling whether coupled variability summaries are included.
    * - ``--movc_modes``
      - Yes
-     - -
+     - N/A
      - Comma-separated coupled variability modes used in summary products.
    * - ``--movc_vars``
      - Yes
-     - -
+     - N/A
      - Comma-separated coupled variability variables accepted by the CLI.
    * - ``--movc_years``
      - Yes
-     - -
+     - N/A
      - Year range label for coupled variability products.
    * - ``--cmip_movs_dir``
      - Yes
-     - -
+     - N/A
      - Directory containing CMIP variability comparison data.
    * - ``--cmip_movs_set``
      - Yes
-     - -
+     - N/A
      - Name of the CMIP variability set used by the viewer.
    * - ``--enso_viewer``
      - Yes
-     - -
+     - N/A
      - Boolean controlling whether ENSO summaries are included.
    * - ``--enso_vars``
      - Yes
-     - -
+     - N/A
      - Comma-separated ENSO variables accepted by the CLI.
    * - ``--enso_years``
      - Yes
-     - -
+     - N/A
      - Year range label for ENSO products.
    * - ``--cmip_enso_dir``
      - Yes
-     - -
+     - N/A
      - Directory containing CMIP ENSO comparison data.
    * - ``--cmip_enso_set``
      - Yes
-     - -
+     - N/A
      - Name of the CMIP ENSO set used by the viewer.
    * - ``--pcmdi_webtitle``
      - Yes
-     - -
+     - N/A
      - Title shown on generated viewer pages.
    * - ``--pcmdi_version``
      - Yes
-     - -
+     - N/A
      - Version label shown on generated viewer pages.
    * - ``--run_type``
      - Yes
-     - -
+     - N/A
      - Run-type label converted to a subtitle in the viewer.
    * - ``--pcmdi_external_prefix``
      - Yes
-     - -
+     - N/A
      - Base directory used to find shared PCMDI web assets and data.
    * - ``--pcmdi_viewer_template``
      - Yes
-     - -
+     - N/A
      - Template directory below ``pcmdi_external_prefix`` that contains viewer
        assets such as ``e3sm_pmp_logo.png``.
    * - ``--save_all_data``
      - Yes
-     - -
+     - N/A
      - Boolean controlling whether the plotter saves all underlying data.
    * - ``--debug``
      - No
-     - -
+     - N/A
      - Enables debug logging when set to ``true``.
