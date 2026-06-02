@@ -47,7 +47,6 @@ Testing
 
     # Set up conda environment
     bash # Run bash so we're in an isolated subshell
-    source ~/.bashrc
     # Make sure conda is activated
     rm -rf build
     conda clean --all --y
