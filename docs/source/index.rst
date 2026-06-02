@@ -31,20 +31,6 @@ This documentation is organized by interface:
 * :doc:`pcmdi_diags` documents the PCMDI-related commands, their shared setup
   logic, and every available parameter across the CLI entry points.
 
-Repository layout
-=================
-
-The implementation is organized under ``zppy_interfaces``:
-
-* ``zppy_interfaces/global_time_series`` contains the global time-series CLI,
-  ocean time-series generation helpers, HTML templates, and the
-  ``zppy_land_fields.csv`` variable catalogue.
-* ``zppy_interfaces/pcmdi_diags`` contains CLI entry points for observation
-  linking, mean-climate diagnostics, variability modes, ENSO, synthetic plots,
-  and the shared setup logic used by those commands.
-* ``zppy_interfaces/multi_utils`` contains shared logging and viewer helpers
-  used by both interfaces.
-
 Processing model
 ================
 
@@ -67,3 +53,4 @@ tools:
    self
    global_time_series
    pcmdi_diags
+   developer_guide
