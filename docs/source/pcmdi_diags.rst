@@ -139,8 +139,8 @@ Boolean parsing notes
 
 The PCMDI-related commands do not all parse booleans the same way:
 
-* ``multiprocessing`` and most ``debug`` flags treat only ``true``
-  (case-insensitive) as true.
+* ``multiprocessing`` and most ``debug`` flags use only ``true``
+  (case-insensitive) as the true value.
 * ``generate_sftlf`` treats ``true``, ``y``, and ``yes`` as true.
 * ``zi-pcmdi-synthetic-plots`` accepts a broader set of truthy and falsy values
   such as ``true``, ``1``, ``yes``, ``on``, ``false``, ``0``, and ``off`` for
