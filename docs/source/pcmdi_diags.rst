@@ -2,6 +2,10 @@
 pcmdi_diags
 ***********
 
+.. warning::
+
+  ``pcmdi_diags`` is currently in a beta release and is undergoing active development.
+
 Overview
 ========
 
@@ -296,6 +300,10 @@ Additional parameters
 
 zi-pcmdi-enso
 =============
+
+.. warning::
+
+  ``pcmdi_diags`` is currently in a beta release and is undergoing active development. ``zi-pcmdi-enso`` is not yet supported and should be treated as unavailable.
 
 Purpose
 -------

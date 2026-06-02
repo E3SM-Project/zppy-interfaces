@@ -7,8 +7,8 @@ zppy-interfaces documentation
 What is zppy-interfaces?
 ========================
 
-``zppy-interfaces`` adds workflow-specific post-processing utilities on top of
-external diagnostics packages used by E3SM post-processing. The repository
+``zppy-interfaces`` adds workflow-specific post-processing utilities as stand-alone functionality or as an intermediate step on top of
+external diagnostics packages. The repository
 currently provides two main interfaces:
 
 * ``global_time_series`` for generating coupled global time-series plots,

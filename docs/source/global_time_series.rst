@@ -61,7 +61,7 @@ Classic plot names
 * ``max_moc`` -> maximum meridional overturning circulation plot
 * ``change_sea_level`` -> sea-level change plot
 
-The three ocean-related plot names above require ocean support data.
+The three ocean-related plot names (``change_ohc``, ``max_moc`` ``change_sea_level``) above require ocean support data.
 
 Component plot requests
 =======================
@@ -73,7 +73,7 @@ names. These are treated as generic variable names and plotted directly.
 
 * If set to ``None``, no land plots are generated.
 * If set to ``all``, every variable listed in
-  `zppy_interfaces/global_time_series/zppy_land_fields.csv`_ is included.
+  `zppy_interfaces/global_time_series/zppy_land_fields.csv`_ is included. (NOTE: this shows the catalogue as of the latest ``main`` branch, which may differ from the version in the release you are using.)
 * Otherwise, each requested land variable must match a row in
   ``zppy_interfaces/global_time_series/zppy_land_fields.csv``.
 
@@ -213,7 +213,7 @@ Land variable catalogue
 
 The full land-variable list is packaged with the repository:
 
-* `zppy_interfaces/global_time_series/zppy_land_fields.csv`_
+* `zppy_interfaces/global_time_series/zppy_land_fields.csv`_ (NOTE: this shows the catalogue as of the latest ``main`` branch, which may differ from the version in the release you are using.)
 
 That file is the authoritative source for:
 
