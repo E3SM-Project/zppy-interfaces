@@ -24,12 +24,12 @@ directory layouts.
 How to use this documentation
 =============================
 
-This documentation is organized by interface:
+This documentation is organized by audience:
 
-* :doc:`global_time_series` documents the ``zi-global-time-series`` command,
-  the supported plotting modes, and every available parameter.
-* :doc:`pcmdi_diags` documents the PCMDI-related commands, their shared setup
-  logic, and every available parameter across the CLI entry points.
+* :doc:`user_guide` groups the interface guides for people running the command
+  line tools.
+* :doc:`developer_guide` groups the implementation guides for people working on
+  the repository internals.
 
 Processing model
 ================
@@ -51,6 +51,5 @@ tools:
    :caption: Contents:
 
    self
-   global_time_series
-   pcmdi_diags
+   user_guide
    developer_guide

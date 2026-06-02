@@ -2,6 +2,10 @@
 Developer Guide
 ******************
 
+Use these pages when you want to understand how the repository is organized,
+where each CLI entry point starts, and how the internal processing flow is
+implemented.
+
 Repository layout
 =================
 
@@ -15,6 +19,15 @@ The implementation is organized under ``zppy_interfaces``:
   and the shared setup logic used by those commands.
 * ``zppy_interfaces/multi_utils`` contains shared logging and viewer helpers
   used by both interfaces.
+
+Interface implementation guides
+===============================
+
+.. toctree::
+   :maxdepth: 1
+
+   developer_global_time_series
+   developer_pcmdi_diags
 
 Testing
 =======

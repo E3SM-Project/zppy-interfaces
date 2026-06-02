@@ -9,6 +9,10 @@ The ``pcmdi_diags`` package provides multiple command-line entry points that
 prepare inputs for PCMDI Metrics, launch diagnostics, reorganize outputs, and
 assemble summary viewers.
 
+This page focuses on how to run those commands and what each one produces. For
+the implementation details behind the shared setup and the command modules, see
+:doc:`developer_pcmdi_diags`.
+
 The entry points defined by this repository are:
 
 * ``zi-pcmdi-link-observation``

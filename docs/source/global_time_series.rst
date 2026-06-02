@@ -10,13 +10,12 @@ The ``global_time_series`` interface is exposed through the
 products from post-processed E3SM component outputs and can also prepare the
 additional ocean time-series files needed by the classic eight-panel plots.
 
-Internally, the command parses CLI arguments into a
-``zppy_interfaces.global_time_series.utils.Parameters`` object, validates the
-request, optionally builds ocean time-series files, and then calls the coupled
-plotting driver.
+This page focuses on how to run the command and interpret its outputs. For the
+implementation path through the Python modules, see
+:doc:`developer_global_time_series`.
 
-Step-by-step process
-====================
+Step-by-step run flow
+=====================
 
 #. Parse command-line arguments.
 #. Convert boolean-like strings such as ``True`` and ``False`` to Python
