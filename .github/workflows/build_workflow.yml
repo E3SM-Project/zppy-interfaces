@@ -108,8 +108,9 @@ jobs:
         run: |
           pytest tests/unit/global_time_series/test_*.py
 
-  If the branch updates documentation, then the docs will need to be updated.
+  # If the branch updates documentation, then the docs will need to be updated.
   publish-docs:
+    needs: check-jobs-to-skip
     if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     defaults:
@@ -117,7 +118,7 @@ jobs:
         shell: bash -l {0}
     timeout-minutes: 10 # Increased timeout for docs
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -175,7 +176,7 @@ jobs:
           git commit -m "Update documentation" -a || true
 
       - name: Push Changes
-        uses: ad-m/github-push-action@master
+        uses: ad-m/github-push-action@v0.8.0
         with:
           branch: gh-pages
           directory: gh-pages

@@ -61,7 +61,8 @@ Classic plot names
 * ``max_moc`` -> maximum meridional overturning circulation plot
 * ``change_sea_level`` -> sea-level change plot
 
-The three ocean-related plot names (``change_ohc``, ``max_moc`` ``change_sea_level``) above require ocean support data.
+The three ocean-related plot names (``change_ohc``, ``max_moc``,
+``change_sea_level``) above require ocean support data.
 
 Component plot requests
 =======================

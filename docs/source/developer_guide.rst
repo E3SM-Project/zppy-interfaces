@@ -32,32 +32,32 @@ Interface implementation guides
 Testing
 =======
 
-    .. code::
+.. code-block:: bash
 
-        # Set up branch
-        cd zppy-interfaces
-        git status # Check for uncommitted changes
-        git fetch upstream main
-        git checkout main
-        git reset --hard upstream/main
-        git log --oneline | head -n 1
-        # Check that we're up to date with either:
-        # 1. The latest commit on main: https://github.com/E3SM-Project/zppy-interfaces/commits/main/
-        # 2. The commits of the pull request being tested.
+    # Set up branch
+    cd zppy-interfaces
+    git status # Check for uncommitted changes
+    git fetch upstream main
+    git checkout main
+    git reset --hard upstream/main
+    git log --oneline | head -n 1
+    # Check that we're up to date with either:
+    # 1. The latest commit on main: https://github.com/E3SM-Project/zppy-interfaces/commits/main/
+    # 2. The commits of the pull request being tested.
 
-        # Set up conda environment
-        bash # Run bash so we're in an isolated subshell
-        source ~/.bashrc
-        # Make sure conda is activated
-        rm -rf build
-        conda clean --all --y
-        conda env create -f conda/dev.yml -n env-name
-        conda activate env-name
-        pre-commit run --all-files
-        python -m pip install .
+    # Set up conda environment
+    bash # Run bash so we're in an isolated subshell
+    source ~/.bashrc
+    # Make sure conda is activated
+    rm -rf build
+    conda clean --all --y
+    conda env create -f conda/dev.yml -n env-name
+    conda activate env-name
+    pre-commit run --all-files
+    python -m pip install .
 
-        # Run unit tests
-        pytest tests/unit/global_time_series/test_*.py
-        pytest tests/unit/pcmdi_diags/test_*.py
+    # Run unit tests
+    pytest tests/unit/global_time_series/test_*.py
+    pytest tests/unit/pcmdi_diags/test_*.py
 
-        # Note that integration testing is done as part of zppy's testing.
+    # Note that integration testing is done as part of zppy's testing.
