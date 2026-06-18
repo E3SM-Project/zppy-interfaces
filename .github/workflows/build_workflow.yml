@@ -153,7 +153,7 @@ jobs:
           conda list
 
       - name: Install `zppy-interfaces` Package
-        run: pip install .
+        run: python -m pip install .
 
       # sphinx-multiversion allows for version docs.
       - name: Build Sphinx Docs
@@ -168,7 +168,8 @@ jobs:
 
           # Only replace main docs with latest changes. Docs for tags should be untouched.
           cd gh-pages
-          rm -r _build/html/main
+          mkdir -p _build/html
+          rm -rf _build/html/main
           cp -r ../docs/_build/html/main _build/html/main
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
