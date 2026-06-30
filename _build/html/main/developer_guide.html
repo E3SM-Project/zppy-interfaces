@@ -1,0 +1,180 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Developer Guide &mdash; zppy-interfaces documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/style.css?v=ec38ee01" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=37f418d5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Developer Guide: global_time_series" href="developer_global_time_series.html" />
+    <link rel="prev" title="pcmdi_diags" href="pcmdi_diags.html" />
+    <link href="_static/style.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            zppy-interfaces
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="index.html">zppy-interfaces documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide.html">User Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Developer Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#repository-layout">Repository layout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#interface-implementation-guides">Interface implementation guides</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="developer_global_time_series.html">Developer Guide: global_time_series</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer_pcmdi_diags.html">Developer Guide: pcmdi_diags</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#testing">Testing</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">zppy-interfaces</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Developer Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/developer_guide.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="developer-guide">
+<h1>Developer Guide<a class="headerlink" href="#developer-guide" title="Link to this heading"></a></h1>
+<p>Use these pages when you want to understand how the repository is organized,
+where each CLI entry point starts, and how the internal processing flow is
+implemented.</p>
+<section id="repository-layout">
+<h2>Repository layout<a class="headerlink" href="#repository-layout" title="Link to this heading"></a></h2>
+<p>The implementation is organized under <code class="docutils literal notranslate"><span class="pre">zppy_interfaces</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">zppy_interfaces/global_time_series</span></code> contains the global time-series CLI,
+ocean time-series generation helpers, HTML templates, and the
+<code class="docutils literal notranslate"><span class="pre">zppy_land_fields.csv</span></code> variable catalogue.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">zppy_interfaces/pcmdi_diags</span></code> contains CLI entry points for observation
+linking, mean-climate diagnostics, variability modes, ENSO, synthetic plots,
+and the shared setup logic used by those commands.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">zppy_interfaces/multi_utils</span></code> contains shared logging and viewer helpers
+used by both interfaces.</p></li>
+</ul>
+</section>
+<section id="interface-implementation-guides">
+<h2>Interface implementation guides<a class="headerlink" href="#interface-implementation-guides" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="developer_global_time_series.html">Developer Guide: global_time_series</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developer_pcmdi_diags.html">Developer Guide: pcmdi_diags</a></li>
+</ul>
+</div>
+</section>
+<section id="testing">
+<h2>Testing<a class="headerlink" href="#testing" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Set up branch</span>
+<span class="nb">cd</span><span class="w"> </span>zppy-interfaces
+git<span class="w"> </span>status<span class="w"> </span><span class="c1"># Check for uncommitted changes</span>
+git<span class="w"> </span>fetch<span class="w"> </span>upstream<span class="w"> </span>main
+git<span class="w"> </span>checkout<span class="w"> </span>main
+git<span class="w"> </span>reset<span class="w"> </span>--hard<span class="w"> </span>upstream/main
+git<span class="w"> </span>log<span class="w"> </span>--oneline<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-n<span class="w"> </span><span class="m">1</span>
+<span class="c1"># Check that we&#39;re up to date with either:</span>
+<span class="c1"># 1. The latest commit on main: https://github.com/E3SM-Project/zppy-interfaces/commits/main/</span>
+<span class="c1"># 2. The commits of the pull request being tested.</span>
+
+<span class="c1"># Set up conda environment</span>
+bash<span class="w"> </span><span class="c1"># Run bash so we&#39;re in an isolated subshell</span>
+<span class="c1"># Make sure conda is activated</span>
+rm<span class="w"> </span>-rf<span class="w"> </span>build
+conda<span class="w"> </span>clean<span class="w"> </span>--all<span class="w"> </span>--y
+conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>conda/dev.yml<span class="w"> </span>-n<span class="w"> </span>env-name
+conda<span class="w"> </span>activate<span class="w"> </span>env-name
+pre-commit<span class="w"> </span>run<span class="w"> </span>--all-files
+python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>.
+
+<span class="c1"># Run unit tests</span>
+pytest<span class="w"> </span>tests/unit/global_time_series/test_*.py
+pytest<span class="w"> </span>tests/unit/pcmdi_diags/test_*.py
+
+<span class="c1"># Note that integration testing is done as part of zppy&#39;s testing.</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="pcmdi_diags.html" class="btn btn-neutral float-left" title="pcmdi_diags" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="developer_global_time_series.html" class="btn btn-neutral float-right" title="Developer Guide: global_time_series" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, E3SM Project.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

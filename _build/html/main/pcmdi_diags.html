@@ -1,0 +1,779 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pcmdi_diags &mdash; zppy-interfaces documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/style.css?v=ec38ee01" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=37f418d5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Developer Guide" href="developer_guide.html" />
+    <link rel="prev" title="global_time_series" href="global_time_series.html" />
+    <link href="_static/style.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            zppy-interfaces
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="index.html">zppy-interfaces documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="user_guide.html">User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="global_time_series.html">global_time_series</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">pcmdi_diags</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#shared-workflow">Shared workflow</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#step-by-step-shared-setup">Step-by-step shared setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#shared-core-parameters">Shared core parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#boolean-parsing-notes">Boolean parsing notes</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#zi-pcmdi-link-observation">zi-pcmdi-link-observation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#purpose">Purpose</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#step-by-step">Step-by-step</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#parameter-reference">Parameter reference</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#zi-pcmdi-mean-climate">zi-pcmdi-mean-climate</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id1">Purpose</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id2">Step-by-step</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#additional-parameters">Additional parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#zi-pcmdi-variability-modes">zi-pcmdi-variability-modes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id3">Purpose</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id4">Step-by-step</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id5">Additional parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#zi-pcmdi-enso">zi-pcmdi-enso</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id6">Purpose</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#current-status">Current status</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id7">Additional parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#zi-pcmdi-synthetic-plots">zi-pcmdi-synthetic-plots</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id8">Purpose</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id9">Step-by-step</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id10">Parameter reference</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">zppy-interfaces</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="user_guide.html">User Guide</a></li>
+      <li class="breadcrumb-item active">pcmdi_diags</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/pcmdi_diags.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="pcmdi-diags">
+<h1>pcmdi_diags<a class="headerlink" href="#pcmdi-diags" title="Link to this heading"></a></h1>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code class="docutils literal notranslate"><span class="pre">pcmdi_diags</span></code> is currently in a beta release and is undergoing active development.</p>
+</div>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">pcmdi_diags</span></code> package provides multiple command-line entry points that
+prepare inputs for PCMDI Metrics, launch diagnostics, reorganize outputs, and
+assemble summary viewers.</p>
+<p>This page focuses on how to run those commands and what each one produces. For
+the implementation details behind the shared setup and the command modules, see
+<a class="reference internal" href="developer_pcmdi_diags.html"><span class="doc">Developer Guide: pcmdi_diags</span></a>.</p>
+<p>The entry points defined by this repository are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-link-observation</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-mean-climate</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-variability-modes</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-enso</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-synthetic-plots</span></code></p></li>
+</ul>
+</section>
+<section id="shared-workflow">
+<h2>Shared workflow<a class="headerlink" href="#shared-workflow" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-mean-climate</span></code>, <code class="docutils literal notranslate"><span class="pre">zi-pcmdi-variability-modes</span></code>, and the unfinished
+<code class="docutils literal notranslate"><span class="pre">zi-pcmdi-enso</span></code> command all use <code class="docutils literal notranslate"><span class="pre">zppy_interfaces.pcmdi_diags.pcmdi_setup</span></code> to
+perform the same initial preparation work.</p>
+<section id="step-by-step-shared-setup">
+<h3>Step-by-step shared setup<a class="headerlink" href="#step-by-step-shared-setup" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Parse the shared core parameters.</p></li>
+<li><p>Decide whether multiprocessing is active. If <code class="docutils literal notranslate"><span class="pre">num_workers</span> <span class="pre">&lt;</span> <span class="pre">2</span></code>, the code
+disables multiprocessing even if <code class="docutils literal notranslate"><span class="pre">multiprocessing=True</span></code> was provided.</p></li>
+<li><p>Determine the reference data set:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">run_type=model_vs_obs</span></code> uses <code class="docutils literal notranslate"><span class="pre">obs_sets</span></code>;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">run_type=model_vs_model</span></code> uses <code class="docutils literal notranslate"><span class="pre">model_name_ref</span></code> and <code class="docutils literal notranslate"><span class="pre">tableID_ref</span></code>.</p></li>
+</ul>
+</li>
+<li><p>Check whether any requested derived variables need to be created. The setup
+logic can derive <code class="docutils literal notranslate"><span class="pre">rstcre</span></code> from <code class="docutils literal notranslate"><span class="pre">rsutcs</span></code> and <code class="docutils literal notranslate"><span class="pre">rsut</span></code>, and <code class="docutils literal notranslate"><span class="pre">rltcre</span></code>
+from <code class="docutils literal notranslate"><span class="pre">rlutcs</span></code> and <code class="docutils literal notranslate"><span class="pre">rlut</span></code>.</p></li>
+<li><p>Build test and reference catalogue JSON files inside a working
+<code class="docutils literal notranslate"><span class="pre">pcmdi_diags</span></code> directory.</p></li>
+<li><p>Optionally generate land-sea mask files under <code class="docutils literal notranslate"><span class="pre">fixed/</span></code> when
+<code class="docutils literal notranslate"><span class="pre">generate_sftlf</span></code> is enabled.</p></li>
+<li><p>Build path templates for the downstream diagnostics and return them to the
+calling command.</p></li>
+</ol>
+</section>
+<section id="shared-core-parameters">
+<h3>Shared core parameters<a class="headerlink" href="#shared-core-parameters" title="Link to this heading"></a></h3>
+<p>These parameters are accepted by the mean-climate, variability-modes, and ENSO
+commands.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%" />
+<col style="width: 10.0%" />
+<col style="width: 14.0%" />
+<col style="width: 58.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--num_workers</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Maximum number of workers used when multiprocessing is enabled.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--multiprocessing</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Boolean-like string controlling parallel execution. The setup code still
+disables parallel execution when <code class="docutils literal notranslate"><span class="pre">num_workers</span></code> is less than 2.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--subsection</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Label used in generated catalogue file names such as
+<code class="docutils literal notranslate"><span class="pre">&lt;path&gt;_&lt;subsection&gt;_catalogue.json</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--climo_ts_dir_primary</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Directory containing the primary model climatology or time-series files.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--climo_ts_dir_ref</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Directory containing the reference model or observational files.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--model_name</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Primary model identifier. The code expects four dot-separated parts:
+<code class="docutils literal notranslate"><span class="pre">mip.exp.model.realm</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--model_tableID</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Table identifier paired with <code class="docutils literal notranslate"><span class="pre">model_name</span></code> for output naming.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--figure_format</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Graphics file format expected from the underlying diagnostics.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--run_type</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Must be <code class="docutils literal notranslate"><span class="pre">model_vs_obs</span></code> or <code class="docutils literal notranslate"><span class="pre">model_vs_model</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--obs_sets</span></code></p></td>
+<td><p>Required for <code class="docutils literal notranslate"><span class="pre">model_vs_obs</span></code></p></td>
+<td><p>N/A</p></td>
+<td><p>Comma-separated observation set identifiers used when the run compares a
+model against observations.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--model_name_ref</span></code></p></td>
+<td><p>Required for <code class="docutils literal notranslate"><span class="pre">model_vs_model</span></code></p></td>
+<td><p>N/A</p></td>
+<td><p>Reference model name used when the run compares one model against
+another.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--vars</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Comma-separated variable list. Base variable names are extracted by
+splitting on <code class="docutils literal notranslate"><span class="pre">_</span></code> and <code class="docutils literal notranslate"><span class="pre">-</span></code> where needed.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--tableID_ref</span></code></p></td>
+<td><p>Required for <code class="docutils literal notranslate"><span class="pre">model_vs_model</span></code></p></td>
+<td><p>N/A</p></td>
+<td><p>Table identifier paired with <code class="docutils literal notranslate"><span class="pre">model_name_ref</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--generate_sftlf</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Boolean-like string controlling land-sea mask generation. The code
+treats <code class="docutils literal notranslate"><span class="pre">true</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, and <code class="docutils literal notranslate"><span class="pre">yes</span></code> as enabled.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--case_id</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Case identifier appended to generated commands and output file names.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--results_dir</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Base directory where organized outputs are written.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--debug</span></code></p></td>
+<td><p>No</p></td>
+<td><p>N/A</p></td>
+<td><p>Enables debug logging when set to <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="boolean-parsing-notes">
+<h3>Boolean parsing notes<a class="headerlink" href="#boolean-parsing-notes" title="Link to this heading"></a></h3>
+<p>The PCMDI-related commands do not all parse booleans the same way:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">multiprocessing</span></code> and most <code class="docutils literal notranslate"><span class="pre">debug</span></code> flags use only <code class="docutils literal notranslate"><span class="pre">true</span></code>
+(case-insensitive) as the true value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">generate_sftlf</span></code> treats <code class="docutils literal notranslate"><span class="pre">true</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, and <code class="docutils literal notranslate"><span class="pre">yes</span></code> as true.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-synthetic-plots</span></code> accepts a broader set of truthy and falsy values
+such as <code class="docutils literal notranslate"><span class="pre">true</span></code>, <code class="docutils literal notranslate"><span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">yes</span></code>, <code class="docutils literal notranslate"><span class="pre">on</span></code>, <code class="docutils literal notranslate"><span class="pre">false</span></code>, <code class="docutils literal notranslate"><span class="pre">0</span></code>, and <code class="docutils literal notranslate"><span class="pre">off</span></code> for
+its viewer toggles and <code class="docutils literal notranslate"><span class="pre">save_all_data</span></code>.</p></li>
+</ul>
+</section>
+</section>
+<section id="zi-pcmdi-link-observation">
+<h2>zi-pcmdi-link-observation<a class="headerlink" href="#zi-pcmdi-link-observation" title="Link to this heading"></a></h2>
+<section id="purpose">
+<h3>Purpose<a class="headerlink" href="#purpose" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-link-observation</span></code> prepares observational time-series files for
+PCMDI workflows. It looks up observation aliases, creates symlinks into a
+temporary observation directory, and can derive <code class="docutils literal notranslate"><span class="pre">rstcre</span></code> or <code class="docutils literal notranslate"><span class="pre">rltcre</span></code> when
+their source variables exist.</p>
+</section>
+<section id="step-by-step">
+<h3>Step-by-step<a class="headerlink" href="#step-by-step" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Parse the command-line arguments.</p></li>
+<li><p>Resolve each requested variable to an observation alias using
+<code class="docutils literal notranslate"><span class="pre">reference_alias.json</span></code>.</p></li>
+<li><p>Search the observation source tree for the matching NetCDF file.</p></li>
+<li><p>Symlink the matching file into <code class="docutils literal notranslate"><span class="pre">obstmp_dir</span></code> or write a renamed copy when
+the observational variable must be mapped from a CMIP-style alias.</p></li>
+<li><p>Derive <code class="docutils literal notranslate"><span class="pre">rstcre</span></code> and <code class="docutils literal notranslate"><span class="pre">rltcre</span></code> if those variables were requested and are
+not already present.</p></li>
+</ol>
+</section>
+<section id="parameter-reference">
+<h3>Parameter reference<a class="headerlink" href="#parameter-reference" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%" />
+<col style="width: 10.0%" />
+<col style="width: 14.0%" />
+<col style="width: 58.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--model_name_ref</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Reference model name used to build linked observation file names.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--tableID_ref</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Reference table identifier paired with <code class="docutils literal notranslate"><span class="pre">model_name_ref</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--vars</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Comma-separated variables to link or derive.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--obs_sets</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Observation set identifiers. When multiple sets are supplied and the
+count matches <code class="docutils literal notranslate"><span class="pre">vars</span></code>, each variable uses its corresponding set;
+otherwise the first set is reused for all variables.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--obs_ts</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Root directory containing the source observation time series.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--obstmp_dir</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Output directory where symlinks or renamed files are written.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--debug</span></code></p></td>
+<td><p>No</p></td>
+<td><p>N/A</p></td>
+<td><p>Enables debug logging when set to <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="zi-pcmdi-mean-climate">
+<h2>zi-pcmdi-mean-climate<a class="headerlink" href="#zi-pcmdi-mean-climate" title="Link to this heading"></a></h2>
+<section id="id1">
+<h3>Purpose<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-mean-climate</span></code> prepares PCMDI mean-climate runs, executes the
+underlying <code class="docutils literal notranslate"><span class="pre">mean_climate_driver.py</span></code> commands, and reorganizes the resulting
+figures, metrics JSON files, and NetCDF diagnostics into the <code class="docutils literal notranslate"><span class="pre">results_dir</span></code>
+layout expected by downstream viewers.</p>
+</section>
+<section id="id2">
+<h3>Step-by-step<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Run the shared setup described above.</p></li>
+<li><p>Save a <code class="docutils literal notranslate"><span class="pre">regions.json</span></code> file that maps each requested variable key to the
+requested region list.</p></li>
+<li><p>Generate one <code class="docutils literal notranslate"><span class="pre">mean_climate_driver.py</span></code> command per requested variable that
+is present in the reference catalogue.</p></li>
+<li><p>Run those commands in parallel or serial mode.</p></li>
+<li><p>Reorganize figures into grouped seasonal directories.</p></li>
+<li><p>Reorganize JSON metrics and NetCDF diagnostics into <code class="docutils literal notranslate"><span class="pre">metrics_data</span></code>.</p></li>
+</ol>
+</section>
+<section id="additional-parameters">
+<h3>Additional parameters<a class="headerlink" href="#additional-parameters" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%" />
+<col style="width: 10.0%" />
+<col style="width: 14.0%" />
+<col style="width: 58.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--regions</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Comma-separated list of regions used both for command preparation and
+for organizing the collected outputs.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="zi-pcmdi-variability-modes">
+<h2>zi-pcmdi-variability-modes<a class="headerlink" href="#zi-pcmdi-variability-modes" title="Link to this heading"></a></h2>
+<section id="id3">
+<h3>Purpose<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-variability-modes</span></code> prepares variability-mode diagnostics, launches
+<code class="docutils literal notranslate"><span class="pre">variability_modes_driver.py</span></code> commands, and then collects graphics, metrics,
+and diagnostic files into a structured output tree.</p>
+</section>
+<section id="id4">
+<h3>Step-by-step<a class="headerlink" href="#id4" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Run the shared setup described above.</p></li>
+<li><p>Read the observation metadata for the requested <code class="docutils literal notranslate"><span class="pre">vars</span></code> value.</p></li>
+<li><p>Derive reference years and file paths from the observation catalogue.</p></li>
+<li><p>Generate one <code class="docutils literal notranslate"><span class="pre">variability_modes_driver.py</span></code> command per requested mode.</p></li>
+<li><p>Run those commands in parallel or serial mode.</p></li>
+<li><p>Collect graphics into grouped seasonal directories.</p></li>
+<li><p>Collect JSON metrics and NetCDF diagnostics into <code class="docutils literal notranslate"><span class="pre">metrics_data</span></code>.</p></li>
+</ol>
+</section>
+<section id="id5">
+<h3>Additional parameters<a class="headerlink" href="#id5" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%" />
+<col style="width: 10.0%" />
+<col style="width: 14.0%" />
+<col style="width: 58.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--var_modes</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Comma-separated list of variability modes to process. Specific modes
+such as <code class="docutils literal notranslate"><span class="pre">NPO</span></code>, <code class="docutils literal notranslate"><span class="pre">NPGO</span></code>, <code class="docutils literal notranslate"><span class="pre">PSA1</span></code>, and <code class="docutils literal notranslate"><span class="pre">PSA2</span></code> automatically select a
+higher EOF number than the default of 1.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="zi-pcmdi-enso">
+<h2>zi-pcmdi-enso<a class="headerlink" href="#zi-pcmdi-enso" title="Link to this heading"></a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code class="docutils literal notranslate"><span class="pre">pcmdi_diags</span></code> is currently in a beta release and is undergoing active development. <code class="docutils literal notranslate"><span class="pre">zi-pcmdi-enso</span></code> is not yet supported and should be treated as unavailable.</p>
+</div>
+<section id="id6">
+<h3>Purpose<a class="headerlink" href="#id6" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-enso</span></code> contains argument parsing, observation preparation helpers,
+driver command generation, and output validation logic for ENSO diagnostics.
+However, the current <code class="docutils literal notranslate"><span class="pre">main()</span></code> implementation exits immediately with an error
+message stating that the command is not yet supported.</p>
+</section>
+<section id="current-status">
+<h3>Current status<a class="headerlink" href="#current-status" title="Link to this heading"></a></h3>
+<p>The CLI is present and documented here so callers can understand the intended
+interface, but the command should currently be treated as unavailable.</p>
+</section>
+<section id="id7">
+<h3>Additional parameters<a class="headerlink" href="#id7" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%" />
+<col style="width: 10.0%" />
+<col style="width: 14.0%" />
+<col style="width: 58.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--enso_groups</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Comma-separated ENSO metric group names intended for
+<code class="docutils literal notranslate"><span class="pre">enso_driver.py</span> <span class="pre">--metricsCollection</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="zi-pcmdi-synthetic-plots">
+<h2>zi-pcmdi-synthetic-plots<a class="headerlink" href="#zi-pcmdi-synthetic-plots" title="Link to this heading"></a></h2>
+<section id="id8">
+<h3>Purpose<a class="headerlink" href="#id8" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-synthetic-plots</span></code> generates summary metric plots and builds viewer
+pages that combine mean-climate, variability, and ENSO outputs into a single
+web presentation.</p>
+</section>
+<section id="id9">
+<h3>Step-by-step<a class="headerlink" href="#id9" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Parse the command-line arguments into <code class="docutils literal notranslate"><span class="pre">SyntheticPlotsParameters</span></code>.</p></li>
+<li><p>Build the expected input path under <code class="docutils literal notranslate"><span class="pre">www/put_model_here/pcmdi_diags</span></code>.</p></li>
+<li><p>Read <code class="docutils literal notranslate"><span class="pre">synthetic_metrics_list.json</span></code>.</p></li>
+<li><p>Generate the summary plots through <code class="docutils literal notranslate"><span class="pre">SyntheticMetricsPlotter</span></code>.</p></li>
+<li><p>Assemble viewer configuration and supporting assets.</p></li>
+<li><p>Write methodology, data, and viewer HTML pages under
+<code class="docutils literal notranslate"><span class="pre">web_dir/results_dir/viewer</span></code>.</p></li>
+</ol>
+</section>
+<section id="id10">
+<h3>Parameter reference<a class="headerlink" href="#id10" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%" />
+<col style="width: 10.0%" />
+<col style="width: 14.0%" />
+<col style="width: 58.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--synthetic_sets</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Synthetic plot set selection accepted by the CLI entry point.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--figure_format</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Graphics format used for generated summary plots.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--www</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Base web directory that contains <code class="docutils literal notranslate"><span class="pre">put_model_here/pcmdi_diags</span></code> inputs.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--results_dir</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Results subdirectory below both the input and output web locations.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--case</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Case name shown in generated plots and viewer pages.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--model_name</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Model name shown in generated plots and viewer pages.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--model_tableID</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Table identifier shown in generated plots and viewer pages.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--web_dir</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Output web root where the viewer and summary products are written.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--clim_viewer</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Boolean controlling whether climatology summary products are included.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--clim_vars</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Comma-separated climatology variables used in the viewer.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--clim_years</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Year range label for climatology products.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--clim_regions</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Comma-separated climatology region list used in the viewer.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--cmip_clim_dir</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Directory containing CMIP climatology comparison data.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--cmip_clim_set</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Name of the CMIP climatology set used by the viewer.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mova_viewer</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Boolean controlling whether atmospheric variability summaries are
+included.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--mova_modes</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Comma-separated atmospheric variability modes used in summary products.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mova_vars</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Comma-separated atmospheric variability variables accepted by the CLI.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--mova_years</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Year range label for atmospheric variability products.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--movc_viewer</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Boolean controlling whether coupled variability summaries are included.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--movc_modes</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Comma-separated coupled variability modes used in summary products.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--movc_vars</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Comma-separated coupled variability variables accepted by the CLI.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--movc_years</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Year range label for coupled variability products.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--cmip_movs_dir</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Directory containing CMIP variability comparison data.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--cmip_movs_set</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Name of the CMIP variability set used by the viewer.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--enso_viewer</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Boolean controlling whether ENSO summaries are included.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--enso_vars</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Comma-separated ENSO variables accepted by the CLI.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--enso_years</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Year range label for ENSO products.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--cmip_enso_dir</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Directory containing CMIP ENSO comparison data.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--cmip_enso_set</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Name of the CMIP ENSO set used by the viewer.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--pcmdi_webtitle</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Title shown on generated viewer pages.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--pcmdi_version</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Version label shown on generated viewer pages.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--run_type</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Run-type label converted to a subtitle in the viewer.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--pcmdi_external_prefix</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Base directory used to find shared PCMDI web assets and data.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--pcmdi_viewer_template</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Template directory below <code class="docutils literal notranslate"><span class="pre">pcmdi_external_prefix</span></code> that contains viewer
+assets such as <code class="docutils literal notranslate"><span class="pre">e3sm_pmp_logo.png</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--save_all_data</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>N/A</p></td>
+<td><p>Boolean controlling whether the plotter saves all underlying data.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--debug</span></code></p></td>
+<td><p>No</p></td>
+<td><p>N/A</p></td>
+<td><p>Enables debug logging when set to <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="global_time_series.html" class="btn btn-neutral float-left" title="global_time_series" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="developer_guide.html" class="btn btn-neutral float-right" title="Developer Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, E3SM Project.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

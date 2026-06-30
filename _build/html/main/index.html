@@ -1,0 +1,170 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>zppy-interfaces documentation &mdash; zppy-interfaces documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/style.css?v=ec38ee01" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=37f418d5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="User Guide" href="user_guide.html" />
+    <link href="_static/style.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            zppy-interfaces
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">zppy-interfaces documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide.html">User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">zppy-interfaces</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">zppy-interfaces documentation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="zppy-interfaces-documentation">
+<span id="index-label"></span><h1>zppy-interfaces documentation<a class="headerlink" href="#zppy-interfaces-documentation" title="Link to this heading"></a></h1>
+<section id="what-is-zppy-interfaces">
+<h2>What is zppy-interfaces?<a class="headerlink" href="#what-is-zppy-interfaces" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">zppy-interfaces</span></code> adds workflow-specific post-processing utilities as stand-alone functionality or as an intermediate step on top of
+external diagnostics packages. The repository
+currently provides two main interfaces:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">global_time_series</span></code> for generating coupled global time-series plots,
+including land-variable handling driven by a packaged CSV catalogue.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pcmdi_diags</span></code> for preparing inputs, launching PCMDI Metrics diagnostics,
+reorganizing outputs, and building viewer-ready summary products.</p></li>
+</ul>
+<p>The package exposes command-line entry points that are meant to be called from
+automation such as <code class="docutils literal notranslate"><span class="pre">zppy</span></code>. Each entry point accepts explicit command-line
+arguments, performs limited validation, and writes outputs into predictable
+directory layouts.</p>
+</section>
+<section id="how-to-use-this-documentation">
+<h2>How to use this documentation<a class="headerlink" href="#how-to-use-this-documentation" title="Link to this heading"></a></h2>
+<p>This documentation is organized by audience:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="user_guide.html"><span class="doc">User Guide</span></a> groups the interface guides for people running the command
+line tools.</p></li>
+<li><p><a class="reference internal" href="developer_guide.html"><span class="doc">Developer Guide</span></a> groups the implementation guides for people working on
+the repository internals.</p></li>
+</ul>
+</section>
+<section id="processing-model">
+<h2>Processing model<a class="headerlink" href="#processing-model" title="Link to this heading"></a></h2>
+<p>At a high level, the package follows the same pattern across its command-line
+tools:</p>
+<ol class="arabic simple">
+<li><p>Parse explicit command-line arguments.</p></li>
+<li><p>Normalize selected values such as booleans, comma-separated lists, and
+region names.</p></li>
+<li><p>Assemble input and output paths from the provided workflow context.</p></li>
+<li><p>Optionally derive or reorganize supporting files needed by downstream tools.</p></li>
+<li><p>Invoke the plotting or diagnostics logic.</p></li>
+<li><p>Write figures, metrics, or viewer assets into workflow-specific results
+directories.</p></li>
+</ol>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">zppy-interfaces documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide.html">User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="global_time_series.html">global_time_series</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pcmdi_diags.html">pcmdi_diags</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="developer_guide.html">Developer Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="developer_guide.html#repository-layout">Repository layout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer_guide.html#interface-implementation-guides">Interface implementation guides</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer_guide.html#testing">Testing</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="user_guide.html" class="btn btn-neutral float-right" title="User Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, E3SM Project.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
