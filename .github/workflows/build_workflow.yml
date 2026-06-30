@@ -111,7 +111,7 @@ jobs:
   # If the branch updates documentation, then the docs will need to be updated.
   publish-docs:
     needs: check-jobs-to-skip
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

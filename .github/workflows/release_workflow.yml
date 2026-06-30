@@ -41,8 +41,7 @@ jobs:
           channel-priority: strict
           auto-update-conda: true
 
-      - if: ${{ needs.check-jobs-to-skip.outputs.should_skip != 'true' }}
-        name: Show Conda Environment Info
+      - name: Show Conda Environment Info
         run: |
           conda config --set anaconda_upload no
           conda info
