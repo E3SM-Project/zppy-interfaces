@@ -259,11 +259,7 @@ def plot_net_atm_water_imbalance(ax, xlim, exps, rgn):
             * 86400
             * (
                 np.array(exp["annual"]["QFLX"][rgn][0])
-                - 1e3
-                * (
-                    np.array(exp["annual"]["PRECC"][rgn][0])
-                    + np.array(exp["annual"]["PRECL"][rgn][0])
-                )
+                - np.array(exp["annual"]["PRECT"][rgn][0])
             )
         ),
         "verbose": False,
@@ -296,5 +292,5 @@ def get_required_vars(plot_name: str) -> List[str]:
     elif plot_name == "toa_radiation":
         required_vars = ["FSNTOA", "FLUT"]
     elif plot_name == "net_atm_water_imbalance":
-        required_vars = ["PRECC", "PRECL", "QFLX"]
+        required_vars = ["PRECT", "QFLX"]
     return required_vars

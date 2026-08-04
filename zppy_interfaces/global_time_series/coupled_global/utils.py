@@ -13,6 +13,11 @@ import numpy as np
 import xarray
 import xcdat
 
+from zppy_interfaces.global_time_series.coupled_global.eamxx_variables import (
+    EAMXX_ALIASES,
+    EAMXX_DERIVATIONS,
+    is_eamxx_data,
+)
 from zppy_interfaces.global_time_series.utils import Parameters
 from zppy_interfaces.multi_utils.logger import _setup_child_logger
 
@@ -98,8 +103,9 @@ def get_vars_original(plots_original: List[str]) -> List[Variable]:
         vars_original.append(Variable("FSNTOA"))
         vars_original.append(Variable("FLUT"))
     if "net_atm_water_imbalance" in plots_original:
-        vars_original.append(Variable("PRECC"))
-        vars_original.append(Variable("PRECL"))
+        # PRECT is derived, since the precipitation variables it is computed
+        # from differ between EAM and EAMxx.
+        vars_original.append(Variable("PRECT"))
         vars_original.append(Variable("QFLX"))
     return vars_original
 
@@ -520,6 +526,7 @@ class DatasetWrapper(object):
             self.dataset = xcdat.open_mfdataset(file_path_list, center_times=True)
         else:
             self.dataset = xcdat.open_mfdataset(f"{directory}*.nc", center_times=True)
+        self.eamxx: bool = is_eamxx_data(self.dataset.data_vars)
         self.area_tuple: Optional[Tuple[Any, Any, Any]] = None
 
     def set_area_tuple(self):
@@ -594,8 +601,24 @@ class DatasetWrapper(object):
         Lv = 2.501e6
         Lf = 3.337e5
 
-        if (not self.var_list) and (
-            var in ["RESTOM", "RESTOA", "LHFLX", "RESSURF", "PREC"]
+        if self.eamxx:
+            # Rename before deriving, so that a variable EAM has to derive
+            # (e.g. LHFLX) is read directly when EAMxx provides it.
+            var = EAMXX_ALIASES.get(var, var)
+
+        if self.eamxx and (var in EAMXX_DERIVATIONS):
+            # EAMxx computes this variable from other variables.
+            # Those may be canonical names themselves, so resolve recursively.
+            source_vars, combine = EAMXX_DERIVATIONS[var]
+            source_data_arrays: List[xarray.core.dataarray.DataArray] = [
+                self.globalAnnualHelper(
+                    source_var, metric, scale_factor, original_units, final_units
+                )[0]
+                for source_var in source_vars
+            ]
+            data_array = combine(*source_data_arrays)
+        elif (not self.var_list) and (
+            var in ["RESTOM", "RESTOA", "LHFLX", "RESSURF", "PRECT"]
         ):
             # We've loaded ALL variables.
             # That means we can attempt derivations from other variables
@@ -650,7 +673,7 @@ class DatasetWrapper(object):
                     "LHFLX", metric, scale_factor, original_units, final_units
                 )
                 data_array = FSNS - FLNS - SHFLX - LHFLX
-            elif var == "PREC":
+            elif var == "PRECT":
                 PRECC, _ = self.globalAnnualHelper(
                     "PRECC", metric, scale_factor, original_units, final_units
                 )

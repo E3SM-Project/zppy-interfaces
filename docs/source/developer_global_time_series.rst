@@ -33,6 +33,10 @@ Key modules
   support time series before plotting when needed.
 * ``zppy_interfaces/global_time_series/coupled_global/driver.py`` coordinates
   original plots, component plots, and viewer generation.
+* ``zppy_interfaces/global_time_series/coupled_global/eamxx_variables.py`` maps
+  the canonical (EAM) variable names used by the classic plots onto the EAMxx
+  variables they are read from or derived from, and detects which of the two
+  models wrote the data.
 * ``zppy_interfaces/global_time_series/coupled_global/mode_pdf.py`` assembles
   cumulative PDFs when ``make_viewer=False``.
 * ``zppy_interfaces/global_time_series/coupled_global/mode_viewer.py`` and the
@@ -44,6 +48,12 @@ Developer notes
 * The classic plot names in ``plots_original`` are not the same thing as raw
   variable names, so the driver keeps them separate from the component-variable
   lists.
+* The classic plots are written in terms of canonical (EAM) variable names.
+  ``DatasetWrapper`` is the only place that knows how those names map onto what
+  is on disk: it detects EAMxx data from the variables it opened, and
+  ``globalAnnualHelper`` then applies the EAMxx aliases and derivations from
+  ``eamxx_variables.py`` (EAM derivations are hard-coded there). Supporting
+  another model means extending that mapping, not the plotting code.
 * Land plots depend on ``zppy_land_fields.csv`` for the accepted variable set,
   grouping metadata, units, and long names.
 * The driver always writes output relative to ``results_dir``, and viewer mode

@@ -56,13 +56,62 @@ Classic plot names
 * ``net_atm_energy_imbalance`` -> ``RESTOM`` and ``RESSURF``
 * ``global_surface_air_temperature`` -> ``TREFHT``
 * ``toa_radiation`` -> ``FSNTOA`` and ``FLUT``
-* ``net_atm_water_imbalance`` -> ``PRECC``, ``PRECL``, and ``QFLX``
+* ``net_atm_water_imbalance`` -> ``PRECT`` and ``QFLX``
 * ``change_ohc`` -> ocean heat content plot
 * ``max_moc`` -> maximum meridional overturning circulation plot
 * ``change_sea_level`` -> sea-level change plot
 
 The three ocean-related plot names (``change_ohc``, ``max_moc``,
 ``change_sea_level``) above require ocean support data.
+
+Some of the variables above are derived rather than read directly. For EAM,
+``RESTOM`` is ``FSNT - FLNT``, ``RESSURF`` is ``FSNS - FLNS - SHFLX - LHFLX``,
+and ``PRECT`` is ``1e3 * (PRECC + PRECL)``.
+
+EAMxx support
+=============
+
+EAMxx names these variables differently. This is detected automatically: if any
+EAMxx variable is present in the atmosphere time-series directory, the classic
+plots are read from the EAMxx fields instead. Nothing needs to be configured,
+and the plot names, the plots themselves, and their units are unchanged; only
+the variables read from the time-series files differ.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 80
+
+   * - Variable
+     - EAMxx source variables
+   * - ``TREFHT``
+     - ``T_2m``
+   * - ``FLUT``
+     - ``LW_flux_up_at_model_top``
+   * - ``FSNTOA``
+     - ``SW_flux_dn_at_model_top - SW_flux_up_at_model_top``
+   * - ``RESTOM``
+     - ``SW_flux_dn_at_model_top - SW_flux_up_at_model_top -``
+       ``LW_flux_up_at_model_top``
+   * - ``RESSURF``
+     - ``(SW_flux_dn_at_model_bot - SW_flux_up_at_model_bot) -``
+       ``(LW_flux_up_at_model_bot - LW_flux_dn_at_model_bot) -``
+       ``surf_sens_flux - surface_upward_latent_heat_flux``
+   * - ``PRECT``
+     - ``1e3 * (precip_liq_surf_mass_flux + precip_ice_surf_mass_flux)``
+   * - ``QFLX``
+     - ``surf_evap``
+
+These definitions match the EAMxx entries in e3sm_diags'
+``DERIVED_VARIABLES``. Note that EAMxx's "model top" is the top of the
+atmosphere, so there is no distinction between the model-top fluxes and the
+TOA fluxes.
+
+The requested variables must be present in
+``post/atm/glb/ts/monthly/<ts_num_years>yr/`` under their EAMxx names, so the
+corresponding zppy ``[ts]`` subtask must include them in its variable list.
+
+Component plots (``plots_atm``) are not translated: for EAMxx, request EAMxx
+variable names directly.
 
 Component plot requests
 =======================
