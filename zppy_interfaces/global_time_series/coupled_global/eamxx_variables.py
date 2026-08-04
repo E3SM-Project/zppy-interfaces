@@ -47,13 +47,14 @@ EAMXX_ALIASES: Dict[str, str] = {
     "FLUT": "LW_flux_up_at_model_top",
     # Surface sensible heat flux [W m-2]
     "SHFLX": "surf_sens_flux",
-    # Surface latent heat flux [W m-2]
-    # EAMxx provides this directly, so unlike EAM it does not have to be
-    # derived from the water flux and the frozen precipitation.
-    "LHFLX": "surface_upward_latent_heat_flux",
     # Surface water flux [kg m-2 s-1]
     "QFLX": "surf_evap",
 }
+
+# Latent heat of vaporization and fusion [J kg-1], from AMWG diagnostics; used
+# to reconstruct LHFLX the same way EAM does (see EAMXX_DERIVATIONS["LHFLX"]).
+Lv = 2.501e6
+Lf = 3.337e5
 
 # Canonical variable name -> (variables it is computed from, how to combine
 # them). Source variables may themselves be canonical names, in which case they
@@ -81,11 +82,23 @@ EAMXX_DERIVATIONS: Dict[str, Tuple[List[str], Callable]] = {
         ["LW_flux_up_at_model_bot", "LW_flux_dn_at_model_bot"],
         lambda lwup, lwdn: lwup - lwdn,
     ),
+    # Surface latent heat flux [W m-2].
+    # EAMxx's surface_upward_latent_heat_flux is Lv*surf_evap (vaporization
+    # only), so it omits the latent heat of fusion. To match EAM's surface
+    # energy budget we reconstruct LHFLX exactly as EAM does:
+    #   (Lv+Lf)*QFLX - Lf*1e3*(PRECC+PRECL-PRECSC-PRECSL)
+    # where the EAM "liquid precip" (total minus snow) is EAMxx's
+    # precip_liq_surf_mass_flux directly (a volume flux [m s-1], hence 1e3).
+    # QFLX aliases to surf_evap [kg m-2 s-1].
+    "LHFLX": (
+        ["QFLX", "precip_liq_surf_mass_flux"],
+        lambda qflx, precip_liq: (Lv + Lf) * qflx - Lf * 1.0e3 * precip_liq,
+    ),
     # Net downward heat flux at the surface [W m-2].
-    # All four source names are canonical, resolving to
+    # FSNS, FLNS, SHFLX, LHFLX are canonical names, resolving to
     # (SW_flux_dn_at_model_bot - SW_flux_up_at_model_bot)
     # - (LW_flux_up_at_model_bot - LW_flux_dn_at_model_bot)
-    # - surf_sens_flux - surface_upward_latent_heat_flux.
+    # - surf_sens_flux - LHFLX (see above).
     "RESSURF": (
         ["FSNS", "FLNS", "SHFLX", "LHFLX"],
         lambda fsns, flns, shflx, lhflx: fsns - flns - shflx - lhflx,
