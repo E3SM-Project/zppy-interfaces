@@ -269,13 +269,20 @@ def test_get_eamxx_source_variables():
         "SW_flux_up_at_model_top",
         "LW_flux_up_at_model_top",
     ]
+    # LHFLX is reconstructed like EAM (from surf_evap and the liquid precip),
+    # not read from surface_upward_latent_heat_flux directly.
+    assert get_eamxx_source_variables("LHFLX") == [
+        "surf_evap",
+        "precip_liq_surf_mass_flux",
+    ]
     assert get_eamxx_source_variables("RESSURF") == [
         "SW_flux_dn_at_model_bot",
         "SW_flux_up_at_model_bot",
         "LW_flux_up_at_model_bot",
         "LW_flux_dn_at_model_bot",
         "surf_sens_flux",
-        "surface_upward_latent_heat_flux",
+        "surf_evap",
+        "precip_liq_surf_mass_flux",
     ]
     assert get_eamxx_source_variables("PRECT") == [
         "precip_liq_surf_mass_flux",
