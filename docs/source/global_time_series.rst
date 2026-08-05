@@ -95,7 +95,9 @@ the variables read from the time-series files differ.
    * - ``RESSURF``
      - ``(SW_flux_dn_at_model_bot - SW_flux_up_at_model_bot) -``
        ``(LW_flux_up_at_model_bot - LW_flux_dn_at_model_bot) -``
-       ``surf_sens_flux - surface_upward_latent_heat_flux``
+       ``surf_sens_flux - LHFLX``
+   * - ``LHFLX``
+     - ``(2.501e6+3.337e5)*surf_evap - 3.337e5*1e3*precip_liq_surf_mass_flux``
    * - ``PRECT``
      - ``1e3 * (precip_liq_surf_mass_flux + precip_ice_surf_mass_flux)``
    * - ``QFLX``

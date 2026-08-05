@@ -602,8 +602,8 @@ class DatasetWrapper(object):
         Lf = 3.337e5
 
         if self.eamxx:
-            # Rename before deriving, so that a variable EAM has to derive
-            # (e.g. LHFLX) is read directly when EAMxx provides it.
+            # Translate canonical (EAM) names to the EAMxx on-disk variable names
+            # for one-to-one mappings before reading non-derived fields.
             var = EAMXX_ALIASES.get(var, var)
 
         if self.eamxx and (var in EAMXX_DERIVATIONS):
