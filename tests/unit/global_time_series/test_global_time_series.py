@@ -2,6 +2,12 @@ from typing import Any, Dict, List
 
 import pytest
 
+from zppy_interfaces.global_time_series.coupled_global.eamxx_variables import (
+    EAMXX_ALIASES,
+    EAMXX_DERIVATIONS,
+    get_eamxx_source_variables,
+    is_eamxx_data,
+)
 from zppy_interfaces.global_time_series.coupled_global.mix_viewer_component import (
     VariableGroup,
     _get_variable_groups,
@@ -230,8 +236,7 @@ def test_get_vars_original():
     ]
     assert get_var_names(get_vars_original(["toa_radiation"])) == ["FSNTOA", "FLUT"]
     assert get_var_names(get_vars_original(["net_atm_water_imbalance"])) == [
-        "PRECC",
-        "PRECL",
+        "PRECT",
         "QFLX",
     ]
     assert get_var_names(
@@ -244,8 +249,77 @@ def test_get_vars_original():
                 "net_atm_water_imbalance",
             ]
         )
-    ) == ["RESTOM", "RESSURF", "TREFHT", "FSNTOA", "FLUT", "PRECC", "PRECL", "QFLX"]
+    ) == ["RESTOM", "RESSURF", "TREFHT", "FSNTOA", "FLUT", "PRECT", "QFLX"]
     assert get_var_names(get_vars_original(["invalid_plot"])) == []
+
+
+def test_get_eamxx_source_variables():
+    # Aliased variables map to a single EAMxx variable.
+    assert get_eamxx_source_variables("TREFHT") == ["T_2m"]
+    assert get_eamxx_source_variables("FLUT") == ["LW_flux_up_at_model_top"]
+    assert get_eamxx_source_variables("QFLX") == ["surf_evap"]
+
+    # Derived variables expand recursively, without repeats.
+    assert get_eamxx_source_variables("FSNTOA") == [
+        "SW_flux_dn_at_model_top",
+        "SW_flux_up_at_model_top",
+    ]
+    assert get_eamxx_source_variables("RESTOM") == [
+        "SW_flux_dn_at_model_top",
+        "SW_flux_up_at_model_top",
+        "LW_flux_up_at_model_top",
+    ]
+    # LHFLX is reconstructed like EAM (from surf_evap and the liquid precip),
+    # not read from surface_upward_latent_heat_flux directly.
+    assert get_eamxx_source_variables("LHFLX") == [
+        "surf_evap",
+        "precip_liq_surf_mass_flux",
+    ]
+    assert get_eamxx_source_variables("RESSURF") == [
+        "SW_flux_dn_at_model_bot",
+        "SW_flux_up_at_model_bot",
+        "LW_flux_up_at_model_bot",
+        "LW_flux_dn_at_model_bot",
+        "surf_sens_flux",
+        "surf_evap",
+        "precip_liq_surf_mass_flux",
+    ]
+    assert get_eamxx_source_variables("PRECT") == [
+        "precip_liq_surf_mass_flux",
+        "precip_ice_surf_mass_flux",
+    ]
+
+    # Variables that are neither aliased nor derived are assumed to be
+    # EAMxx names already.
+    assert get_eamxx_source_variables("T_2m") == ["T_2m"]
+
+
+def test_is_eamxx_data():
+    # Any single EAMxx variable is enough, even a subset for one plot.
+    assert is_eamxx_data(["T_2m"])
+    assert is_eamxx_data(["surf_evap", "precip_liq_surf_mass_flux"])
+    assert is_eamxx_data(["SW_flux_dn_at_model_top", "SW_flux_up_at_model_top"])
+    # Unrelated variables alongside an EAMxx one don't hide it.
+    assert is_eamxx_data(["ps", "IceWaterPath", "T_2m"])
+
+    # EAM data has none of those names.
+    assert not is_eamxx_data(["TREFHT", "FSNT", "FLNT", "PRECC", "PRECL", "QFLX"])
+    assert not is_eamxx_data([])
+
+
+def test_eamxx_derivations_are_fully_resolved():
+    # Every derivation must resolve down to EAMxx variables, i.e. no canonical
+    # name should be left over.
+    canonical_names = set(EAMXX_DERIVATIONS.keys()) | set(EAMXX_ALIASES.keys())
+    for var in EAMXX_DERIVATIONS:
+        source_vars = get_eamxx_source_variables(var)
+        assert (
+            set(source_vars) & canonical_names == set()
+        ), f"{var} resolves to {source_vars}, which still contains canonical names"
+        # A derivation is only useful if its function accepts what it declares.
+        assert len(source_vars) >= len(EAMXX_DERIVATIONS[var][0])
+        # Detection must recognize every variable a derivation reads.
+        assert is_eamxx_data(source_vars)
 
 
 def test_land_csv_row_to_var():
