@@ -54,6 +54,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#step-by-step-run-flow">Step-by-step run flow</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#output-modes">Output modes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#classic-plot-names">Classic plot names</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#eamxx-support">EAMxx support</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#component-plot-requests">Component plot requests</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#boolean-parsing-note">Boolean parsing note</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#parameter-reference">Parameter reference</a></li>
@@ -148,13 +149,73 @@ instead of viewer pages.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">net_atm_energy_imbalance</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">RESTOM</span></code> and <code class="docutils literal notranslate"><span class="pre">RESSURF</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">global_surface_air_temperature</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">TREFHT</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">toa_radiation</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">FSNTOA</span></code> and <code class="docutils literal notranslate"><span class="pre">FLUT</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">net_atm_water_imbalance</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">PRECC</span></code>, <code class="docutils literal notranslate"><span class="pre">PRECL</span></code>, and <code class="docutils literal notranslate"><span class="pre">QFLX</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">net_atm_water_imbalance</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">PRECT</span></code> and <code class="docutils literal notranslate"><span class="pre">QFLX</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">change_ohc</span></code> -&gt; ocean heat content plot</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_moc</span></code> -&gt; maximum meridional overturning circulation plot</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">change_sea_level</span></code> -&gt; sea-level change plot</p></li>
 </ul>
 <p>The three ocean-related plot names (<code class="docutils literal notranslate"><span class="pre">change_ohc</span></code>, <code class="docutils literal notranslate"><span class="pre">max_moc</span></code>,
 <code class="docutils literal notranslate"><span class="pre">change_sea_level</span></code>) above require ocean support data.</p>
+<p>Some of the variables above are derived rather than read directly. For EAM,
+<code class="docutils literal notranslate"><span class="pre">RESTOM</span></code> is <code class="docutils literal notranslate"><span class="pre">FSNT</span> <span class="pre">-</span> <span class="pre">FLNT</span></code>, <code class="docutils literal notranslate"><span class="pre">RESSURF</span></code> is <code class="docutils literal notranslate"><span class="pre">FSNS</span> <span class="pre">-</span> <span class="pre">FLNS</span> <span class="pre">-</span> <span class="pre">SHFLX</span> <span class="pre">-</span> <span class="pre">LHFLX</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">PRECT</span></code> is <code class="docutils literal notranslate"><span class="pre">1e3</span> <span class="pre">*</span> <span class="pre">(PRECC</span> <span class="pre">+</span> <span class="pre">PRECL)</span></code>.</p>
+</section>
+<section id="eamxx-support">
+<h2>EAMxx support<a class="headerlink" href="#eamxx-support" title="Link to this heading"></a></h2>
+<p>EAMxx names these variables differently. This is detected automatically: if any
+EAMxx variable is present in the atmosphere time-series directory, the classic
+plots are read from the EAMxx fields instead. Nothing needs to be configured,
+and the plot names, the plots themselves, and their units are unchanged; only
+the variables read from the time-series files differ.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 80.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Variable</p></th>
+<th class="head"><p>EAMxx source variables</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">TREFHT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">T_2m</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">FLUT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LW_flux_up_at_model_top</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FSNTOA</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SW_flux_dn_at_model_top</span> <span class="pre">-</span> <span class="pre">SW_flux_up_at_model_top</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">RESTOM</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SW_flux_dn_at_model_top</span> <span class="pre">-</span> <span class="pre">SW_flux_up_at_model_top</span> <span class="pre">-</span></code>
+<code class="docutils literal notranslate"><span class="pre">LW_flux_up_at_model_top</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">RESSURF</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(SW_flux_dn_at_model_bot</span> <span class="pre">-</span> <span class="pre">SW_flux_up_at_model_bot)</span> <span class="pre">-</span></code>
+<code class="docutils literal notranslate"><span class="pre">(LW_flux_up_at_model_bot</span> <span class="pre">-</span> <span class="pre">LW_flux_dn_at_model_bot)</span> <span class="pre">-</span></code>
+<code class="docutils literal notranslate"><span class="pre">surf_sens_flux</span> <span class="pre">-</span> <span class="pre">LHFLX</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LHFLX</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(2.501e6+3.337e5)*surf_evap</span> <span class="pre">-</span> <span class="pre">3.337e5*1e3*precip_liq_surf_mass_flux</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PRECT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1e3</span> <span class="pre">*</span> <span class="pre">(precip_liq_surf_mass_flux</span> <span class="pre">+</span> <span class="pre">precip_ice_surf_mass_flux)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">QFLX</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">surf_evap</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>These definitions match the EAMxx entries in e3sm_diags’
+<code class="docutils literal notranslate"><span class="pre">DERIVED_VARIABLES</span></code>. Note that EAMxx’s “model top” is the top of the
+atmosphere, so there is no distinction between the model-top fluxes and the
+TOA fluxes.</p>
+<p>The requested variables must be present in
+<code class="docutils literal notranslate"><span class="pre">post/atm/glb/ts/monthly/&lt;ts_num_years&gt;yr/</span></code> under their EAMxx names, so the
+corresponding zppy <code class="docutils literal notranslate"><span class="pre">[ts]</span></code> subtask must include them in its variable list.</p>
+<p>Component plots (<code class="docutils literal notranslate"><span class="pre">plots_atm</span></code>) are not translated: for EAMxx, request EAMxx
+variable names directly.</p>
 </section>
 <section id="component-plot-requests">
 <h2>Component plot requests<a class="headerlink" href="#component-plot-requests" title="Link to this heading"></a></h2>

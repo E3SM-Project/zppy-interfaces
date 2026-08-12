@@ -123,6 +123,10 @@ the request normalization logic.</p></li>
 support time series before plotting when needed.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">zppy_interfaces/global_time_series/coupled_global/driver.py</span></code> coordinates
 original plots, component plots, and viewer generation.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">zppy_interfaces/global_time_series/coupled_global/eamxx_variables.py</span></code> maps
+the canonical (EAM) variable names used by the classic plots onto the EAMxx
+variables they are read from or derived from, and detects which of the two
+models wrote the data.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">zppy_interfaces/global_time_series/coupled_global/mode_pdf.py</span></code> assembles
 cumulative PDFs when <code class="docutils literal notranslate"><span class="pre">make_viewer=False</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">zppy_interfaces/global_time_series/coupled_global/mode_viewer.py</span></code> and the
@@ -135,6 +139,12 @@ cumulative PDFs when <code class="docutils literal notranslate"><span class="pre
 <li><p>The classic plot names in <code class="docutils literal notranslate"><span class="pre">plots_original</span></code> are not the same thing as raw
 variable names, so the driver keeps them separate from the component-variable
 lists.</p></li>
+<li><p>The classic plots are written in terms of canonical (EAM) variable names.
+<code class="docutils literal notranslate"><span class="pre">DatasetWrapper</span></code> is the only place that knows how those names map onto what
+is on disk: it detects EAMxx data from the variables it opened, and
+<code class="docutils literal notranslate"><span class="pre">globalAnnualHelper</span></code> then applies the EAMxx aliases and derivations from
+<code class="docutils literal notranslate"><span class="pre">eamxx_variables.py</span></code> (EAM derivations are hard-coded there). Supporting
+another model means extending that mapping, not the plotting code.</p></li>
 <li><p>Land plots depend on <code class="docutils literal notranslate"><span class="pre">zppy_land_fields.csv</span></code> for the accepted variable set,
 grouping metadata, units, and long names.</p></li>
 <li><p>The driver always writes output relative to <code class="docutils literal notranslate"><span class="pre">results_dir</span></code>, and viewer mode
