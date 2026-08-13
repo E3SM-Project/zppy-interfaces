@@ -47,11 +47,11 @@ docs = [
 # make sure these always match dev.yml and .pre-commit-config.yaml
 # (run `python scripts/sync_pre_commit_versions.py` to sync them)
 qa = [
-    "black==25.1.0",
+    "black==26.5.1",
     "flake8==7.3.0",
     "flake8-isort==6.1.1",
-    "isort==6.0.1",
-    "mypy==1.18.2",
+    "isort==8.0.1",
+    "mypy==2.3.0",
     "pre-commit==4.3.0",
     "types-PyYAML >=6.0.0",
 ]
@@ -60,6 +60,15 @@ dev = [
     "tbump==6.9.0",
     "ipykernel",
 ]
+
+# `pre-commit-update` rewrites .pre-commit-config.yaml with ruamel.yaml.  Without
+# this, it defaults to `indent(sequence=4)`, which puts the `-` of each list item
+# in column 0 and reformats the whole file.  These settings keep its output in
+# the conventional `  - item` style, so an update is a diff of just the revs.
+[tool.pre-commit-update.yaml]
+mapping = 2
+sequence = 4
+offset = 2
 
 [tool.black]
 line-length = 88
