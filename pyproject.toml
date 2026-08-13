@@ -61,6 +61,15 @@ dev = [
     "ipykernel",
 ]
 
+# `pre-commit-update` rewrites .pre-commit-config.yaml with ruamel.yaml.  Without
+# this, it defaults to `indent(sequence=4)`, which puts the `-` of each list item
+# in column 0 and reformats the whole file.  These settings keep its output in
+# the conventional `  - item` style, so an update is a diff of just the revs.
+[tool.pre-commit-update.yaml]
+mapping = 2
+sequence = 4
+offset = 2
+
 [tool.black]
 line-length = 88
 target-version = ['py39']
