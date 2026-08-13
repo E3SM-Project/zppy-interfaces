@@ -45,7 +45,7 @@ jobs:
           micromamba activate pre_commit_dev
           # permissions issue with gh 2.76.0
           micromamba install -y --override-channels -c conda-forge \
-            pre-commit "gh !=2.76.0"
+            pre-commit pyyaml "gh !=2.76.0"
           python -m pip install pre-commit-update
           gh --version
 
@@ -61,6 +61,9 @@ jobs:
           git checkout -b update-pre-commit-deps
           # pre-commit-update doesn't try to include non-release versions
           pre-commit-update
+          # Propagate the new versions to conda/dev.yml and the `qa` extra in
+          # pyproject.toml
+          python scripts/sync_pre_commit_versions.py
           git add .
           # The second command will fail if no changes were present, so we ignore it
           git commit -m "Update pre-commit dependencies" || ( echo "UP_TO_DATE=true" >> "$GITHUB_ENV")
