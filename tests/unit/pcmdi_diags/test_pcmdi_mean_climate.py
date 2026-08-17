@@ -1,6 +1,6 @@
 from typing import List
 
-from zppy_interfaces.pcmdi_diags.pcmdi_mean_cimate import generate_mean_clim_cmds
+from zppy_interfaces.pcmdi_diags.pcmdi_mean_climate import generate_mean_clim_cmds
 
 
 def test_generate_mean_clim_cmds():

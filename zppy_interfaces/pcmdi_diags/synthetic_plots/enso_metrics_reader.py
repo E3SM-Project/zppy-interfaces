@@ -23,6 +23,16 @@ class EnsoMetricsReader:
 
     def run(self):
         """Collect paths to ENSO metrics JSON files and return the mapping."""
+        if not self.mips:
+            raise ValueError(
+                "mips is empty; cannot retrieve ENSO metrics. "
+                "Check that cmip_name and model_name are configured."
+            )
+        if not self.metrics_collections:
+            raise ValueError(
+                "metrics_collections is empty; cannot retrieve ENSO metrics. "
+                "Check that 'collection' is configured in the metric_dict."
+            )
         for mip in self.mips:
             self.dict_json_path[mip] = {}
             for metrics_collection in self.metrics_collections:
@@ -35,9 +45,9 @@ class EnsoMetricsReader:
                         self._get_test_json_path(mip, metrics_collection)
                     )
 
-            if len(self.dict_json_path[mip]) < 1:
+            if not self.dict_json_path[mip]:
                 raise FileNotFoundError(
-                    f"No Synthetic ENSO Metrics Data for {mip}, aborting..."
+                    f"No ENSO metrics files were collected for mip '{mip}'."
                 )
 
         return self.dict_json_path
@@ -79,7 +89,13 @@ class EnsoMetricsReader:
                 with open(json_path) as ff:
                     data_json = json.load(ff)
 
-            old_key = list(data_json["RESULTS"]["model"].keys())[0]
+            results_block = data_json.get("RESULTS", {})
+            model_block = results_block.get("model", {})
+            if not model_block:
+                raise KeyError(
+                    f"Expected non-empty 'RESULTS.model' dict in {json_path}"
+                )
+            old_key = list(model_block.keys())[0]
 
             data_json["RESULTS"]["model"][mip] = data_json["RESULTS"]["model"].pop(
                 old_key
