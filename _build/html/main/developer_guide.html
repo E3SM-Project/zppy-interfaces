@@ -122,12 +122,12 @@ git<span class="w"> </span>fetch<span class="w"> </span>upstream<span class="w">
 git<span class="w"> </span>checkout<span class="w"> </span>main
 git<span class="w"> </span>reset<span class="w"> </span>--hard<span class="w"> </span>upstream/main
 git<span class="w"> </span>log<span class="w"> </span>--oneline<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-n<span class="w"> </span><span class="m">1</span>
-<span class="c1"># Check that we&#39;re up to date with either:</span>
+<span class="c1"># Check that we're up to date with either:</span>
 <span class="c1"># 1. The latest commit on main: https://github.com/E3SM-Project/zppy-interfaces/commits/main/</span>
 <span class="c1"># 2. The commits of the pull request being tested.</span>
 
 <span class="c1"># Set up conda environment</span>
-bash<span class="w"> </span><span class="c1"># Run bash so we&#39;re in an isolated subshell</span>
+bash<span class="w"> </span><span class="c1"># Run bash so we're in an isolated subshell</span>
 <span class="c1"># Make sure conda is activated</span>
 rm<span class="w"> </span>-rf<span class="w"> </span>build
 conda<span class="w"> </span>clean<span class="w"> </span>--all<span class="w"> </span>--y
@@ -140,7 +140,7 @@ python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </sp
 pytest<span class="w"> </span>tests/unit/global_time_series/test_*.py
 pytest<span class="w"> </span>tests/unit/pcmdi_diags/test_*.py
 
-<span class="c1"># Note that integration testing is done as part of zppy&#39;s testing.</span>
+<span class="c1"># Note that integration testing is done as part of zppy's testing.</span>
 </pre></div>
 </div>
 </section>
