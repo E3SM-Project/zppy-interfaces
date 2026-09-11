@@ -2,7 +2,9 @@ import pandas as pd
 
 from zppy_interfaces.pcmdi_diags.synthetic_plots import synthetic_metrics_plotter
 from zppy_interfaces.pcmdi_diags.synthetic_plots.synthetic_metrics_plotter import (
+    SyntheticMetricsPlotter,
     drop_vars,
+    enso_plot_driver,
     mean_climate_plot_driver,
 )
 
@@ -84,3 +86,115 @@ def test_mean_climate_portrait_skips_region_missing_variables(monkeypatch, tmp_p
     assert captured["region"] == "ocean"
     assert captured["var_list"] == ["pr"]
     assert all(values.shape == (1, 2) for values in captured["data_dict"].values())
+
+
+def test_enso_plot_driver_builds_portrait_plot_paths(monkeypatch, tmp_path):
+    captured = {}
+
+    def fake_enso_portrait_plot(
+        metrics_collections,
+        list_project,
+        list_obs,
+        dict_json_path,
+        figure_name,
+        reduced_set,
+    ):
+        captured["metrics_collections"] = metrics_collections
+        captured["list_project"] = list_project
+        captured["list_obs"] = list_obs
+        captured["dict_json_path"] = dict_json_path
+        captured["figure_name"] = figure_name
+        captured["reduced_set"] = reduced_set
+        return None, {}
+
+    monkeypatch.setattr(
+        synthetic_metrics_plotter, "enso_portrait_plot", fake_enso_portrait_plot
+    )
+
+    parameter = {
+        "diag_vars": {
+            "cor_xy": {
+                "type": ["portrait"],
+                "collection": ["ENSO_perf"],
+            }
+        },
+        "cmip_name": "CMIP6.historical",
+        "model_name": ["E3SM_r1"],
+        "out_dir": str(tmp_path),
+    }
+
+    enso_plot_driver(
+        "enso_metric", "cor_xy", "path/to/dict_json.json", parameter, "png"
+    )
+
+    assert captured["metrics_collections"] == ["ENSO_perf"]
+    assert captured["list_project"] == ["CMIP6", "E3SM_r1"]
+    assert captured["list_obs"] == []
+    assert captured["dict_json_path"] == "path/to/dict_json.json"
+    assert captured["reduced_set"] is True
+
+    expected_outdir = tmp_path / "enso_metric"
+    assert expected_outdir.is_dir()
+    assert captured["figure_name"] == str(
+        expected_outdir / "enso_metric_cor_xy_portrait.png"
+    )
+
+
+def test_handle_enso_metric_dispatches_to_reader_and_plot_driver(monkeypatch, tmp_path):
+    captured_reader_args = {}
+    captured_plot_args = {}
+
+    class FakeEnsoMetricsReader:
+        def __init__(self, parameter, stat, metric_dict, mips, collections):
+            captured_reader_args["parameter"] = parameter
+            captured_reader_args["stat"] = stat
+            captured_reader_args["metric_dict"] = metric_dict
+            captured_reader_args["mips"] = mips
+            captured_reader_args["collections"] = collections
+
+        def run(self):
+            return {"fake": "path"}
+
+    def fake_enso_plot_driver(metric, stat, dict_json_path, parameter, fig_format):
+        captured_plot_args["metric"] = metric
+        captured_plot_args["stat"] = stat
+        captured_plot_args["dict_json_path"] = dict_json_path
+        captured_plot_args["fig_format"] = fig_format
+
+    monkeypatch.setattr(
+        synthetic_metrics_plotter, "EnsoMetricsReader", FakeEnsoMetricsReader
+    )
+    monkeypatch.setattr(
+        synthetic_metrics_plotter, "enso_plot_driver", fake_enso_plot_driver
+    )
+
+    plotter = SyntheticMetricsPlotter(
+        case_name="E3SM_r1",
+        test_name="CMIP6.historical.E3SM.r1i1p1f1",
+        table_id="Amon",
+        figure_format="png",
+        metric_dict={
+            "mean_climate": {},
+            "variability_modes": {},
+            "enso_metric": {"cor_xy": {"collection": ["ENSO_perf"]}},
+        },
+        save_data=False,
+        base_test_input_path="/base/%(group_type)/put_model_here",
+        results_dir=str(tmp_path),
+        clim_viewer=False,
+        mova_viewer=False,
+        movc_viewer=False,
+        enso_viewer=True,
+        cmip_enso_dir="/cmip",
+        cmip_enso_set="CMIP6.historical",
+    )
+
+    plotter.generate()
+
+    assert captured_reader_args["stat"] == "cor_xy"
+    assert captured_reader_args["mips"] == ["CMIP6", "E3SM_r1"]
+    assert captured_reader_args["collections"] == ["ENSO_perf"]
+    assert captured_plot_args["metric"] == "enso_metric"
+    assert captured_plot_args["stat"] == "cor_xy"
+    assert captured_plot_args["dict_json_path"] == {"fake": "path"}
+    assert captured_plot_args["fig_format"] == "png"
