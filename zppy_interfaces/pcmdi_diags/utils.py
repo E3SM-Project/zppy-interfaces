@@ -142,11 +142,12 @@ def run_parallel_jobs(cmds: List[str], num_workers: int) -> List[Tuple[str, str,
 
 def _signal_process_group(process, force=False):
     """Signal a process and, on POSIX, every descendant in its process group."""
-    if os.name == "posix" and hasattr(process, "pid"):
+    process_pid = getattr(process, "pid", None)
+    if os.name == "posix" and process_pid is not None:
         sig = signal.SIGKILL if force else signal.SIGTERM
         try:
             # start_new_session=True makes the child PID its process-group ID.
-            os.killpg(process.pid, sig)
+            os.killpg(process_pid, sig)
         except ProcessLookupError:
             pass
         return

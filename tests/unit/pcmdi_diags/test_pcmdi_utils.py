@@ -1,5 +1,6 @@
 import signal
 import threading
+from typing import Optional
 
 import pytest
 
@@ -12,6 +13,7 @@ class FakeProcess:
         self.stderr = stderr
         self.return_code = return_code
         self.returncode = None
+        self.pid: Optional[int] = None
         self.ready = ready or threading.Event()
         if ready is None:
             self.ready.set()
