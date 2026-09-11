@@ -88,13 +88,9 @@ class DataCatalogueBuilder:
             varin = self._get_base_varname(var)
             logger.info(f"Looking for {varin}, the base var name of {var}")
             logger.info(f"Finding test files in {self.test_path}")
-            test_files = sorted(
-                glob.glob(os.path.join(self.test_path, f"*.{varin}.*.nc"))
-            )
+            test_files = _find_nc_files(self.test_path, varin)
             logger.info(f"Finding ref files in {self.ref_path}")
-            ref_files = sorted(
-                glob.glob(os.path.join(self.ref_path, f"*.{varin}.*.nc"))
-            )
+            ref_files = _find_nc_files(self.ref_path, varin)
 
             if (
                 test_files
@@ -286,9 +282,9 @@ def set_up(parameters: CoreParameters) -> CoreOutput:
     )
     # Dataset identifiers
     model_name_parts = parameters.model_name.split(".")
-    if len(model_name_parts) < 2:
+    if len(model_name_parts) != 4:
         raise ValueError(
-            f"model_name must have at least 2 dot-separated parts, "
+            f"model_name must have exactly 4 dot-separated parts, "
             f"got: {parameters.model_name}"
         )
     test_data_set: List[str] = [model_name_parts[1]]
@@ -299,9 +295,9 @@ def set_up(parameters: CoreParameters) -> CoreOutput:
         if not parameters.model_name_ref:
             raise ValueError("model_name_ref is required for run_type=model_vs_model")
         ref_parts = parameters.model_name_ref.split(".")
-        if len(ref_parts) < 2:
+        if len(ref_parts) != 4:
             raise ValueError(
-                f"model_name_ref must have at least 2 dot-separated parts, "
+                f"model_name_ref must have exactly 4 dot-separated parts, "
                 f"got: {parameters.model_name_ref}"
             )
         reference_data_set = [ref_parts[1]]
@@ -313,9 +309,7 @@ def set_up(parameters: CoreParameters) -> CoreOutput:
     ###############################################################
     for var in parameters.variables:
         varin = re.split(r"[_-]", var)[0] if "_" in var or "-" in var else var
-        test_fpaths = sorted(
-            glob.glob(os.path.join(parameters.test_data_path, f"*.{var}.*.nc"))
-        )
+        test_fpaths = _find_nc_files(parameters.test_data_path, var)
         if not test_fpaths:
             derive_missing_variable(
                 varin,
@@ -323,11 +317,7 @@ def set_up(parameters: CoreParameters) -> CoreOutput:
                 f"{parameters.model_name}.{parameters.model_tableID}",
             )
             if parameters.run_type == "model_vs_model":
-                ref_fpaths = sorted(
-                    glob.glob(
-                        os.path.join(parameters.reference_data_path, f"*.{var}.*.nc")
-                    )
-                )
+                ref_fpaths = _find_nc_files(parameters.reference_data_path, var)
                 if not ref_fpaths:
                     derive_missing_variable(
                         varin,
@@ -376,6 +366,13 @@ def set_up(parameters: CoreParameters) -> CoreOutput:
     out_path = os.path.join(parameters.results_dir, "%(group_type)")
     logger.info(f"out_path={out_path}")
     return CoreOutput(multiprocessing, obs_dic, input_template, out_path)
+
+
+def _find_nc_files(directory: str, var_name: str) -> List[str]:
+    return sorted(
+        glob.glob(os.path.join(directory, f"*.{var_name}.*.nc"))
+        + glob.glob(os.path.join(directory, f"{var_name}_*.nc"))
+    )
 
 
 def derive_missing_variable(varin, path, model_id):

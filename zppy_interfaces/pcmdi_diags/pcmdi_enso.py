@@ -179,7 +179,9 @@ class EnsoDiagnosticsCollector:
                     for _member, _entry in _members.items():
                         value_block = _entry.get("value", {})
                         incomplete = [
-                            m for m, v in value_block.items() if not v.get("metric")
+                            m
+                            for m, v in value_block.items()
+                            if v.get("metric") is None or v.get("metric") == {}
                         ]
                         if incomplete:
                             logger.warning(

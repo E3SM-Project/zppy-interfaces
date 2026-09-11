@@ -22,7 +22,7 @@ class VariabilityModesParameters(object):
         var_modes = args.get("var_modes")
         if not var_modes:
             raise ValueError("--var_modes is required but was not provided.")
-        self.var_modes: List[str] = var_modes.split(",")
+        self.var_modes: List[str] = [mode.strip() for mode in var_modes.split(",")]
         # self.vars is distinct from the list version in CoreParameters
         vars_arg = args.get("vars")
         if not vars_arg:
