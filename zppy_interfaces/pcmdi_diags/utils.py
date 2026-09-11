@@ -66,11 +66,19 @@ def run_parallel_jobs(cmds: List[str], num_workers: int) -> List[Tuple[str, str,
                 stdout, stderr = batch_proc.communicate()
                 return_code = batch_proc.returncode
 
-                if return_code != 0:
                     # Terminate any remaining running processes in the batch
                     for _, remaining_proc in procs:
                         if remaining_proc.poll() is None:
                             remaining_proc.terminate()
+
+                    # Reap terminated processes to avoid zombies
+                    for _, remaining_proc in procs:
+                        if remaining_proc.poll() is None:
+                            try:
+                                remaining_proc.wait(timeout=5)
+                            except Exception:
+                                remaining_proc.kill()
+                                remaining_proc.wait()
                     logger.error(
                         f"ERROR: Process failed: '{batch_cmd}'\nError: {stderr.strip()}"
                     )
