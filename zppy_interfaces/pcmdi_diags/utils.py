@@ -66,6 +66,7 @@ def run_parallel_jobs(cmds: List[str], num_workers: int) -> List[Tuple[str, str,
                 stdout, stderr = batch_proc.communicate()
                 return_code = batch_proc.returncode
 
+                if return_code != 0:
                     # Terminate any remaining running processes in the batch
                     for _, remaining_proc in procs:
                         if remaining_proc.poll() is None:

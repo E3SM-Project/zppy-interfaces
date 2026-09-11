@@ -40,33 +40,39 @@ class SyntheticPlotsParameters(object):
         self.clim_viewer: bool = str2bool(
             args.get("clim_viewer") if args.get("clim_viewer") is not None else False
         )
+        clim_vars = args.get("clim_vars")
         self.clim_vars: Optional[List[str]] = (
-            args.get("clim_vars").split(",") if args.get("clim_vars") else None
+            clim_vars.split(",") if clim_vars else None
         )
         self.clim_years: str = args["clim_years"]
+        clim_regions = args.get("clim_regions")
         self.clim_regions: Optional[List[str]] = (
-            args.get("clim_regions").split(",") if args.get("clim_regions") else None
+            clim_regions.split(",") if clim_regions else None
         )
         self.cmip_clim_dir: str = args["cmip_clim_dir"]
         self.cmip_clim_set: str = args["cmip_clim_set"]
         self.mova_viewer: bool = str2bool(
             args.get("mova_viewer") if args.get("mova_viewer") is not None else False
         )
+        mova_modes = args.get("mova_modes")
         self.mova_modes: Optional[List[str]] = (
-            args.get("mova_modes").split(",") if args.get("mova_modes") else None
+            mova_modes.split(",") if mova_modes else None
         )
+        mova_vars = args.get("mova_vars")
         self.mova_vars: Optional[List[str]] = (
-            args.get("mova_vars").split(",") if args.get("mova_vars") else None
+            mova_vars.split(",") if mova_vars else None
         )
         self.mova_years: str = args["mova_years"]
         self.movc_viewer: bool = str2bool(
             args.get("movc_viewer") if args.get("movc_viewer") is not None else False
         )
+        movc_modes = args.get("movc_modes")
         self.movc_modes: Optional[List[str]] = (
-            args.get("movc_modes").split(",") if args.get("movc_modes") else None
+            movc_modes.split(",") if movc_modes else None
         )
+        movc_vars = args.get("movc_vars")
         self.movc_vars: Optional[List[str]] = (
-            args.get("movc_vars").split(",") if args.get("movc_vars") else None
+            movc_vars.split(",") if movc_vars else None
         )
         self.movc_years: str = args["movc_years"]
         self.cmip_movs_dir: str = args["cmip_movs_dir"]
@@ -74,8 +80,9 @@ class SyntheticPlotsParameters(object):
         self.enso_viewer: bool = str2bool(
             args.get("enso_viewer") if args.get("enso_viewer") is not None else False
         )
+        enso_vars = args.get("enso_vars")
         self.enso_vars: Optional[List[str]] = (
-            args.get("enso_vars").split(",") if args.get("enso_vars") else None
+            enso_vars.split(",") if enso_vars else None
         )
         self.enso_years: str = args["enso_years"]
         self.cmip_enso_dir: str = args["cmip_enso_dir"]
