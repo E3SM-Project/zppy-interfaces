@@ -303,15 +303,13 @@ zi-pcmdi-enso
 
 .. warning::
 
-  ``pcmdi_diags`` is currently in a beta release and is undergoing active development. ``zi-pcmdi-enso`` is not yet supported and should be treated as unavailable.
+  ``pcmdi_diags`` is currently in a beta release and is undergoing active development.
 
 Purpose
 -------
 
 ``zi-pcmdi-enso`` contains argument parsing, observation preparation helpers,
 driver command generation, and output validation logic for ENSO diagnostics.
-However, the current ``main()`` implementation exits immediately with an error
-message stating that the command is not yet supported.
 
 Current status
 --------------

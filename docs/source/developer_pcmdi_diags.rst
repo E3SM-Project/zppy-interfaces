@@ -16,8 +16,7 @@ The PCMDI interface is split across several CLI entry points:
   resulting outputs.
 * ``pcmdi_variability_modes.py`` runs variability-mode diagnostics and collects
   the resulting files.
-* ``pcmdi_enso.py`` defines the intended ENSO interface, but ``main()`` still
-  exits early because the command is not yet supported.
+* ``pcmdi_enso.py`` defines the intended ENSO interface.
 * ``pcmdi_synthetic_plots.py`` builds summary plots and the combined viewer
   pages from prior diagnostics output.
 
