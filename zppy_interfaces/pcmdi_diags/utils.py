@@ -1,4 +1,7 @@
+import os
+import signal
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from subprocess import PIPE, Popen
 from typing import Dict, List, Tuple
 
@@ -49,32 +52,112 @@ def run_parallel_jobs(cmds: List[str], num_workers: int) -> List[Tuple[str, str,
     Returns:
     - List of tuples: (stdout, stderr, return_code) for each command.
     """
-    results = []
+    if num_workers < 1:
+        raise ValueError(f"num_workers must be >= 1, got {num_workers}")
+
+    results: List[Tuple[str, str, int]] = []
     procs = []
 
     for i, cmd in enumerate(cmds):
-        proc = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True, text=True)
+        proc = Popen(
+            cmd,
+            stdout=PIPE,
+            stderr=PIPE,
+            shell=True,
+            text=True,
+            start_new_session=os.name == "posix",
+        )
         procs.append((cmd, proc))
 
         # Run the batch if full or if it's the last command
         if len(procs) >= num_workers or i == len(cmds) - 1:
-            logger.info(f"Running {count_child_processes()} subprocesses...")
-            for cmd, proc in procs:
-                stdout, stderr = proc.communicate()
-                return_code = proc.returncode
+            logger.info(f"Running batch of {len(procs)} subprocesses...")
+            batch_results: Dict[int, Tuple[str, str, int]] = {}
+            failed_command = None
+            failed_stderr = ""
 
-                if return_code != 0:
-                    logger.error(
-                        f"ERROR: Process failed: '{cmd}'\nError: {stderr.strip()}"
+            with ThreadPoolExecutor(max_workers=len(procs)) as executor:
+                futures = {
+                    executor.submit(batch_proc.communicate): (
+                        batch_index,
+                        batch_cmd,
+                        batch_proc,
                     )
-                    raise RuntimeError(f"Subprocess failed: {cmd}")
+                    for batch_index, (batch_cmd, batch_proc) in enumerate(procs)
+                }
 
-                results.append((stdout.strip(), stderr.strip(), return_code))
+                for future in as_completed(futures):
+                    batch_index, batch_cmd, batch_proc = futures[future]
+                    stdout, stderr = future.result()
+                    return_code = batch_proc.returncode
+                    batch_results[batch_index] = (
+                        stdout.strip(),
+                        stderr.strip(),
+                        return_code,
+                    )
+
+                    if return_code != 0 and failed_command is None:
+                        failed_command = batch_cmd
+                        failed_stderr = stderr.strip()
+
+                        # Stop unfinished jobs immediately instead of waiting for
+                        # earlier submissions to finish first.
+                        running_procs = [
+                            remaining_proc
+                            for _, remaining_proc in procs
+                            if remaining_proc.poll() is None
+                        ]
+                        for remaining_proc in running_procs:
+                            _signal_process_group(remaining_proc)
+
+                        # Bound termination and reap processes to avoid zombies.
+                        for remaining_proc in running_procs:
+                            if remaining_proc.poll() is None:
+                                try:
+                                    remaining_proc.wait(timeout=5)
+                                except Exception:
+                                    pass
+
+                        # A shell may exit before one of its children. Signal each
+                        # original process group again so no descendants survive.
+                        for remaining_proc in running_procs:
+                            _signal_process_group(remaining_proc, force=True)
+                            if remaining_proc.poll() is None:
+                                remaining_proc.wait()
+
+            if failed_command is not None:
+                logger.error(
+                    f"ERROR: Process failed: '{failed_command}'\n"
+                    f"Error: {failed_stderr}"
+                )
+                raise RuntimeError(f"Subprocess failed: {failed_command}")
+
+            results.extend(batch_results[index] for index in range(len(procs)))
 
             time.sleep(0.25)  # Throttle before starting the next batch
             procs = []
 
     return results
+
+
+def _signal_process_group(process, force=False):
+    """Signal a process and, on POSIX, every descendant in its process group."""
+    process_pid = getattr(process, "pid", None)
+    if os.name == "posix" and process_pid is not None:
+        sig = signal.SIGKILL if force else signal.SIGTERM
+        try:
+            # start_new_session=True makes the child PID its process-group ID.
+            os.killpg(process_pid, sig)
+        except ProcessLookupError:
+            pass
+        return
+
+    if process.poll() is not None:
+        return
+    if force:
+        process.kill()
+    else:
+        process.terminate()
 
 
 def run_serial_jobs(cmds: List[str]) -> List[Tuple[str, str, int]]:
@@ -91,14 +174,26 @@ def run_serial_jobs(cmds: List[str]) -> List[Tuple[str, str, int]]:
 
     for i, cmd in enumerate(cmds):
         logger.info(f"Running [{i + 1}/{len(cmds)}]: {cmd}")
+
         proc = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True, text=True)
         stdout, stderr = proc.communicate()
         return_code = proc.returncode
 
-        if return_code != 0:
-            logger.error(f"ERROR: Process failed: '{cmd}'\nError: {stderr.strip()}")
-            raise RuntimeError(f"Subprocess failed: {cmd}")
+        stdout = stdout.strip()
+        stderr = stderr.strip()
 
-        results.append((stdout.strip(), stderr.strip(), return_code))
+        if return_code != 0:
+            logger.error(
+                f"ERROR: Process failed [{i + 1}/{len(cmds)}]: '{cmd}'\n"
+                f"Return code: {return_code}\n"
+                f"STDOUT:\n{stdout}\n"
+                f"STDERR:\n{stderr}"
+            )
+            raise RuntimeError(
+                f"Subprocess failed [{i + 1}/{len(cmds)}] "
+                f"with return code {return_code}: {cmd}"
+            )
+
+        results.append((stdout, stderr, return_code))
 
     return results

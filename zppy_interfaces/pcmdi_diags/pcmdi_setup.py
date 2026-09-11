@@ -4,7 +4,7 @@ import os
 import re
 from collections import OrderedDict
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import xarray as xr
 from pcmdi_metrics.io import xcdat_open
@@ -15,36 +15,90 @@ from zppy_interfaces.multi_utils.logger import _setup_child_logger
 logger = _setup_child_logger(__name__)
 
 
+def _required_arg(args: Dict[str, Any], name: str) -> str:
+    value = args.get(name)
+    if value is None or not str(value).strip():
+        raise ValueError(f"--{name} is required but was not provided.")
+    return str(value).strip()
+
+
+def _parse_csv_arg(args: Dict[str, Any], name: str) -> List[str]:
+    raw_value = _required_arg(args, name)
+    values = [value.strip() for value in raw_value.split(",") if value.strip()]
+    if not values:
+        raise ValueError(f"--{name} must contain at least one value.")
+    return values
+
+
+def _parse_bool_arg(value: Any, name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "t", "yes", "y", "1", "on"}:
+        return True
+    if normalized in {"false", "f", "no", "n", "0", "off"}:
+        return False
+    raise ValueError(f"--{name} must be a boolean value, got {value!r}.")
+
+
 # Classes #####################################################################
 class CoreParameters(object):
-    def __init__(self, args: Dict[str, str]):
-        self.num_workers: int = int(args["num_workers"])
-        self.multiprocessing: bool = args["multiprocessing"].lower() == "true"
-        self.subsection: str = args["subsection"]
-        self.test_data_path: str = args["climo_ts_dir_primary"]
-        self.reference_data_path: str = args["climo_ts_dir_ref"]
-        self.model_name: str = args["model_name"]
-        self.model_tableID: str = args["model_tableID"]
-        self.figure_format: str = args["figure_format"]
-        self.run_type: str = args["run_type"]
-        self.obs_sets: str = args["obs_sets"]  # run_type == "model_vs_obs" only
-        self.model_name_ref: str = args[
-            "model_name_ref"
-        ]  # run_type == "model_vs_model" only
-        self.variables: List[str] = args["vars"].split(",")
-        self.tableID_ref: str = args["tableID_ref"]  # run_type == "model_vs_model" only
+    def __init__(self, args: Dict[str, Any]):
+        num_workers = _required_arg(args, "num_workers")
+        try:
+            self.num_workers = int(num_workers)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"--num_workers must be an integer, got {num_workers!r}."
+            ) from exc
+        if self.num_workers < 1:
+            raise ValueError(
+                f"--num_workers must be at least 1, got {self.num_workers}."
+            )
+
+        self.multiprocessing = _parse_bool_arg(
+            _required_arg(args, "multiprocessing"), "multiprocessing"
+        )
+        self.subsection = _required_arg(args, "subsection")
+        self.test_data_path = _required_arg(args, "climo_ts_dir_primary")
+        self.reference_data_path = _required_arg(args, "climo_ts_dir_ref")
+        self.model_name = _required_arg(args, "model_name")
+        self.model_tableID = _required_arg(args, "model_tableID")
+        self.figure_format = _required_arg(args, "figure_format")
+        self.run_type = _required_arg(args, "run_type")
+        if self.run_type not in {"model_vs_obs", "model_vs_model"}:
+            raise ValueError(f"Invalid --run_type={self.run_type}")
+
+        self.variables = _parse_csv_arg(args, "vars")
+        self.obs_sets: Optional[str] = None
+        self.model_name_ref: Optional[str] = None
+        self.tableID_ref: Optional[str] = None
+        if self.run_type == "model_vs_obs":
+            self.obs_sets = ",".join(_parse_csv_arg(args, "obs_sets"))
+        else:
+            self.model_name_ref = _required_arg(args, "model_name_ref")
+            self.tableID_ref = _required_arg(args, "tableID_ref")
+
         # Whether to generate the land/sea mask
-        self.generate_flag: str = args["generate_sftlf"]
-        self.case_id: str = args["case_id"]
-        self.results_dir: str = args["results_dir"]
+        self.generate_flag = _required_arg(args, "generate_sftlf")
+        self.case_id = _required_arg(args, "case_id")
+        self.results_dir = _required_arg(args, "results_dir")
 
 
 class CoreOutput(object):
-    def __init__(self, multiprocessing, obs_dic, input_template, out_path):
+    def __init__(
+        self,
+        multiprocessing,
+        obs_dic,
+        input_template,
+        out_path,
+        model_catalogue_path=None,
+    ):
         self.multiprocessing = multiprocessing
         self.obs_dic = obs_dic
         self.input_template = input_template
         self.out_path = out_path
+        self.model_catalogue_path = model_catalogue_path
 
 
 class DataCatalogueBuilder:
@@ -57,6 +111,7 @@ class DataCatalogueBuilder:
         variables: List[str],
         label,
         output_dir,
+        variable_aliases=None,
     ):
         self.test_path: str = test_path
         self.test_set: List[str] = test_set
@@ -65,9 +120,12 @@ class DataCatalogueBuilder:
         self.variables: List[str] = variables
         self.label = label
         self.output_dir = output_dir
+        self.variable_aliases = variable_aliases or {}
 
         self.test_info: OrderedDict = OrderedDict()
         self.ref_info: OrderedDict = OrderedDict()
+        self.test_catalogue_path = None
+        self.ref_catalogue_path = None
 
     def build_catalogues(self) -> Tuple[OrderedDict, OrderedDict]:
         if not self.variables:
@@ -78,13 +136,16 @@ class DataCatalogueBuilder:
             logger.info(f"Building catalogue for {var}")
             varin = self._get_base_varname(var)
             logger.info(f"Looking for {varin}, the base var name of {var}")
+            alias = self.variable_aliases.get(varin)
+            test_varins = [varin, alias] if alias else [varin]
+            ref_varins = [varin, alias] if alias else [varin]
             logger.info(f"Finding test files in {self.test_path}")
-            test_files = sorted(
-                glob.glob(os.path.join(self.test_path, f"*.{varin}.*.nc"))
+            test_file_var, test_files = self._find_variable_files(
+                self.test_path, test_varins
             )
             logger.info(f"Finding ref files in {self.ref_path}")
-            ref_files = sorted(
-                glob.glob(os.path.join(self.ref_path, f"*.{varin}.*.nc"))
+            ref_file_var, ref_files = self._find_variable_files(
+                self.ref_path, ref_varins
             )
 
             if (
@@ -94,19 +155,31 @@ class DataCatalogueBuilder:
                 and os.path.exists(ref_files[0])
             ):
                 logger.info(
-                    f"Extracting & assigining metadata for {varin}, the base var name of {var}"
+                    f"Extracting & assigning metadata for {varin}, the base var name of {var}"
                 )
-                for fileset, info_dict, dataset, dataset_set in [
-                    (test_files[0], self.test_info, self.variables, self.test_set),
-                    (ref_files[0], self.ref_info, self.variables, self.ref_set),
+                for fileset, file_var, info_dict, dataset, dataset_set in [
+                    (
+                        test_files[0],
+                        test_file_var,
+                        self.test_info,
+                        self.variables,
+                        self.test_set,
+                    ),
+                    (
+                        ref_files[0],
+                        ref_file_var,
+                        self.ref_info,
+                        self.variables,
+                        self.ref_set,
+                    ),
                 ]:
-                    metadata = self._extract_metadata(fileset, varin, var)
+                    metadata = self._extract_metadata(fileset, file_var, var)
                     self._assign_metadata(
                         info_dict, varin, dataset, dataset_set, idx, metadata
                     )
             else:
                 logger.info(
-                    f"NOT extracting & assigining metadata for {varin}, the base var name of {var}."
+                    f"NOT extracting & assigning metadata for {varin}, the base var name of {var}."
                 )
             logger.info(f"test_files={test_files}")
             logger.info(f"ref_files={ref_files}")
@@ -117,11 +190,13 @@ class DataCatalogueBuilder:
 
         # `odict_keys([])` evaluates as False/None would.
         if self.test_info.keys():
-            self._save_catalogue(self.test_path, self.test_info)
+            self.test_catalogue_path = self._save_catalogue(
+                self.test_path, self.test_info
+            )
         else:
             logger.info(f"test_info has no data to dump to {self.test_path}")
         if self.ref_info.keys():
-            self._save_catalogue(self.ref_path, self.ref_info)
+            self.ref_catalogue_path = self._save_catalogue(self.ref_path, self.ref_info)
         else:
             logger.info(f"ref_info has no data to dump to {self.ref_path}")
 
@@ -130,19 +205,26 @@ class DataCatalogueBuilder:
     def _get_base_varname(self, var):
         return re.split("_|-", var)[0] if ("_" in var or "-" in var) else var
 
+    def _find_variable_files(self, path, variable_names):
+        for variable_name in variable_names:
+            files = _find_nc_files(path, variable_name)
+            if files:
+                return variable_name, files
+        return variable_names[0], []
+
     def _extract_metadata(self, filepath, varin, var):
         filename = os.path.basename(filepath)
-        logger.info(f"Extracting metadata from {filename}, dervied from {filepath}")
+        logger.info(f"Extracting metadata from {filename}, derived from {filepath}")
         parts = filename.split(".")
         if len(parts) < 7:
             # Example file in tmp-dir/ts:
             # e3sm.amip.v3-LR.0101.Amon.ts.200501-201412.nc
-            logger.error(
+            raise ValueError(
                 f"Filename {filename} does not have at least 7 parts when split by '.', unexpected format."
             )
         yymm_range = parts[6].split("-")
         if len(yymm_range) != 2:
-            logger.error(
+            raise ValueError(
                 f"Filename {filename} has unexpected date range format in part '{parts[6]}'."
             )
         logger.info(
@@ -179,13 +261,18 @@ class DataCatalogueBuilder:
         target_dict[varin][model] = metadata
 
     def _save_catalogue(self, source_path: str, data_dict: OrderedDict):
-        filename = f"{source_path}_{self.label}_catalogue.json"
+        source_name = os.path.basename(os.path.normpath(source_path))
+        if not source_name:
+            raise ValueError(f"Cannot derive catalogue name from path: {source_path}")
+        filename = f"{source_name}_{self.label}_catalogue.json"
+        os.makedirs(self.output_dir, exist_ok=True)
         filepath = os.path.join(self.output_dir, filename)
         logger.info(
             f"Saving catalogue {filepath}, absolute path {os.path.abspath(filepath)}"
         )
         with open(filepath, "w") as f:
             json.dump(data_dict, f, indent=4, sort_keys=False, separators=(",", ": "))
+        return filepath
 
 
 class LandSeaMaskGenerator:
@@ -204,13 +291,14 @@ class LandSeaMaskGenerator:
         return str(flag).lower() in ["true", "y", "yes"]
 
     def _process_group(self, group):
+        group_name = os.path.basename(os.path.normpath(group))
         catalog_path = os.path.join(
-            "pcmdi_diags", f"{group}_{self.subsection}_catalogue.json"
+            "pcmdi_diags", f"{group_name}_{self.subsection}_catalogue.json"
         )
 
         if not os.path.exists(catalog_path):
-            print(
-                f"Warning: Catalogue not found at {catalog_path}, absolute path {os.path.abspath(catalog_path)}"
+            logger.warning(
+                f"Catalogue not found at {catalog_path}, absolute path {os.path.abspath(catalog_path)}"
             )
             return
 
@@ -235,10 +323,10 @@ class LandSeaMaskGenerator:
 
         try:
             mask = create_land_sea_mask(ds, method="regionmask")
-            print("Land mask estimated using regionmask method.")
+            logger.info("Land mask estimated using regionmask method.")
         except Exception:
             mask = create_land_sea_mask(ds, method="pcmdi")
-            print("Land mask estimated using PCMDI method.")
+            logger.info("Land mask estimated using PCMDI method.")
 
         mask = mask * 100.0
         mask.attrs.update(
@@ -270,18 +358,35 @@ class LandSeaMaskGenerator:
 # Functions ###################################################################
 
 
-def set_up(parameters: CoreParameters) -> CoreOutput:
+def set_up(parameters: CoreParameters, variable_aliases=None) -> CoreOutput:
     # Determine multiprocessing usage
     multiprocessing: bool = (
         parameters.multiprocessing if parameters.num_workers >= 2 else False
     )
     # Dataset identifiers
-    test_data_set: List[str] = [parameters.model_name.split(".")[1]]
+    model_name_parts = parameters.model_name.split(".")
+    if len(model_name_parts) != 4:
+        raise ValueError(
+            f"model_name must have exactly 4 dot-separated parts, "
+            f"got: {parameters.model_name}"
+        )
+    test_data_set: List[str] = [model_name_parts[1]]
     reference_data_set: List[str]
     if parameters.run_type == "model_vs_obs":
+        assert parameters.obs_sets is not None
         reference_data_set = parameters.obs_sets.split(",")
     elif parameters.run_type == "model_vs_model":
-        reference_data_set = [parameters.model_name_ref.split(".")[1]]
+        if not parameters.model_name_ref:
+            raise ValueError("model_name_ref is required for run_type=model_vs_model")
+        if not parameters.tableID_ref:
+            raise ValueError("tableID_ref is required for run_type=model_vs_model")
+        ref_parts = parameters.model_name_ref.split(".")
+        if len(ref_parts) != 4:
+            raise ValueError(
+                f"model_name_ref must have exactly 4 dot-separated parts, "
+                f"got: {parameters.model_name_ref}"
+            )
+        reference_data_set = [ref_parts[1]]
     else:
         raise ValueError(f"Invalid run_type={parameters.run_type}")
     ###############################################################
@@ -290,27 +395,34 @@ def set_up(parameters: CoreParameters) -> CoreOutput:
     ###############################################################
     for var in parameters.variables:
         varin = re.split(r"[_-]", var)[0] if "_" in var or "-" in var else var
-        test_fpaths = sorted(
-            glob.glob(os.path.join(parameters.test_data_path, f"*.{var}.*.nc"))
-        )
+        source_var = (variable_aliases or {}).get(varin)
+        test_var_names = [var, source_var] if source_var else [var]
+        test_fpaths = []
+        for test_var_name in test_var_names:
+            test_fpaths = _find_nc_files(parameters.test_data_path, test_var_name)
+            if test_fpaths:
+                break
         if not test_fpaths:
             derive_missing_variable(
                 varin,
                 parameters.test_data_path,
                 f"{parameters.model_name}.{parameters.model_tableID}",
             )
-            if parameters.run_type == "model_vs_model":
-                ref_fpaths = sorted(
-                    glob.glob(
-                        os.path.join(parameters.reference_data_path, f"*.{var}.*.nc")
-                    )
+        if parameters.run_type == "model_vs_model":
+            ref_var_names = [var, source_var] if source_var else [var]
+            ref_fpaths = []
+            for ref_var_name in ref_var_names:
+                ref_fpaths = _find_nc_files(
+                    parameters.reference_data_path, ref_var_name
                 )
-                if not ref_fpaths:
-                    derive_missing_variable(
-                        varin,
-                        parameters.reference_data_path,
-                        f"{parameters.model_name_ref}.{parameters.tableID_ref}",
-                    )
+                if ref_fpaths:
+                    break
+            if not ref_fpaths:
+                derive_missing_variable(
+                    varin,
+                    parameters.reference_data_path,
+                    f"{parameters.model_name_ref}.{parameters.tableID_ref}",
+                )
     #######################################################
     # collect and document data info in a dictionary
     # for convenience of pcmdi processing
@@ -323,6 +435,7 @@ def set_up(parameters: CoreParameters) -> CoreOutput:
         parameters.variables,
         parameters.subsection,
         "pcmdi_diags",
+        variable_aliases=variable_aliases,
     )
     _, obs_dic = builder.build_catalogues()
     if not obs_dic.keys():
@@ -345,14 +458,27 @@ def set_up(parameters: CoreParameters) -> CoreOutput:
         "pcmdi_diags",
         "%(output_type)",
         "%(metric_type)",
-        parameters.model_name.split(".")[0],
-        parameters.model_name.split(".")[1],
+        model_name_parts[0],
+        model_name_parts[1],
         parameters.case_id,
     )
     # Diagnostic output path templates
     out_path = os.path.join(parameters.results_dir, "%(group_type)")
     logger.info(f"out_path={out_path}")
-    return CoreOutput(multiprocessing, obs_dic, input_template, out_path)
+    return CoreOutput(
+        multiprocessing,
+        obs_dic,
+        input_template,
+        out_path,
+        model_catalogue_path=builder.test_catalogue_path,
+    )
+
+
+def _find_nc_files(directory: str, var_name: str) -> List[str]:
+    return sorted(
+        glob.glob(os.path.join(directory, f"*.{var_name}.*.nc"))
+        + glob.glob(os.path.join(directory, f"{var_name}_*.nc"))
+    )
 
 
 def derive_missing_variable(varin, path, model_id):
@@ -424,6 +550,6 @@ def derive_missing_variable(varin, path, model_id):
         )
 
         out_ds.to_netcdf(output_file)
-        print(f"Derived variable '{varin}' written to {output_file}")
+        logger.info(f"Derived variable '{varin}' written to {output_file}")
 
     return

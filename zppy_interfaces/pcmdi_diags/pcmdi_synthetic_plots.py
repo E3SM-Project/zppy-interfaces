@@ -3,7 +3,7 @@ import json
 import os
 import shutil
 import sys
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
 
 from zppy_interfaces.multi_utils.logger import _setup_child_logger, _setup_root_logger
 from zppy_interfaces.pcmdi_diags.synthetic_plots.synthetic_metrics_plotter import (
@@ -24,61 +24,68 @@ logger = _setup_child_logger(__name__)
 
 # Classes #####################################################################
 class SyntheticPlotsParameters(object):
-    def __init__(self, args: Dict[str, str]):
-        self.figure_format: str = args["figure_format"]
-        self.www: str = args["www"]
-        self.save_all_data: bool = str(args["save_all_data"]).lower() in (
-            "true",
-            "1",
-            "yes",
+    def __init__(self, args: Dict[str, Any]):
+        self.save_all_data: bool = str2bool(
+            args.get("save_all_data")
+            if args.get("save_all_data") is not None
+            else False
         )
-        self.results_dir: str = args["results_dir"]
-        self.case: str = args["case"]
-        self.model_name: str = args["model_name"]
-        self.model_tableID: str = args["model_tableID"]
-        self.web_dir: str = args["web_dir"]
-        self.clim_viewer: bool = str(args["clim_viewer"]).lower() in (
-            "true",
-            "1",
-            "yes",
+        self.clim_viewer: bool = str2bool(
+            args.get("clim_viewer") if args.get("clim_viewer") is not None else False
         )
-        self.clim_vars: List[str] = args["clim_vars"].split(",")
-        self.clim_years: str = args["clim_years"]
-        self.clim_regions: List[str] = args["clim_regions"].split(",")
-        self.cmip_clim_dir: str = args["cmip_clim_dir"]
-        self.cmip_clim_set: str = args["cmip_clim_set"]
-        self.mova_viewer: bool = str(args["mova_viewer"]).lower() in (
-            "true",
-            "1",
-            "yes",
+        self.mova_viewer: bool = str2bool(
+            args.get("mova_viewer") if args.get("mova_viewer") is not None else False
         )
-        self.mova_modes: List[str] = args["mova_modes"].split(",")
-        self.mova_vars: List[str] = args["mova_vars"].split(",")
-        self.mova_years: str = args["mova_years"]
-        self.movc_viewer: bool = str(args["movc_viewer"]).lower() in (
-            "true",
-            "1",
-            "yes",
+        self.movc_viewer: bool = str2bool(
+            args.get("movc_viewer") if args.get("movc_viewer") is not None else False
         )
-        self.movc_modes: List[str] = args["movc_modes"].split(",")
-        self.movc_vars: List[str] = args["movc_vars"].split(",")
-        self.movc_years: str = args["movc_years"]
-        self.cmip_movs_dir: str = args["cmip_movs_dir"]
-        self.cmip_movs_set: str = args["cmip_movs_set"]
-        self.enso_viewer: bool = str(args["enso_viewer"]).lower() in (
-            "true",
-            "1",
-            "yes",
+        self.enso_viewer: bool = str2bool(
+            args.get("enso_viewer") if args.get("enso_viewer") is not None else False
         )
-        self.enso_vars: List[str] = args["enso_vars"].split(",")
-        self.enso_years: str = args["enso_years"]
-        self.cmip_enso_dir: str = args["cmip_enso_dir"]
-        self.cmip_enso_set: str = args["cmip_enso_set"]
-        self.pcmdi_webtitle: str = args["pcmdi_webtitle"]
-        self.pcmdi_version: str = args["pcmdi_version"]
-        self.run_type: str = args["run_type"]
-        self.pcmdi_external_prefix: str = args["pcmdi_external_prefix"]
-        self.pcmdi_viewer_template: str = args["pcmdi_viewer_template"]
+
+        if not any(
+            [self.clim_viewer, self.mova_viewer, self.movc_viewer, self.enso_viewer]
+        ):
+            raise ValueError("At least one diagnostics viewer must be enabled.")
+
+        self.figure_format: str = _required_value(args, "figure_format")
+        self.www: str = _required_value(args, "www")
+        self.results_dir: str = _required_value(args, "results_dir")
+        self.case: str = _required_value(args, "case")
+        self.model_name: str = _required_value(args, "model_name")
+        self.model_tableID: str = _required_value(args, "model_tableID")
+        self.web_dir: str = _required_value(args, "web_dir")
+        self.pcmdi_webtitle: str = _required_value(args, "pcmdi_webtitle")
+        self.pcmdi_version: str = _required_value(args, "pcmdi_version")
+        self.run_type: str = _required_value(args, "run_type")
+        self.pcmdi_external_prefix: str = _required_value(args, "pcmdi_external_prefix")
+        self.pcmdi_viewer_template: str = _required_value(args, "pcmdi_viewer_template")
+
+        self.clim_vars = _optional_list(args.get("clim_vars"))
+        self.clim_regions = _optional_list(args.get("clim_regions"))
+        self.clim_years = _viewer_value(args, "clim_years", self.clim_viewer)
+        self.cmip_clim_dir = _viewer_value(args, "cmip_clim_dir", self.clim_viewer)
+        self.cmip_clim_set = _viewer_value(args, "cmip_clim_set", self.clim_viewer)
+
+        self.mova_modes = _optional_list(args.get("mova_modes"))
+        if self.mova_viewer and self.mova_modes is None:
+            self.mova_modes = ["NAM", "PNA", "NPO", "NAO", "SAM", "PSA1", "PSA2"]
+        self.mova_vars = _optional_list(args.get("mova_vars"))
+        self.mova_years = _viewer_value(args, "mova_years", self.mova_viewer)
+
+        self.movc_modes = _optional_list(args.get("movc_modes"))
+        if self.movc_viewer and self.movc_modes is None:
+            self.movc_modes = ["PDO", "NPGO", "AMO"]
+        self.movc_vars = _optional_list(args.get("movc_vars"))
+        self.movc_years = _viewer_value(args, "movc_years", self.movc_viewer)
+        movs_enabled = self.mova_viewer or self.movc_viewer
+        self.cmip_movs_dir = _viewer_value(args, "cmip_movs_dir", movs_enabled)
+        self.cmip_movs_set = _viewer_value(args, "cmip_movs_set", movs_enabled)
+
+        self.enso_vars = _optional_list(args.get("enso_vars"))
+        self.enso_years = _viewer_value(args, "enso_years", self.enso_viewer)
+        self.cmip_enso_dir = _viewer_value(args, "cmip_enso_dir", self.enso_viewer)
+        self.cmip_enso_set = _viewer_value(args, "cmip_enso_set", self.enso_viewer)
 
 
 # Functions ###################################################################
@@ -98,7 +105,8 @@ def main():
         "metrics_data",
         "%(group_type)",
     )
-    metric_dict = json.load(open("synthetic_metrics_list.json"))
+    with open("synthetic_metrics_list.json") as _f:
+        metric_dict = json.load(_f)
     plotter = SyntheticMetricsPlotter(
         # Core
         case_name=parameters.case,
@@ -163,7 +171,10 @@ def main():
         "e3sm_pmp_logo.png",
     )
     web_logo_dst = os.path.join(out_dir, "e3sm_pmp_logo.png")
-    shutil.copy(web_logo_src, web_logo_dst)
+    if not os.path.exists(web_logo_src):
+        logger.warning(f"Logo file not found, skipping copy: {web_logo_src}")
+    else:
+        shutil.copy(web_logo_src, web_logo_dst)
     # Build config
     config = collect_config(
         title=parameters.pcmdi_webtitle,
@@ -175,22 +186,49 @@ def main():
         pmp_dir=pmp_dir,
         out_dir=out_dir,
         clim_viewer=parameters.clim_viewer,
-        clim_period=parameters.clim_years,
+        clim_period=parameters.clim_years or "",
         clim_regions=parameters.clim_regions,
         clim_vars=parameters.clim_vars,
         mova_viewer=parameters.mova_viewer,
         mova_modes=parameters.mova_modes,
-        mova_period=parameters.mova_years,
+        mova_vars=parameters.mova_vars,
+        mova_period=parameters.mova_years or "",
         movc_viewer=parameters.movc_viewer,
         movc_modes=parameters.movc_modes,
-        movc_period=parameters.movc_years,
+        movc_vars=parameters.movc_vars,
+        movc_period=parameters.movc_years or "",
         enso_viewer=parameters.enso_viewer,
-        enso_period=parameters.enso_years,
+        enso_vars=parameters.enso_vars,
+        enso_period=parameters.enso_years or "",
     )
     # Render viewer
     generate_methodology_html(config)
     generate_data_html(config)
     generate_viewer_html(config)
+
+
+def _required_value(args: Dict[str, Any], key: str) -> str:
+    value = args.get(key)
+    if value is None or not str(value).strip():
+        raise ValueError(f"--{key} is required but was not provided.")
+    return str(value).strip()
+
+
+def _viewer_value(
+    args: Dict[str, Any], key: str, viewer_enabled: bool
+) -> Optional[str]:
+    if viewer_enabled:
+        return _required_value(args, key)
+    value = args.get(key)
+    return str(value).strip() if value is not None and str(value).strip() else None
+
+
+def _optional_list(value: Any) -> Optional[List[str]]:
+    if value is None:
+        return None
+    raw_values = value if isinstance(value, (list, tuple)) else str(value).split(",")
+    values = [str(item).strip() for item in raw_values if str(item).strip()]
+    return values or None
 
 
 def str2bool(v):
@@ -247,13 +285,13 @@ def _get_args() -> Dict[str, str]:
     parser.add_argument("--pcmdi_external_prefix", type=str)
     parser.add_argument("--pcmdi_viewer_template", type=str)
     parser.add_argument("--save_all_data", type=str2bool)
-    parser.add_argument("--debug", type=str)
+    parser.add_argument("--debug", type=str2bool, default=False)
 
     # Ignore the first arg
     # (zi-pcmdi-synthetic-plots)
     args: argparse.Namespace = parser.parse_args(sys.argv[1:])
 
-    if args.debug and args.debug.lower() == "true":
+    if args.debug:
         logger.setLevel("DEBUG")
         logger.debug("Debug logging enabled")
 
