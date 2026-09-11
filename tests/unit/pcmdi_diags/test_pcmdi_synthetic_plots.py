@@ -3,9 +3,7 @@ import json
 import pytest
 
 from zppy_interfaces.pcmdi_diags import pcmdi_synthetic_plots
-from zppy_interfaces.pcmdi_diags.pcmdi_synthetic_plots import (
-    SyntheticPlotsParameters,
-)
+from zppy_interfaces.pcmdi_diags.pcmdi_synthetic_plots import SyntheticPlotsParameters
 
 
 def _base_args(tmp_path):
@@ -97,9 +95,7 @@ def test_SyntheticPlotsParameters_requires_enabled_viewer(tmp_path):
         SyntheticPlotsParameters(args)
 
 
-def test_main_passes_configured_variable_lists_to_viewer(
-    tmp_path, monkeypatch
-):
+def test_main_passes_configured_variable_lists_to_viewer(tmp_path, monkeypatch):
     args = _base_args(tmp_path)
     args.update(
         {
@@ -127,7 +123,9 @@ def test_main_passes_configured_variable_lists_to_viewer(
 
     monkeypatch.setattr(pcmdi_synthetic_plots, "SyntheticMetricsPlotter", FakePlotter)
     monkeypatch.setattr(pcmdi_synthetic_plots, "collect_config", fake_collect_config)
-    monkeypatch.setattr(pcmdi_synthetic_plots, "generate_methodology_html", lambda _: None)
+    monkeypatch.setattr(
+        pcmdi_synthetic_plots, "generate_methodology_html", lambda _: None
+    )
     monkeypatch.setattr(pcmdi_synthetic_plots, "generate_data_html", lambda _: None)
     monkeypatch.setattr(pcmdi_synthetic_plots, "generate_viewer_html", lambda _: None)
 
