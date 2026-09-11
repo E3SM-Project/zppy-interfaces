@@ -49,11 +49,19 @@ class CoreParameters(object):
 
 
 class CoreOutput(object):
-    def __init__(self, multiprocessing, obs_dic, input_template, out_path):
+    def __init__(
+        self,
+        multiprocessing,
+        obs_dic,
+        input_template,
+        out_path,
+        model_catalogue_path=None,
+    ):
         self.multiprocessing = multiprocessing
         self.obs_dic = obs_dic
         self.input_template = input_template
         self.out_path = out_path
+        self.model_catalogue_path = model_catalogue_path
 
 
 class DataCatalogueBuilder:
@@ -66,6 +74,7 @@ class DataCatalogueBuilder:
         variables: List[str],
         label,
         output_dir,
+        variable_aliases=None,
     ):
         self.test_path: str = test_path
         self.test_set: List[str] = test_set
@@ -74,9 +83,12 @@ class DataCatalogueBuilder:
         self.variables: List[str] = variables
         self.label = label
         self.output_dir = output_dir
+        self.variable_aliases = variable_aliases or {}
 
         self.test_info: OrderedDict = OrderedDict()
         self.ref_info: OrderedDict = OrderedDict()
+        self.test_catalogue_path = None
+        self.ref_catalogue_path = None
 
     def build_catalogues(self) -> Tuple[OrderedDict, OrderedDict]:
         if not self.variables:
@@ -87,10 +99,17 @@ class DataCatalogueBuilder:
             logger.info(f"Building catalogue for {var}")
             varin = self._get_base_varname(var)
             logger.info(f"Looking for {varin}, the base var name of {var}")
+            alias = self.variable_aliases.get(varin)
+            test_varins = [varin, alias] if alias else [varin]
+            ref_varins = [varin, alias] if alias else [varin]
             logger.info(f"Finding test files in {self.test_path}")
-            test_files = _find_nc_files(self.test_path, varin)
+            test_file_var, test_files = self._find_variable_files(
+                self.test_path, test_varins
+            )
             logger.info(f"Finding ref files in {self.ref_path}")
-            ref_files = _find_nc_files(self.ref_path, varin)
+            ref_file_var, ref_files = self._find_variable_files(
+                self.ref_path, ref_varins
+            )
 
             if (
                 test_files
@@ -101,11 +120,23 @@ class DataCatalogueBuilder:
                 logger.info(
                     f"Extracting & assigning metadata for {varin}, the base var name of {var}"
                 )
-                for fileset, info_dict, dataset, dataset_set in [
-                    (test_files[0], self.test_info, self.variables, self.test_set),
-                    (ref_files[0], self.ref_info, self.variables, self.ref_set),
+                for fileset, file_var, info_dict, dataset, dataset_set in [
+                    (
+                        test_files[0],
+                        test_file_var,
+                        self.test_info,
+                        self.variables,
+                        self.test_set,
+                    ),
+                    (
+                        ref_files[0],
+                        ref_file_var,
+                        self.ref_info,
+                        self.variables,
+                        self.ref_set,
+                    ),
                 ]:
-                    metadata = self._extract_metadata(fileset, varin, var)
+                    metadata = self._extract_metadata(fileset, file_var, var)
                     self._assign_metadata(
                         info_dict, varin, dataset, dataset_set, idx, metadata
                     )
@@ -122,11 +153,13 @@ class DataCatalogueBuilder:
 
         # `odict_keys([])` evaluates as False/None would.
         if self.test_info.keys():
-            self._save_catalogue(self.test_path, self.test_info)
+            self.test_catalogue_path = self._save_catalogue(
+                self.test_path, self.test_info
+            )
         else:
             logger.info(f"test_info has no data to dump to {self.test_path}")
         if self.ref_info.keys():
-            self._save_catalogue(self.ref_path, self.ref_info)
+            self.ref_catalogue_path = self._save_catalogue(self.ref_path, self.ref_info)
         else:
             logger.info(f"ref_info has no data to dump to {self.ref_path}")
 
@@ -134,6 +167,13 @@ class DataCatalogueBuilder:
 
     def _get_base_varname(self, var):
         return re.split("_|-", var)[0] if ("_" in var or "-" in var) else var
+
+    def _find_variable_files(self, path, variable_names):
+        for variable_name in variable_names:
+            files = _find_nc_files(path, variable_name)
+            if files:
+                return variable_name, files
+        return variable_names[0], []
 
     def _extract_metadata(self, filepath, varin, var):
         filename = os.path.basename(filepath)
@@ -191,6 +231,7 @@ class DataCatalogueBuilder:
         )
         with open(filepath, "w") as f:
             json.dump(data_dict, f, indent=4, sort_keys=False, separators=(",", ": "))
+        return filepath
 
 
 class LandSeaMaskGenerator:
@@ -275,7 +316,7 @@ class LandSeaMaskGenerator:
 # Functions ###################################################################
 
 
-def set_up(parameters: CoreParameters) -> CoreOutput:
+def set_up(parameters: CoreParameters, variable_aliases=None) -> CoreOutput:
     # Determine multiprocessing usage
     multiprocessing: bool = (
         parameters.multiprocessing if parameters.num_workers >= 2 else False
@@ -309,7 +350,13 @@ def set_up(parameters: CoreParameters) -> CoreOutput:
     ###############################################################
     for var in parameters.variables:
         varin = re.split(r"[_-]", var)[0] if "_" in var or "-" in var else var
-        test_fpaths = _find_nc_files(parameters.test_data_path, var)
+        source_var = (variable_aliases or {}).get(varin)
+        test_var_names = [var, source_var] if source_var else [var]
+        test_fpaths = []
+        for test_var_name in test_var_names:
+            test_fpaths = _find_nc_files(parameters.test_data_path, test_var_name)
+            if test_fpaths:
+                break
         if not test_fpaths:
             derive_missing_variable(
                 varin,
@@ -317,7 +364,14 @@ def set_up(parameters: CoreParameters) -> CoreOutput:
                 f"{parameters.model_name}.{parameters.model_tableID}",
             )
             if parameters.run_type == "model_vs_model":
-                ref_fpaths = _find_nc_files(parameters.reference_data_path, var)
+                ref_var_names = [var, source_var] if source_var else [var]
+                ref_fpaths = []
+                for ref_var_name in ref_var_names:
+                    ref_fpaths = _find_nc_files(
+                        parameters.reference_data_path, ref_var_name
+                    )
+                    if ref_fpaths:
+                        break
                 if not ref_fpaths:
                     derive_missing_variable(
                         varin,
@@ -336,6 +390,7 @@ def set_up(parameters: CoreParameters) -> CoreOutput:
         parameters.variables,
         parameters.subsection,
         "pcmdi_diags",
+        variable_aliases=variable_aliases,
     )
     _, obs_dic = builder.build_catalogues()
     if not obs_dic.keys():
@@ -365,7 +420,13 @@ def set_up(parameters: CoreParameters) -> CoreOutput:
     # Diagnostic output path templates
     out_path = os.path.join(parameters.results_dir, "%(group_type)")
     logger.info(f"out_path={out_path}")
-    return CoreOutput(multiprocessing, obs_dic, input_template, out_path)
+    return CoreOutput(
+        multiprocessing,
+        obs_dic,
+        input_template,
+        out_path,
+        model_catalogue_path=builder.test_catalogue_path,
+    )
 
 
 def _find_nc_files(directory: str, var_name: str) -> List[str]:

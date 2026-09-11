@@ -7,6 +7,7 @@ from zppy_interfaces.pcmdi_diags.pcmdi_enso import (
     ENSOParameters,
     build_enso_obsvar_catalog,
     build_enso_obsvar_landmask,
+    check_enso_input,
     check_output_dirs,
     check_vars,
     generate_enso_cmds,
@@ -118,6 +119,29 @@ def test_check_vars_no_variable_list_found_fails():
     assert check_vars("no variable list in this output") is False
 
 
+def test_check_enso_input_uses_configured_directory(tmp_path):
+    input_dir = tmp_path / "arbitrary-input"
+    input_dir.mkdir()
+    source_nc = input_dir / "case.ts.198501-201412.nc"
+    source_txt = input_dir / "ts_files.txt"
+    source_nc.touch()
+    source_txt.touch()
+
+    check_enso_input(str(input_dir))
+
+    assert (input_dir / "case.sst.198501-201412.nc").is_symlink()
+    assert (input_dir / "sst_files.txt").is_symlink()
+
+
+def test_check_vars_uses_configured_directory(tmp_path):
+    input_dir = tmp_path / "arbitrary-input"
+    input_dir.mkdir()
+    (input_dir / "case.ts.198501-201412.nc").touch()
+    (input_dir / "ts_files.txt").touch()
+
+    assert check_vars("list_variables = ['ts']\n", str(input_dir)) is True
+
+
 def test_check_output_dirs_all_present_and_nonempty(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     for subdir in ["graphics_out", "diag_out", "metrics_out"]:
@@ -181,6 +205,31 @@ def test_build_enso_obsvar_catalog_missing_key_raises():
         build_enso_obsvar_catalog({}, ["sst"])
 
 
+def test_build_enso_obsvar_catalog_resolves_source_alias(tmp_path):
+    obs_dic = {
+        "ts": {
+            "set": "primary",
+            "primary": "run1",
+            "run1": {
+                "var_name": "ts",
+                "var_in_file": "ts",
+                "file_path": "/data/run1.ts.198501-201412.nc",
+            },
+        }
+    }
+    output_file = tmp_path / "obs_catalogue.json"
+
+    build_enso_obsvar_catalog(obs_dic, ["sst"], str(output_file))
+
+    with open(output_file) as f:
+        result = json.load(f)
+
+    assert list(result["run1"]) == ["sst"]
+    assert result["run1"]["sst"]["var_name"] == "sst"
+    assert result["run1"]["sst"]["var_in_file"] == "ts"
+    assert result["run1"]["sst"]["file_path"].endswith("run1.ts.198501-201412.nc")
+
+
 def test_build_enso_obsvar_landmask(tmp_path):
     obs_dic = {
         "ts": {"set": "primary", "primary": "run1"},
@@ -188,6 +237,18 @@ def test_build_enso_obsvar_landmask(tmp_path):
     output_file = tmp_path / "obs_landmask.json"
 
     build_enso_obsvar_landmask(obs_dic, ["ts"], str(output_file), mask_dir="fixed")
+
+    with open(output_file) as f:
+        result = json.load(f)
+
+    assert result == {"run1": "fixed/sftlf.run1.nc"}
+
+
+def test_build_enso_obsvar_landmask_resolves_source_alias(tmp_path):
+    obs_dic = {"ts": {"set": "primary", "primary": "run1"}}
+    output_file = tmp_path / "obs_landmask.json"
+
+    build_enso_obsvar_landmask(obs_dic, ["sst"], str(output_file), mask_dir="fixed")
 
     with open(output_file) as f:
         result = json.load(f)

@@ -1,6 +1,10 @@
 import pandas as pd
+import pytest
 
 from zppy_interfaces.pcmdi_diags.synthetic_plots import synthetic_metrics_plotter
+from zppy_interfaces.pcmdi_diags.synthetic_plots.enso_metrics_reader import (
+    EnsoMetricsReader,
+)
 from zppy_interfaces.pcmdi_diags.synthetic_plots.synthetic_metrics_plotter import (
     SyntheticMetricsPlotter,
     drop_vars,
@@ -198,3 +202,47 @@ def test_handle_enso_metric_dispatches_to_reader_and_plot_driver(monkeypatch, tm
     assert captured_plot_args["stat"] == "cor_xy"
     assert captured_plot_args["dict_json_path"] == {"fake": "path"}
     assert captured_plot_args["fig_format"] == "png"
+
+
+def test_enso_metrics_reader_dispatches_uppercase_cmip(monkeypatch, tmp_path):
+    cmip_file = tmp_path / "cmip.json"
+    cmip_file.touch()
+    reader = EnsoMetricsReader(
+        parameter={},
+        stat="cor_xy",
+        metric_dict={},
+        mips=["CMIP6"],
+        collections=["ENSO_perf"],
+    )
+
+    monkeypatch.setattr(
+        reader,
+        "_get_cmip_json_path",
+        lambda mip, collection: str(cmip_file),
+    )
+
+    def fail_test_lookup(mip, collection):
+        raise AssertionError("CMIP6 must not use the test-model lookup")
+
+    monkeypatch.setattr(reader, "_get_test_json_path", fail_test_lookup)
+
+    assert reader.run() == {"CMIP6": {"ENSO_perf": str(cmip_file)}}
+
+
+def test_enso_metrics_reader_rejects_nonexistent_collected_path(monkeypatch, tmp_path):
+    reader = EnsoMetricsReader(
+        parameter={},
+        stat="cor_xy",
+        metric_dict={},
+        mips=["CMIP6"],
+        collections=["ENSO_perf"],
+    )
+    missing_file = tmp_path / "missing.json"
+    monkeypatch.setattr(
+        reader,
+        "_get_cmip_json_path",
+        lambda mip, collection: str(missing_file),
+    )
+
+    with pytest.raises(FileNotFoundError, match="CMIP6.*ENSO_perf"):
+        reader.run()

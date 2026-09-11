@@ -34,21 +34,21 @@ class EnsoMetricsReader:
                 "Check that 'collection' is configured in the metric_dict."
             )
         for mip in self.mips:
-            self.dict_json_path[mip] = {}
+            collected_paths = {}
             for metrics_collection in self.metrics_collections:
-                if "cmip" in mip:
-                    self.dict_json_path[mip][metrics_collection] = (
-                        self._get_cmip_json_path(mip, metrics_collection)
-                    )
+                if "cmip" in mip.lower():
+                    json_path = self._get_cmip_json_path(mip, metrics_collection)
                 else:
-                    self.dict_json_path[mip][metrics_collection] = (
-                        self._get_test_json_path(mip, metrics_collection)
-                    )
+                    json_path = self._get_test_json_path(mip, metrics_collection)
 
-            if not self.dict_json_path[mip]:
-                raise FileNotFoundError(
-                    f"No ENSO metrics files were collected for mip '{mip}'."
-                )
+                if not json_path or not os.path.isfile(json_path):
+                    raise FileNotFoundError(
+                        f"No ENSO metrics file was collected for mip '{mip}' and "
+                        f"collection '{metrics_collection}'."
+                    )
+                collected_paths[metrics_collection] = json_path
+
+            self.dict_json_path[mip] = collected_paths
 
         return self.dict_json_path
 

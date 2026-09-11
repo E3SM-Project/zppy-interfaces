@@ -278,18 +278,7 @@ def main():
     core_parameters = CoreParameters(args)
     enso_parameters = ENSOParameters(args)
     requested_variables = list(core_parameters.variables)
-    setup_variables = list(requested_variables)
-    for var in requested_variables:
-        vkey = re.split(r"[_-]", var)[0] if "_" in var or "-" in var else var
-        source_var = ALT_OBS_MAP.get(vkey)
-        if source_var and source_var not in setup_variables:
-            setup_variables.append(source_var)
-
-    core_parameters.variables = setup_variables
-    try:
-        core_output: CoreOutput = set_up(core_parameters)
-    finally:
-        core_parameters.variables = requested_variables
+    core_output: CoreOutput = set_up(core_parameters, variable_aliases=ALT_OBS_MAP)
 
     #############################################
     # call enso_driver.py to process diagnostics
@@ -297,8 +286,14 @@ def main():
     build_enso_obsvar_catalog(core_output.obs_dic, requested_variables)
     build_enso_obsvar_landmask(core_output.obs_dic, requested_variables)
     # now start enso driver
-    check_enso_input()
-    normalize_enso_model_catalogue(requested_variables)
+    check_enso_input(core_parameters.test_data_path)
+    if core_output.model_catalogue_path:
+        normalize_enso_model_catalogue(
+            requested_variables,
+            catalogue_file=core_output.model_catalogue_path,
+        )
+    else:
+        logger.warning("No model catalogue was generated; skipping normalization.")
     lstcmd = generate_enso_cmds(enso_parameters.enso_groups, core_parameters.case_id)
     logger.info(
         f"input_template={core_output.input_template}; If directories derived from this template are empty, it may indicate that lstcmd did not produce output."
@@ -308,7 +303,7 @@ def main():
         logger.info(f"Running parallel jobs for {lstcmd}")
         try:
             results = run_parallel_jobs(lstcmd, core_parameters.num_workers)
-            check_enso_output(results)
+            check_enso_output(results, core_parameters.test_data_path)
         except RuntimeError as e:
             logger.error(f"Execution failed: {e}")
             raise
@@ -316,7 +311,7 @@ def main():
         logger.info(f"Running serial jobs for {lstcmd}")
         try:
             results = run_serial_jobs(lstcmd)
-            check_enso_output(results)
+            check_enso_output(results, core_parameters.test_data_path)
         except RuntimeError as e:
             logger.error(f"Execution failed: {e}")
             raise
@@ -405,21 +400,20 @@ def build_enso_obsvar_catalog(
 
     for var in variables:
         vkey = re.split(r"[_-]", var)[0] if "_" in var or "-" in var else var
+        catalogue_key = _resolve_enso_catalogue_key(obs_dic, vkey)
 
-        if vkey not in obs_dic:
-            raise KeyError(
-                f"Variable key '{vkey}' not found in observation dictionary. Available keys are {obs_dic.keys()}"
-            )
-
-        refset = obs_dic[vkey]["set"]
-        refname = obs_dic[vkey].get(refset)
+        refset = obs_dic[catalogue_key]["set"]
+        refname = obs_dic[catalogue_key].get(refset)
 
         if not refname:
             raise KeyError(
                 f"Reference name not found for variable '{vkey}' and set '{refset}'."
             )
 
-        refr_dic.setdefault(refname, {})[vkey] = obs_dic[vkey][refname]
+        entry = obs_dic[catalogue_key][refname].copy()
+        if catalogue_key != vkey:
+            entry["var_name"] = vkey
+        refr_dic.setdefault(refname, {})[vkey] = entry
 
     with open(output_file, "w") as f:
         json.dump(refr_dic, f, indent=4, sort_keys=False, separators=(",", ": "))
@@ -446,14 +440,10 @@ def build_enso_obsvar_landmask(
 
     for var in variables:
         vkey = re.split(r"[_-]", var)[0] if "_" in var or "-" in var else var
+        catalogue_key = _resolve_enso_catalogue_key(obs_dic, vkey)
 
-        if vkey not in obs_dic:
-            raise KeyError(
-                f"Variable key '{vkey}' not found in observation dictionary."
-            )
-
-        refset = obs_dic[vkey]["set"]
-        refname = obs_dic[vkey].get(refset)
+        refset = obs_dic[catalogue_key]["set"]
+        refname = obs_dic[catalogue_key].get(refset)
 
         if not refname:
             raise KeyError(
@@ -466,6 +456,23 @@ def build_enso_obsvar_landmask(
         json.dump(relf_dic, f, indent=4, sort_keys=False, separators=(",", ": "))
 
     logger.info(f"[INFO] Landmask mapping written to: {output_file}")
+
+
+def _resolve_enso_catalogue_key(catalogue: Dict, logical_var: str) -> str:
+    """Return the available catalogue key for an ENSO logical variable."""
+    if logical_var in catalogue:
+        return logical_var
+
+    source_var = ALT_OBS_MAP.get(logical_var)
+    if source_var and source_var in catalogue:
+        return source_var
+
+    available_keys = list(catalogue.keys())
+    alias_detail = f" or source alias '{source_var}'" if source_var else ""
+    raise KeyError(
+        f"Variable key '{logical_var}'{alias_detail} not found in observation "
+        f"dictionary. Available keys are {available_keys}"
+    )
 
 
 def normalize_enso_model_catalogue(
@@ -592,9 +599,8 @@ def normalize_enso_model_catalogue(
         logger.info(f"Normalized ENSO model catalogue: {catalogue_file}")
 
 
-def check_enso_input():
-    current_dir: str = os.path.abspath(os.getcwd())
-    ts_dir: str = os.path.join(current_dir, "ts")
+def check_enso_input(input_dir: str = "ts"):
+    ts_dir: str = os.path.abspath(input_dir)
 
     if not os.path.exists(ts_dir):
         raise FileNotFoundError(f"{ts_dir} (input for enso_driver) does not exist.")
@@ -677,7 +683,7 @@ def generate_enso_cmds(
     return commands
 
 
-def check_enso_output(results):
+def check_enso_output(results, input_dir: str = "ts"):
     logger.info("Checking ENSO output.")
     success: bool = True
 
@@ -691,7 +697,7 @@ def check_enso_output(results):
             logger.error(f"Command {i + 1} failed with return code {return_code}.")
             success = False
 
-        if not check_vars(stdout):
+        if not check_vars(stdout, input_dir):
             logger.error(f"Command {i + 1} failed to produce expected variables.")
             success = False
 
@@ -707,12 +713,13 @@ def check_enso_output(results):
     logger.info("ENSO output check passed.")
 
 
-def check_vars(stdout: str) -> bool:
+def check_vars(stdout: str, input_dir: str = "ts") -> bool:
     """
     Check if the output from an enso_driver.py command contains expected variables.
 
     Parameters:
         stdout (str): Standard output from the command execution.
+        input_dir (str): Directory containing the prepared ENSO input files.
 
     Returns:
         bool: True if expected variables are found, or if only optional
@@ -741,8 +748,7 @@ def check_vars(stdout: str) -> bool:
         if clean_var:
             requested_variables.append(clean_var)
 
-    current_dir: str = os.path.abspath(os.getcwd())
-    ts_dir = os.path.join(current_dir, "ts")
+    ts_dir = os.path.abspath(input_dir)
 
     variables_missing_data: List[str] = []
 
