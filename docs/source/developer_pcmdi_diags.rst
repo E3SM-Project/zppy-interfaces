@@ -12,7 +12,7 @@ The PCMDI interface is split across several CLI entry points:
 
 * ``link_observation.py`` handles observation discovery, linking, and limited
   derived-variable generation.
-* ``pcmdi_mean_cimate.py`` runs mean-climate diagnostics and reorganizes the
+* ``pcmdi_mean_climate.py`` runs mean-climate diagnostics and reorganizes the
   resulting outputs.
 * ``pcmdi_variability_modes.py`` runs variability-mode diagnostics and collects
   the resulting files.

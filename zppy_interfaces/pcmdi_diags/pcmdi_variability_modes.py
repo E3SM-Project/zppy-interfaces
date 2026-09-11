@@ -1,6 +1,8 @@
 import argparse
 import glob
 import os
+import shlex
+import shutil
 import sys
 import time
 from collections import OrderedDict
@@ -16,18 +18,35 @@ _setup_root_logger()
 logger = _setup_child_logger(__name__)
 
 
+def _normalize_modes(value: str) -> List[str]:
+    modes = []
+    for raw_mode in value.split(","):
+        mode = raw_mode.strip().upper()
+        if mode and mode not in modes:
+            modes.append(mode)
+    if not modes:
+        raise ValueError("--var_modes must contain at least one mode.")
+    return modes
+
+
 # Classes #####################################################################
 class VariabilityModesParameters(object):
     def __init__(self, args: Dict[str, str]):
         var_modes = args.get("var_modes")
         if not var_modes:
             raise ValueError("--var_modes is required but was not provided.")
-        self.var_modes: List[str] = [mode.strip() for mode in var_modes.split(",")]
+        self.var_modes = _normalize_modes(var_modes)
         # self.vars is distinct from the list version in CoreParameters
         vars_arg = args.get("vars")
         if not vars_arg:
             raise ValueError("--vars is required but was not provided.")
-        self.vars: str = vars_arg
+        variables = [var.strip() for var in vars_arg.split(",") if var.strip()]
+        if len(variables) != 1:
+            raise ValueError(
+                "Variability modes requires exactly one variable from --vars; "
+                f"got {variables}."
+            )
+        self.vars = variables[0]
 
 
 class VariabilityMetricsCollector:
@@ -60,6 +79,7 @@ class VariabilityMetricsCollector:
         self._collect_diags()
 
     def _collect_figures(self):
+        collected_count = 0
         for fig_set, (out_type, pattern_base) in self.fig_sets.items():
             for mode in self.modes:
                 for season in self.seasons:
@@ -78,6 +98,7 @@ class VariabilityMetricsCollector:
                             f"season={season}: {search_path}"
                         )
                     for fpath in matched_files:
+                        collected_count += 1
                         filename = os.path.basename(fpath)
                         outfile = self._classify_output_name(
                             fig_set, mode, season, filename
@@ -88,7 +109,12 @@ class VariabilityMetricsCollector:
                             season,
                         )
                         os.makedirs(outdir, exist_ok=True)
-                        os.rename(fpath, os.path.join(outdir, outfile))
+                        _move_output(fpath, os.path.join(outdir, outfile))
+
+        if collected_count == 0:
+            raise FileNotFoundError(
+                f"No variability-mode figures found under {self.input_dir}."
+            )
 
     def _classify_output_name(self, fig_set, mode, season, filename):
         suffix = "unknown"
@@ -103,21 +129,24 @@ class VariabilityMetricsCollector:
         elif "EOF3" in filename:
             suffix = "eof3"
         if suffix == "unknown":
-            logger.warning(
+            raise ValueError(
                 f"Could not classify output name for file '{filename}' "
-                f"(fig_set={fig_set}, mode={mode}, season={season}); "
-                f"using suffix 'unknown'."
+                f"(fig_set={fig_set}, mode={mode}, season={season})."
             )
         return f"{fig_set}_{mode}_{season}_{suffix}.{self.fig_format}"
 
     def _collect_metrics(self):
         metrics_dir = self.input_dir.replace("%(output_type)", "metrics_results")
         json_files = sorted(glob.glob(os.path.join(metrics_dir, "*/*/*.json")))
+        if not json_files:
+            raise FileNotFoundError(
+                f"No variability-mode metrics JSON files found in {metrics_dir}."
+            )
 
         for fpath in json_files:
-            refmode = fpath.split("/")[-3]
-            refname = fpath.split("/")[-2]
-            reffile = fpath.split("/")[-1]
+            refname = os.path.basename(os.path.dirname(fpath))
+            refmode = os.path.basename(os.path.dirname(os.path.dirname(fpath)))
+            reffile = os.path.basename(fpath)
 
             eof_lookup = {"PSA1": "EOF2", "NPO": "EOF2", "NPGO": "EOF2", "PSA2": "EOF3"}
             refeof = eof_lookup.get(refmode, "EOF1")
@@ -136,16 +165,20 @@ class VariabilityMetricsCollector:
             else:
                 outfile = os.path.join(outdir, f"{base_name}.json")
 
-            os.rename(fpath, outfile)
+            _move_output(fpath, outfile)
 
     def _collect_diags(self):
         diags_dir = self.input_dir.replace("%(output_type)", "diagnostic_results")
-        json_files = sorted(glob.glob(os.path.join(diags_dir, "*/*/*.nc")))
+        diagnostic_files = sorted(glob.glob(os.path.join(diags_dir, "*/*/*.nc")))
+        if not diagnostic_files:
+            raise FileNotFoundError(
+                f"No variability-mode diagnostic NetCDF files found in {diags_dir}."
+            )
 
-        for fpath in json_files:
-            refmode = fpath.split("/")[-3]
-            refname = fpath.split("/")[-2]
-            reffile = fpath.split("/")[-1]
+        for fpath in diagnostic_files:
+            refname = os.path.basename(os.path.dirname(fpath))
+            refmode = os.path.basename(os.path.dirname(os.path.dirname(fpath)))
+            reffile = os.path.basename(fpath)
 
             outdir = os.path.join(
                 self.output_dir.replace("%(group_type)", "metrics_data"),
@@ -157,10 +190,20 @@ class VariabilityMetricsCollector:
 
             outfile = os.path.join(outdir, reffile)
 
-            os.rename(fpath, outfile)
+            _move_output(fpath, outfile)
 
 
 # Functions ###################################################################
+def _move_output(source: str, destination: str) -> None:
+    """Move an output across filesystems without overwriting directories."""
+    if os.path.isdir(destination):
+        raise IsADirectoryError(f"Destination is a directory: {destination}")
+    if os.path.exists(destination):
+        logger.warning(f"Destination already exists, replacing: {destination}")
+        os.remove(destination)
+    shutil.move(source, destination)
+
+
 def main():
     args: Dict[str, str] = _get_args()
     core_parameters = CoreParameters(args)
@@ -191,7 +234,7 @@ def main():
         refpath=refpath,
         case_id=core_parameters.case_id,
     )
-    if (len(lstcmd) > 0) and core_parameters.multiprocessing:
+    if (len(lstcmd) > 0) and core_output.multiprocessing:
         try:
             results = run_parallel_jobs(lstcmd, core_parameters.num_workers)
             for i, (stdout, stderr, return_code) in enumerate(results):
@@ -214,7 +257,7 @@ def main():
             logger.error(f"Execution failed: {e}")
             raise
     else:
-        logger.info("no jobs to run, continuing...")
+        raise RuntimeError("No variability-mode diagnostic commands were generated.")
     logger.info("successfully finished all jobs.")
     # time delay to ensure process completely finished
     time.sleep(5)
@@ -289,22 +332,34 @@ def generate_varmode_cmds(modes, varOBS, reftyrs, reftyre, refname, refpath, cas
 
     commands = []
 
-    for var_mode in modes:
-        var_mode = var_mode.strip()
+    normalized_modes = _normalize_modes(",".join(str(mode) for mode in modes))
+    for var_mode in normalized_modes:
         # Use specified EOF number if in map, otherwise default to 1
         eofn = eofn_map.get(var_mode, 1)
-        cmd = (
-            f"variability_modes_driver.py -p parameterfile.py "
-            f"--variability_mode {var_mode} "
-            f"--eofn_mod {eofn} "
-            f"--eofn_obs {eofn} "
-            f"--varOBS {varOBS} "
-            f"--osyear {reftyrs} "
-            f"--oeyear {reftyre} "
-            f"--reference_data_name {refname} "
-            f'--reference_data_path "{refpath}" '
-            f"--case_id {case_id}"
-        )
+        command_parts = [
+            "variability_modes_driver.py",
+            "-p",
+            "parameterfile.py",
+            "--variability_mode",
+            var_mode,
+            "--eofn_mod",
+            eofn,
+            "--eofn_obs",
+            eofn,
+            "--varOBS",
+            varOBS,
+            "--osyear",
+            reftyrs,
+            "--oeyear",
+            reftyre,
+            "--reference_data_name",
+            refname,
+            "--reference_data_path",
+            refpath,
+            "--case_id",
+            case_id,
+        ]
+        cmd = " ".join(shlex.quote(str(part)) for part in command_parts)
         commands.append(cmd)
 
     return commands

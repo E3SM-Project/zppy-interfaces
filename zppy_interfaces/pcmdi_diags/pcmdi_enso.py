@@ -7,6 +7,7 @@ import shutil
 import sys
 import time
 from collections import OrderedDict
+from copy import deepcopy
 from typing import Dict, List
 
 from zppy_interfaces.multi_utils.logger import _setup_child_logger, _setup_root_logger
@@ -108,7 +109,9 @@ class EnsoDiagnosticsCollector:
                     marker = f"{self.model}_{self.relm}"
 
                     if marker in fname:
-                        tail = fname.split(marker, 1)[-1]
+                        # Preserve the original last-occurrence behavior if the
+                        # model/realization marker also appears earlier in the name.
+                        tail = fname.rsplit(marker, 1)[-1]
                         outfile = f"{group}{tail}"
                     else:
                         logger.warning(
@@ -272,8 +275,6 @@ class EnsoDiagnosticsCollector:
 
 # Functions ###################################################################
 def main():
-    # logger.error("zi-pcmdi-enso is not yet supported. Exiting.")
-    # sys.exit(1)
     args: Dict[str, str] = _get_args()
     core_parameters = CoreParameters(args)
     enso_parameters = ENSOParameters(args)
@@ -299,7 +300,7 @@ def main():
         f"input_template={core_output.input_template}; If directories derived from this template are empty, it may indicate that lstcmd did not produce output."
     )
 
-    if (len(lstcmd) > 0) and core_parameters.multiprocessing:
+    if (len(lstcmd) > 0) and core_output.multiprocessing:
         logger.info(f"Running parallel jobs for {lstcmd}")
         try:
             results = run_parallel_jobs(lstcmd, core_parameters.num_workers)
@@ -307,7 +308,7 @@ def main():
         except RuntimeError as e:
             logger.error(f"Execution failed: {e}")
             raise
-    elif (len(lstcmd) > 0) and not core_parameters.multiprocessing:
+    elif (len(lstcmd) > 0) and not core_output.multiprocessing:
         logger.info(f"Running serial jobs for {lstcmd}")
         try:
             results = run_serial_jobs(lstcmd)
@@ -475,6 +476,23 @@ def _resolve_enso_catalogue_key(catalogue: Dict, logical_var: str) -> str:
     )
 
 
+def _replace_catalogue_variable_component(
+    path: str, source_var: str, logical_var: str
+) -> str:
+    """Replace the variable component in a PCMDI catalogue filename."""
+    directory, filename = os.path.split(path)
+    parts = filename.rsplit(".", 3)
+    if len(parts) != 4 or parts[-3] != source_var:
+        logger.warning(
+            f"Cannot replace source variable '{source_var}' in catalogue path "
+            f"'{path}': expected it in the third-from-last filename component."
+        )
+        return path
+
+    parts[-3] = logical_var
+    return os.path.join(directory, ".".join(parts)) if directory else ".".join(parts)
+
+
 def normalize_enso_model_catalogue(
     variables: List[str],
     catalogue_file: str = "pcmdi_diags/ts_enso_catalogue.json",
@@ -558,16 +576,12 @@ def normalize_enso_model_catalogue(
             f"variable '{source_var}'."
         )
 
-        catalogue[logical_var] = catalogue[source_var].copy()
+        catalogue[logical_var] = deepcopy(catalogue[source_var])
 
         refset = catalogue[logical_var].get("set")
         model_name = catalogue[logical_var].get(refset)
 
         if refset and model_name and model_name in catalogue[logical_var]:
-            catalogue[logical_var][model_name] = catalogue[logical_var][
-                model_name
-            ].copy()
-
             entry = catalogue[logical_var][model_name]
             entry["var_in_file"] = source_var
             entry["var_name"] = logical_var
@@ -577,11 +591,11 @@ def normalize_enso_model_catalogue(
 
             # Prefer the symlinked logical filename, e.g. *.sst.*.nc,
             # because check_enso_input() creates this link before normalization.
-            entry["file_path"] = old_file_path.replace(
-                f".{source_var}.", f".{logical_var}."
+            entry["file_path"] = _replace_catalogue_variable_component(
+                old_file_path, source_var, logical_var
             )
-            entry["template"] = old_template.replace(
-                f".{source_var}.", f".{logical_var}."
+            entry["template"] = _replace_catalogue_variable_component(
+                old_template, source_var, logical_var
             )
 
         changed = True
@@ -614,12 +628,14 @@ def check_enso_input(input_dir: str = "ts"):
             f"variable name {obs_var_name}, if present"
         )
 
-        found_nc_file = glob.glob(
-            os.path.join(ts_dir, f"*.{cmip_var_name}.*.nc")
-        ) + glob.glob(os.path.join(ts_dir, f"{cmip_var_name}_*.nc"))
+        found_nc_files = sorted(
+            set(
+                glob.glob(os.path.join(ts_dir, f"*.{cmip_var_name}.*.nc"))
+                + glob.glob(os.path.join(ts_dir, f"{cmip_var_name}_*.nc"))
+            )
+        )
 
-        if found_nc_file:
-            source_file = found_nc_file[0]
+        for source_file in found_nc_files:
             source_basename = os.path.basename(source_file)
 
             if f".{cmip_var_name}." in source_basename:
@@ -638,20 +654,26 @@ def check_enso_input(input_dir: str = "ts"):
                 link_name = None
 
             if link_name:
-                if not os.path.exists(link_name):
-                    os.symlink(source_file, link_name)
-                else:
-                    logger.info(f"Symlink already exists, skipping: {link_name}")
+                _ensure_symlink(source_file, link_name)
 
         found_txt_file = glob.glob(os.path.join(ts_dir, f"{cmip_var_name}_files.txt"))
         if found_txt_file:
             source_file = found_txt_file[0]
             link_name = os.path.join(ts_dir, f"{obs_var_name}_files.txt")
 
-            if not os.path.exists(link_name):
-                os.symlink(source_file, link_name)
-            else:
-                logger.info(f"Symlink already exists, skipping: {link_name}")
+            _ensure_symlink(source_file, link_name)
+
+
+def _ensure_symlink(source_file: str, link_name: str) -> None:
+    """Create an alias symlink, replacing only a stale broken symlink."""
+    if os.path.lexists(link_name):
+        if os.path.islink(link_name) and not os.path.exists(link_name):
+            logger.warning(f"Replacing broken symlink: {link_name}")
+            os.unlink(link_name)
+        else:
+            logger.info(f"Path already exists, skipping symlink: {link_name}")
+            return
+    os.symlink(source_file, link_name)
 
 
 def generate_enso_cmds(
@@ -684,6 +706,7 @@ def generate_enso_cmds(
 
 
 def check_enso_output(results, input_dir: str = "ts"):
+    """Validate command results, including results supplied by custom runners."""
     logger.info("Checking ENSO output.")
     success: bool = True
 
@@ -693,6 +716,9 @@ def check_enso_output(results, input_dir: str = "ts"):
         logger.info(f"STDERR: {stderr}")
         logger.info(f"Return code: {return_code}")
 
+        # The bundled serial and parallel runners currently raise before returning
+        # a failure. Keep this boundary check for direct callers and future runners
+        # that may return nonzero result tuples instead.
         if return_code != 0:
             logger.error(f"Command {i + 1} failed with return code {return_code}.")
             success = False
@@ -731,10 +757,12 @@ def check_vars(stdout: str, input_dir: str = "ts") -> bool:
     # ssh and thf are rarely available process-level variables and are mainly used
     # by selected ENSO process diagnostics, not the core ENSO performance diagnostics.
     #
-    # v4 note: EAMxx does not always output taux and tauy by default, so we also
-    # treat them as soft-missing variables here to avoid stopping the full ENSO
-    # workflow when surface wind stress diagnostics are unavailable.
-    optional_missing = {"ssh", "thf", "taux", "tauy"}
+    # Some models, including EAMxx, do not output zonal surface wind stress by
+    # default. The current PCMDI ENSO collections use taux only for selected
+    # performance and process metrics, so allow the remaining metrics to run and
+    # let collection prune the incomplete entries. No current collection requests
+    # tauy, so it remains required if a driver reports it in list_variables.
+    optional_missing = {"ssh", "thf", "taux"}
 
     if not match_object:
         logger.error("No variable list found in stdout.")
@@ -823,6 +851,7 @@ def check_output_dirs(stdout: str) -> bool:
             logger.warning(
                 f"No output directory line found for {output_type} in stdout."
             )
+            success = False
             continue
 
         subdir = match_object.group(1).strip()

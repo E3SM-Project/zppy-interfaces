@@ -28,8 +28,8 @@ The entry points defined by this repository are:
 Shared workflow
 ===============
 
-``zi-pcmdi-mean-climate``, ``zi-pcmdi-variability-modes``, and the unfinished
-``zi-pcmdi-enso`` command all use ``zppy_interfaces.pcmdi_diags.pcmdi_setup`` to
+``zi-pcmdi-mean-climate``, ``zi-pcmdi-variability-modes``, and
+``zi-pcmdi-enso`` all use ``zppy_interfaces.pcmdi_diags.pcmdi_setup`` to
 perform the same initial preparation work.
 
 Step-by-step shared setup
@@ -79,7 +79,7 @@ commands.
      - Yes
      - N/A
      - Label used in generated catalogue file names such as
-       ``<path>_<subsection>_catalogue.json``.
+       ``<directory-name>_<subsection>_catalogue.json``.
    * - ``--climo_ts_dir_primary``
      - Yes
      - N/A
@@ -147,8 +147,10 @@ Boolean parsing notes
 
 The PCMDI-related commands do not all parse booleans the same way:
 
-* ``multiprocessing`` and most ``debug`` flags use only ``true``
-  (case-insensitive) as the true value.
+* ``multiprocessing`` accepts ``true``, ``1``, ``yes``, and ``on`` as true,
+  and ``false``, ``0``, ``no``, and ``off`` as false (with abbreviated forms
+  also accepted).
+* Most ``debug`` flags use only ``true`` (case-insensitive) as the true value.
 * ``generate_sftlf`` treats ``true``, ``y``, and ``yes`` as true.
 * ``zi-pcmdi-synthetic-plots`` accepts a broader set of truthy and falsy values
   such as ``true``, ``1``, ``yes``, ``on``, ``false``, ``0``, and ``off`` for

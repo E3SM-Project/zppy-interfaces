@@ -4,7 +4,7 @@ import os
 import re
 from collections import OrderedDict
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import xarray as xr
 from pcmdi_metrics.io import xcdat_open
@@ -15,37 +15,74 @@ from zppy_interfaces.multi_utils.logger import _setup_child_logger
 logger = _setup_child_logger(__name__)
 
 
+def _required_arg(args: Dict[str, Any], name: str) -> str:
+    value = args.get(name)
+    if value is None or not str(value).strip():
+        raise ValueError(f"--{name} is required but was not provided.")
+    return str(value).strip()
+
+
+def _parse_csv_arg(args: Dict[str, Any], name: str) -> List[str]:
+    raw_value = _required_arg(args, name)
+    values = [value.strip() for value in raw_value.split(",") if value.strip()]
+    if not values:
+        raise ValueError(f"--{name} must contain at least one value.")
+    return values
+
+
+def _parse_bool_arg(value: Any, name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "t", "yes", "y", "1", "on"}:
+        return True
+    if normalized in {"false", "f", "no", "n", "0", "off"}:
+        return False
+    raise ValueError(f"--{name} must be a boolean value, got {value!r}.")
+
+
 # Classes #####################################################################
 class CoreParameters(object):
-    def __init__(self, args: Dict[str, str]):
-        num_workers = args.get("num_workers")
-        if num_workers is None:
-            raise ValueError("--num_workers is required but was not provided.")
-        self.num_workers: int = int(num_workers)
-        multiprocessing = args.get("multiprocessing")
-        if multiprocessing is None:
-            raise ValueError("--multiprocessing is required but was not provided.")
-        self.multiprocessing: bool = multiprocessing.lower() == "true"
-        self.subsection: str = args["subsection"]
-        self.test_data_path: str = args["climo_ts_dir_primary"]
-        self.reference_data_path: str = args["climo_ts_dir_ref"]
-        self.model_name: str = args["model_name"]
-        self.model_tableID: str = args["model_tableID"]
-        self.figure_format: str = args["figure_format"]
-        self.run_type: str = args["run_type"]
-        self.obs_sets: str = args["obs_sets"]  # run_type == "model_vs_obs" only
-        self.model_name_ref: str = args[
-            "model_name_ref"
-        ]  # run_type == "model_vs_model" only
-        vars_arg = args.get("vars")
-        if not vars_arg:
-            raise ValueError("--vars is required but was not provided.")
-        self.variables: List[str] = vars_arg.split(",")
-        self.tableID_ref: str = args["tableID_ref"]  # run_type == "model_vs_model" only
+    def __init__(self, args: Dict[str, Any]):
+        num_workers = _required_arg(args, "num_workers")
+        try:
+            self.num_workers = int(num_workers)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"--num_workers must be an integer, got {num_workers!r}."
+            ) from exc
+        if self.num_workers < 1:
+            raise ValueError(
+                f"--num_workers must be at least 1, got {self.num_workers}."
+            )
+
+        self.multiprocessing = _parse_bool_arg(
+            _required_arg(args, "multiprocessing"), "multiprocessing"
+        )
+        self.subsection = _required_arg(args, "subsection")
+        self.test_data_path = _required_arg(args, "climo_ts_dir_primary")
+        self.reference_data_path = _required_arg(args, "climo_ts_dir_ref")
+        self.model_name = _required_arg(args, "model_name")
+        self.model_tableID = _required_arg(args, "model_tableID")
+        self.figure_format = _required_arg(args, "figure_format")
+        self.run_type = _required_arg(args, "run_type")
+        if self.run_type not in {"model_vs_obs", "model_vs_model"}:
+            raise ValueError(f"Invalid --run_type={self.run_type}")
+
+        self.variables = _parse_csv_arg(args, "vars")
+        self.obs_sets: Optional[str] = None
+        self.model_name_ref: Optional[str] = None
+        self.tableID_ref: Optional[str] = None
+        if self.run_type == "model_vs_obs":
+            self.obs_sets = ",".join(_parse_csv_arg(args, "obs_sets"))
+        else:
+            self.model_name_ref = _required_arg(args, "model_name_ref")
+            self.tableID_ref = _required_arg(args, "tableID_ref")
+
         # Whether to generate the land/sea mask
-        self.generate_flag: str = args["generate_sftlf"]
-        self.case_id: str = args["case_id"]
-        self.results_dir: str = args["results_dir"]
+        self.generate_flag = _required_arg(args, "generate_sftlf")
+        self.case_id = _required_arg(args, "case_id")
+        self.results_dir = _required_arg(args, "results_dir")
 
 
 class CoreOutput(object):
@@ -224,7 +261,11 @@ class DataCatalogueBuilder:
         target_dict[varin][model] = metadata
 
     def _save_catalogue(self, source_path: str, data_dict: OrderedDict):
-        filename = f"{source_path}_{self.label}_catalogue.json"
+        source_name = os.path.basename(os.path.normpath(source_path))
+        if not source_name:
+            raise ValueError(f"Cannot derive catalogue name from path: {source_path}")
+        filename = f"{source_name}_{self.label}_catalogue.json"
+        os.makedirs(self.output_dir, exist_ok=True)
         filepath = os.path.join(self.output_dir, filename)
         logger.info(
             f"Saving catalogue {filepath}, absolute path {os.path.abspath(filepath)}"
@@ -250,8 +291,9 @@ class LandSeaMaskGenerator:
         return str(flag).lower() in ["true", "y", "yes"]
 
     def _process_group(self, group):
+        group_name = os.path.basename(os.path.normpath(group))
         catalog_path = os.path.join(
-            "pcmdi_diags", f"{group}_{self.subsection}_catalogue.json"
+            "pcmdi_diags", f"{group_name}_{self.subsection}_catalogue.json"
         )
 
         if not os.path.exists(catalog_path):
@@ -331,10 +373,13 @@ def set_up(parameters: CoreParameters, variable_aliases=None) -> CoreOutput:
     test_data_set: List[str] = [model_name_parts[1]]
     reference_data_set: List[str]
     if parameters.run_type == "model_vs_obs":
+        assert parameters.obs_sets is not None
         reference_data_set = parameters.obs_sets.split(",")
     elif parameters.run_type == "model_vs_model":
         if not parameters.model_name_ref:
             raise ValueError("model_name_ref is required for run_type=model_vs_model")
+        if not parameters.tableID_ref:
+            raise ValueError("tableID_ref is required for run_type=model_vs_model")
         ref_parts = parameters.model_name_ref.split(".")
         if len(ref_parts) != 4:
             raise ValueError(
@@ -363,21 +408,21 @@ def set_up(parameters: CoreParameters, variable_aliases=None) -> CoreOutput:
                 parameters.test_data_path,
                 f"{parameters.model_name}.{parameters.model_tableID}",
             )
-            if parameters.run_type == "model_vs_model":
-                ref_var_names = [var, source_var] if source_var else [var]
-                ref_fpaths = []
-                for ref_var_name in ref_var_names:
-                    ref_fpaths = _find_nc_files(
-                        parameters.reference_data_path, ref_var_name
-                    )
-                    if ref_fpaths:
-                        break
-                if not ref_fpaths:
-                    derive_missing_variable(
-                        varin,
-                        parameters.reference_data_path,
-                        f"{parameters.model_name_ref}.{parameters.tableID_ref}",
-                    )
+        if parameters.run_type == "model_vs_model":
+            ref_var_names = [var, source_var] if source_var else [var]
+            ref_fpaths = []
+            for ref_var_name in ref_var_names:
+                ref_fpaths = _find_nc_files(
+                    parameters.reference_data_path, ref_var_name
+                )
+                if ref_fpaths:
+                    break
+            if not ref_fpaths:
+                derive_missing_variable(
+                    varin,
+                    parameters.reference_data_path,
+                    f"{parameters.model_name_ref}.{parameters.tableID_ref}",
+                )
     #######################################################
     # collect and document data info in a dictionary
     # for convenience of pcmdi processing

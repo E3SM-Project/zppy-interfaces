@@ -3,6 +3,7 @@ import glob
 import json
 import os
 import re
+import shutil
 import sys
 import time
 from collections import OrderedDict
@@ -24,7 +25,11 @@ class MeanClimateParameters(object):
         regions = args.get("regions")
         if not regions:
             raise ValueError("--regions is required but was not provided.")
-        self.regions: List[str] = regions.split(",")
+        self.regions: List[str] = [
+            region.strip() for region in regions.split(",") if region.strip()
+        ]
+        if not self.regions:
+            raise ValueError("--regions must contain at least one region.")
 
 
 class MeanClimateMetricsCollector:
@@ -91,7 +96,7 @@ class MeanClimateMetricsCollector:
                             )
                             os.makedirs(outpath, exist_ok=True)
                             outfile = os.path.join(outpath, filname)
-                            os.rename(fpath, outfile)
+                            _move_output(fpath, outfile)
 
     def _collect_diags(self):
         inpath = self.input_template.replace("%(metric_type)", self.diag_metric)
@@ -104,9 +109,9 @@ class MeanClimateMetricsCollector:
         fpaths = sorted(glob.glob(os.path.join(inpath, "*/*/*/*/*/*/*.nc")))
 
         for fpath in fpaths:
-            filname = fpath.split("/")[-1]
+            filname = os.path.basename(fpath)
             outfile = os.path.join(outpath, filname)
-            os.rename(fpath, outfile)
+            _move_output(fpath, outfile)
 
     def _collect_metrics(self):
         inpath = self.input_template.replace("%(metric_type)", self.diag_metric)
@@ -121,17 +126,26 @@ class MeanClimateMetricsCollector:
         for fpath in fpaths:
             parts = os.path.basename(fpath).split("_")
             if len(parts) < 2:
-                logger.error(
+                raise ValueError(
                     f"Unexpected metrics filename format (need at least 2 '_'-separated "
-                    f"parts): {os.path.basename(fpath)}, skipping."
+                    f"parts): {os.path.basename(fpath)}"
                 )
-                continue
             filname = f"{parts[0]}.{parts[1]}.{self.model_name}.{self.case_id}.json"
             outfile = os.path.join(outpath, filname)
-            os.rename(fpath, outfile)
+            _move_output(fpath, outfile)
 
 
 # Functions ###################################################################
+def _move_output(source: str, destination: str) -> None:
+    """Move an output across filesystems without overwriting directories."""
+    if os.path.isdir(destination):
+        raise IsADirectoryError(f"Destination is a directory: {destination}")
+    if os.path.exists(destination):
+        logger.warning(f"Destination already exists, replacing: {destination}")
+        os.remove(destination)
+    shutil.move(source, destination)
+
+
 def main():
     args: Dict[str, str] = _get_args()
     core_parameters = CoreParameters(args)
@@ -172,7 +186,7 @@ def main():
             logger.error(f"Execution failed: {e}")
             raise
     else:
-        logger.info("no jobs to run, continuing...")
+        raise RuntimeError("No mean-climate diagnostic commands were generated.")
     logger.info("successfully finished all jobs.")
     # time delay to ensure process completely finished
     time.sleep(5)
@@ -280,4 +294,10 @@ def generate_mean_clim_cmds(variables, obs_dic, case_id):
                 f"Variable '{var_key}' not found in obs_dic; "
                 f"no mean_climate command will be generated for it."
             )
+    if not commands:
+        raise ValueError(
+            "No mean-climate commands could be generated from the requested "
+            f"variables. Requested variables: {variables}; available catalogue "
+            f"variables: {list(obs_dic)}"
+        )
     return commands

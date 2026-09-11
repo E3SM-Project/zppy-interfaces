@@ -188,7 +188,7 @@ class SyntheticMetricsPlotter:
         # Variables (preserve original behavior unless filters are provided)
         var_list = list(merge_lib.var_list)
         var_unit_list = list(merge_lib.var_unit_list)
-        if self.clim_vars is not None:
+        if self.clim_vars:
             name_to_unit = dict(zip(merge_lib.var_list, merge_lib.var_unit_list))
             missing = [v for v in self.clim_vars if v not in name_to_unit]
             if missing:
@@ -200,7 +200,7 @@ class SyntheticMetricsPlotter:
 
         # Regions (preserve order)
         regions = list(merge_lib.regions)
-        if self.clim_regions is not None:
+        if self.clim_regions:
             missing_r = [r for r in self.clim_regions if r not in merge_lib.regions]
             if missing_r:
                 logger.warning(
@@ -336,12 +336,15 @@ class SyntheticMetricsPlotter:
             return
 
         # --- Main loop over stats ---
+        successful_stats = []
+        failed_stats = []
         for stat in self.metric_dict[metric].keys():
             metric_dict = diag_vars_all.get(stat, {})
             if not metric_dict:
                 logger.warning(
                     f"[enso] No variables configured for stat='{stat}'. Skipping."
                 )
+                failed_stats.append(stat)
                 continue
 
             enso_collections = self.metric_dict[metric][stat].get("collection", [])
@@ -362,21 +365,41 @@ class SyntheticMetricsPlotter:
                 dict_json_path = reader.run()
             except Exception as e:
                 logger.exception(f"[enso] Reader failed for stat='{stat}': {e}")
+                failed_stats.append(stat)
                 continue
 
             if not dict_json_path:
                 logger.warning(
                     f"[enso] Reader returned empty path for stat='{stat}'. Skipping plot."
                 )
+                failed_stats.append(stat)
                 continue
 
             try:
-                enso_plot_driver(
+                plotted = enso_plot_driver(
                     metric, stat, dict_json_path, self.parameter, self.figure_format
                 )
+                if not plotted:
+                    raise RuntimeError(
+                        f"No supported ENSO plot type configured for stat='{stat}'."
+                    )
+                successful_stats.append(stat)
                 logger.debug(f"[enso] Plotted stat='{stat}' successfully.")
             except Exception as e:
                 logger.exception(f"[enso] Plot driver failed for stat='{stat}': {e}")
+                failed_stats.append(stat)
+
+        if not successful_stats:
+            raise RuntimeError(
+                "No ENSO synthetic metrics plots were generated. "
+                f"Failed or skipped stats: {failed_stats}"
+            )
+        if failed_stats:
+            logger.warning(
+                "[enso] Generated plots for %s; failed or skipped stats: %s",
+                successful_stats,
+                failed_stats,
+            )
 
 
 def _prepare_mean_climate_portrait_variables(
@@ -672,6 +695,7 @@ def enso_plot_driver(metric, stat, dict_json_path, parameter, fig_format):
     metrics_collections = metric_dict["collection"]
     mips = [parameter["cmip_name"].split(".")[0]] + parameter["model_name"]
 
+    plotted = False
     for mtype in metric_dict["type"]:
         if mtype == "portrait":
             logger.info(f"Processing Portrait Plots for {metric} {stat}...")
@@ -694,8 +718,9 @@ def enso_plot_driver(metric, stat, dict_json_path, parameter, fig_format):
                 figure_name=figure_name,
                 reduced_set=True,
             )
+            plotted = True
 
-    return
+    return plotted
 
 
 def archive_data(

@@ -56,6 +56,27 @@ def test_EnsoDiagnosticsCollector_invalid_model_name_parts_raises():
         )
 
 
+def test_collect_figures_uses_tail_after_last_model_marker(tmp_path):
+    collector = EnsoDiagnosticsCollector(
+        fig_format="png",
+        refname="obsname",
+        model_name_parts=["CMIP6", "historical", "E3SM", "r1i1p1f1"],
+        case_id="v20250923",
+        input_dir=str(tmp_path / "input" / "%(metric_type)" / "%(output_type)"),
+        output_dir=str(tmp_path / "output" / "%(group_type)"),
+    )
+    group = "ENSO_perf"
+    source_dir = tmp_path / "input" / "enso_metric" / "graphics" / group
+    source_dir.mkdir(parents=True)
+    source = source_dir / "prefix_E3SM_r1i1p1f1_middle_E3SM_r1i1p1f1_suffix.png"
+    source.touch()
+
+    assert collector.collect_figures([group]) is True
+
+    destination = tmp_path / "output" / "ENSO_metric" / group / "ENSO_perf_suffix.png"
+    assert destination.is_file()
+
+
 def test_generate_enso_cmds(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "parameterfile.py").touch()
@@ -89,28 +110,28 @@ def test_check_vars_all_variables_found(tmp_path, monkeypatch):
     assert check_vars(stdout) is True
 
 
-def test_check_vars_missing_optional_variables_still_passes(tmp_path, monkeypatch):
+@pytest.mark.parametrize("variable", ["ssh", "thf", "taux"])
+def test_check_vars_missing_optional_variables_still_passes(
+    tmp_path, monkeypatch, variable
+):
     monkeypatch.chdir(tmp_path)
     ts_dir = tmp_path / "ts"
     ts_dir.mkdir()
     (ts_dir / "case.ts.198501_201412.nc").touch()
     (ts_dir / "ts_files.txt").touch()
-    # "ssh" is intentionally missing -- it's an optional process-level variable.
-
-    stdout = "list_variables = ['ts', 'ssh']\n"
+    stdout = f"list_variables = ['ts', '{variable}']\n"
 
     assert check_vars(stdout) is True
 
 
-def test_check_vars_missing_required_variable_fails(tmp_path, monkeypatch):
+@pytest.mark.parametrize("variable", ["tas", "tauy"])
+def test_check_vars_missing_required_variable_fails(tmp_path, monkeypatch, variable):
     monkeypatch.chdir(tmp_path)
     ts_dir = tmp_path / "ts"
     ts_dir.mkdir()
     (ts_dir / "case.ts.198501_201412.nc").touch()
     (ts_dir / "ts_files.txt").touch()
-    # "tas" is not optional and has no data.
-
-    stdout = "list_variables = ['ts', 'tas']\n"
+    stdout = f"list_variables = ['ts', '{variable}']\n"
 
     assert check_vars(stdout) is False
 
@@ -131,6 +152,24 @@ def test_check_enso_input_uses_configured_directory(tmp_path):
 
     assert (input_dir / "case.sst.198501-201412.nc").is_symlink()
     assert (input_dir / "sst_files.txt").is_symlink()
+
+
+def test_check_enso_input_links_all_matching_files_and_repairs_broken_link(tmp_path):
+    input_dir = tmp_path / "arbitrary-input"
+    input_dir.mkdir()
+    first_source = input_dir / "case.ts.198501-199912.nc"
+    second_source = input_dir / "case.ts.200001-201412.nc"
+    first_source.touch()
+    second_source.touch()
+    broken_link = input_dir / "case.sst.198501-199912.nc"
+    broken_link.symlink_to(input_dir / "missing.ts.nc")
+
+    check_enso_input(str(input_dir))
+
+    first_link = input_dir / "case.sst.198501-199912.nc"
+    second_link = input_dir / "case.sst.200001-201412.nc"
+    assert first_link.resolve() == first_source
+    assert second_link.resolve() == second_source
 
 
 def test_check_vars_uses_configured_directory(tmp_path):
@@ -175,11 +214,9 @@ def test_check_output_dirs_empty_directory_fails(tmp_path, monkeypatch):
     assert check_output_dirs(stdout) is False
 
 
-def test_check_output_dirs_missing_lines_are_only_warned_about(tmp_path, monkeypatch):
+def test_check_output_dirs_missing_lines_fail_validation(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    # No "output directory for ..." lines at all -- these are logged as
-    # warnings and skipped, not treated as failures.
-    assert check_output_dirs("") is True
+    assert check_output_dirs("") is False
 
 
 def test_build_enso_obsvar_catalog(tmp_path):
@@ -285,6 +322,38 @@ def test_normalize_enso_model_catalogue_adds_logical_variable_from_source(tmp_pa
     assert sst_entry["var_in_file"] == "ts"
     assert sst_entry["file_path"] == "/data/run1.sst.198501_201412.nc"
     assert sst_entry["template"] == "run1.sst.%(time).nc"
+
+
+def test_normalize_enso_model_catalogue_rewrites_only_variable_component(tmp_path):
+    catalogue_file = tmp_path / "ts_enso_catalogue.json"
+    source_path = "/data/archive.ts/run1.ts.prefix.ts.198501_201412.nc"
+    source_template = "run1.ts.prefix.ts.%(time).nc"
+    catalogue = {
+        "ts": {
+            "set": "primary",
+            "primary": "run1",
+            "metadata": {"aliases": ["ts"]},
+            "run1": {
+                "var_name": "ts",
+                "var_in_file": "ts",
+                "file_path": source_path,
+                "template": source_template,
+            },
+        }
+    }
+    catalogue_file.write_text(json.dumps(catalogue))
+
+    normalize_enso_model_catalogue(["sst"], catalogue_file=str(catalogue_file))
+
+    with open(catalogue_file) as f:
+        result = json.load(f)
+
+    assert result["sst"]["run1"]["file_path"] == (
+        "/data/archive.ts/run1.ts.prefix.sst.198501_201412.nc"
+    )
+    assert result["sst"]["run1"]["template"] == ("run1.ts.prefix.sst.%(time).nc")
+    assert result["ts"]["run1"]["file_path"] == source_path
+    assert result["ts"]["run1"]["template"] == source_template
 
 
 def test_normalize_enso_model_catalogue_skips_when_file_missing(tmp_path):
