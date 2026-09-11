@@ -3,7 +3,7 @@ import json
 import os
 import shutil
 import sys
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from zppy_interfaces.multi_utils.logger import _setup_child_logger, _setup_root_logger
 from zppy_interfaces.pcmdi_diags.synthetic_plots.synthetic_metrics_plotter import (
@@ -27,45 +27,55 @@ class SyntheticPlotsParameters(object):
     def __init__(self, args: Dict[str, str]):
         self.figure_format: str = args["figure_format"]
         self.www: str = args["www"]
-        self.save_all_data: bool = str2bool(args.get("save_all_data", False))
+        self.save_all_data: bool = str2bool(
+            args.get("save_all_data")
+            if args.get("save_all_data") is not None
+            else False
+        )
         self.results_dir: str = args["results_dir"]
         self.case: str = args["case"]
         self.model_name: str = args["model_name"]
         self.model_tableID: str = args["model_tableID"]
         self.web_dir: str = args["web_dir"]
-        self.clim_viewer: bool = str2bool(args.get("clim_viewer", False))
-        self.clim_vars: List[str] = (
-            (args.get("clim_vars") or "").split(",") if args.get("clim_vars") else []
+        self.clim_viewer: bool = str2bool(
+            args.get("clim_viewer") if args.get("clim_viewer") is not None else False
+        )
+        self.clim_vars: Optional[List[str]] = (
+            args.get("clim_vars").split(",") if args.get("clim_vars") else None
         )
         self.clim_years: str = args["clim_years"]
-        self.clim_regions: List[str] = (
-            (args.get("clim_regions") or "").split(",")
-            if args.get("clim_regions")
-            else []
+        self.clim_regions: Optional[List[str]] = (
+            args.get("clim_regions").split(",") if args.get("clim_regions") else None
         )
         self.cmip_clim_dir: str = args["cmip_clim_dir"]
         self.cmip_clim_set: str = args["cmip_clim_set"]
-        self.mova_viewer: bool = str2bool(args.get("mova_viewer", False))
-        self.mova_modes: List[str] = (
-            (args.get("mova_modes") or "").split(",") if args.get("mova_modes") else []
+        self.mova_viewer: bool = str2bool(
+            args.get("mova_viewer") if args.get("mova_viewer") is not None else False
         )
-        self.mova_vars: List[str] = (
-            (args.get("mova_vars") or "").split(",") if args.get("mova_vars") else []
+        self.mova_modes: Optional[List[str]] = (
+            args.get("mova_modes").split(",") if args.get("mova_modes") else None
+        )
+        self.mova_vars: Optional[List[str]] = (
+            args.get("mova_vars").split(",") if args.get("mova_vars") else None
         )
         self.mova_years: str = args["mova_years"]
-        self.movc_viewer: bool = str2bool(args.get("movc_viewer", False))
-        self.movc_modes: List[str] = (
-            (args.get("movc_modes") or "").split(",") if args.get("movc_modes") else []
+        self.movc_viewer: bool = str2bool(
+            args.get("movc_viewer") if args.get("movc_viewer") is not None else False
         )
-        self.movc_vars: List[str] = (
-            (args.get("movc_vars") or "").split(",") if args.get("movc_vars") else []
+        self.movc_modes: Optional[List[str]] = (
+            args.get("movc_modes").split(",") if args.get("movc_modes") else None
+        )
+        self.movc_vars: Optional[List[str]] = (
+            args.get("movc_vars").split(",") if args.get("movc_vars") else None
         )
         self.movc_years: str = args["movc_years"]
         self.cmip_movs_dir: str = args["cmip_movs_dir"]
         self.cmip_movs_set: str = args["cmip_movs_set"]
-        self.enso_viewer: bool = str2bool(args.get("enso_viewer", False))
-        self.enso_vars: List[str] = (
-            (args.get("enso_vars") or "").split(",") if args.get("enso_vars") else []
+        self.enso_viewer: bool = str2bool(
+            args.get("enso_viewer") if args.get("enso_viewer") is not None else False
+        )
+        self.enso_vars: Optional[List[str]] = (
+            args.get("enso_vars").split(",") if args.get("enso_vars") else None
         )
         self.enso_years: str = args["enso_years"]
         self.cmip_enso_dir: str = args["cmip_enso_dir"]

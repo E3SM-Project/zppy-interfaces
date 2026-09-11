@@ -275,16 +275,28 @@ def main():
     args: Dict[str, str] = _get_args()
     core_parameters = CoreParameters(args)
     enso_parameters = ENSOParameters(args)
-    core_output: CoreOutput = set_up(core_parameters)
+    requested_variables = list(core_parameters.variables)
+    setup_variables = list(requested_variables)
+    for var in requested_variables:
+        vkey = re.split(r"[_-]", var)[0] if "_" in var or "-" in var else var
+        source_var = ALT_OBS_MAP.get(vkey)
+        if source_var and source_var not in setup_variables:
+            setup_variables.append(source_var)
+
+    core_parameters.variables = setup_variables
+    try:
+        core_output: CoreOutput = set_up(core_parameters)
+    finally:
+        core_parameters.variables = requested_variables
 
     #############################################
     # call enso_driver.py to process diagnostics
     #############################################
-    build_enso_obsvar_catalog(core_output.obs_dic, core_parameters.variables)
-    build_enso_obsvar_landmask(core_output.obs_dic, core_parameters.variables)
+    build_enso_obsvar_catalog(core_output.obs_dic, requested_variables)
+    build_enso_obsvar_landmask(core_output.obs_dic, requested_variables)
     # now start enso driver
     check_enso_input()
-    normalize_enso_model_catalogue(core_parameters.variables)
+    normalize_enso_model_catalogue(requested_variables)
     lstcmd = generate_enso_cmds(enso_parameters.enso_groups, core_parameters.case_id)
     logger.info(
         f"input_template={core_output.input_template}; If directories derived from this template are empty, it may indicate that lstcmd did not produce output."
