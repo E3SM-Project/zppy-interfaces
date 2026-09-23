@@ -29,11 +29,15 @@ logger = _setup_child_logger(__name__)
 class ENSOParameters(object):
     def __init__(self, args: Dict[str, str]):
         enso_groups = args.get("enso_groups")
+        if not enso_groups:
+            raise ValueError("--enso_groups is required but was not provided.")
         normalized_enso_groups = [
-            group.strip() for group in (enso_groups or "").split(",") if group.strip()
+            group.strip() for group in enso_groups.split(",") if group.strip()
         ]
         if not normalized_enso_groups:
-            raise ValueError("--enso_groups is required but was not provided.")
+            raise ValueError(
+                f"--enso_groups was provided as {enso_groups!r} but contains no valid group names."
+            )
         self.enso_groups: str = enso_groups
 
 
