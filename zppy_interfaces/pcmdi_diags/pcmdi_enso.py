@@ -3,6 +3,7 @@ import glob
 import json
 import os
 import re
+import shlex
 import shutil
 import sys
 import time
@@ -28,7 +29,10 @@ logger = _setup_child_logger(__name__)
 class ENSOParameters(object):
     def __init__(self, args: Dict[str, str]):
         enso_groups = args.get("enso_groups")
-        if not enso_groups:
+        normalized_enso_groups = [
+            group.strip() for group in (enso_groups or "").split(",") if group.strip()
+        ]
+        if not normalized_enso_groups:
             raise ValueError("--enso_groups is required but was not provided.")
         self.enso_groups: str = enso_groups
 
@@ -687,7 +691,10 @@ def generate_enso_cmds(
     ]
     commands = [
         "{} -p {} --metricsCollection {} --case_id {}".format(
-            driver_script, param_file, group, case_id
+            shlex.quote(str(driver_script)),
+            shlex.quote(str(param_file)),
+            shlex.quote(str(group)),
+            shlex.quote(str(case_id)),
         )
         for group in enso_groups
     ]

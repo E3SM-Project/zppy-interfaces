@@ -1580,6 +1580,7 @@ def generate_viewer_html(config):
 
     # Write the generated HTML to the specified file
     Path(config["out_dir"]).mkdir(parents=True, exist_ok=True)
-    Path(os.path.join(config["out_dir"], "index.html")).write_text(output_html)
-    logger.info(f"HTML file written to: {config['out_dir']}")
+    out_path = os.path.join(config["out_dir"], "index.html")
+    Path(out_path).write_text(output_html)
+    logger.info(f"HTML file written to: {out_path}")
     return
