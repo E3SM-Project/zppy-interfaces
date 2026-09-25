@@ -145,8 +145,8 @@ the implementation details behind the shared setup and the command modules, see
 </section>
 <section id="shared-workflow">
 <h2>Shared workflow<a class="headerlink" href="#shared-workflow" title="Link to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-mean-climate</span></code>, <code class="docutils literal notranslate"><span class="pre">zi-pcmdi-variability-modes</span></code>, and the unfinished
-<code class="docutils literal notranslate"><span class="pre">zi-pcmdi-enso</span></code> command all use <code class="docutils literal notranslate"><span class="pre">zppy_interfaces.pcmdi_diags.pcmdi_setup</span></code> to
+<p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-mean-climate</span></code>, <code class="docutils literal notranslate"><span class="pre">zi-pcmdi-variability-modes</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">zi-pcmdi-enso</span></code> all use <code class="docutils literal notranslate"><span class="pre">zppy_interfaces.pcmdi_diags.pcmdi_setup</span></code> to
 perform the same initial preparation work.</p>
 <section id="step-by-step-shared-setup">
 <h3>Step-by-step shared setup<a class="headerlink" href="#step-by-step-shared-setup" title="Link to this heading"></a></h3>
@@ -205,7 +205,7 @@ disables parallel execution when <code class="docutils literal notranslate"><spa
 <td><p>Yes</p></td>
 <td><p>N/A</p></td>
 <td><p>Label used in generated catalogue file names such as
-<code class="docutils literal notranslate"><span class="pre">&lt;path&gt;_&lt;subsection&gt;_catalogue.json</span></code>.</p></td>
+<code class="docutils literal notranslate"><span class="pre">&lt;directory-name&gt;_&lt;subsection&gt;_catalogue.json</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--climo_ts_dir_primary</span></code></p></td>
 <td><p>Yes</p></td>
@@ -289,8 +289,10 @@ treats <code class="docutils literal notranslate"><span class="pre">true</span><
 <h3>Boolean parsing notes<a class="headerlink" href="#boolean-parsing-notes" title="Link to this heading"></a></h3>
 <p>The PCMDI-related commands do not all parse booleans the same way:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">multiprocessing</span></code> and most <code class="docutils literal notranslate"><span class="pre">debug</span></code> flags use only <code class="docutils literal notranslate"><span class="pre">true</span></code>
-(case-insensitive) as the true value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">multiprocessing</span></code> accepts <code class="docutils literal notranslate"><span class="pre">true</span></code>, <code class="docutils literal notranslate"><span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">yes</span></code>, and <code class="docutils literal notranslate"><span class="pre">on</span></code> as true,
+and <code class="docutils literal notranslate"><span class="pre">false</span></code>, <code class="docutils literal notranslate"><span class="pre">0</span></code>, <code class="docutils literal notranslate"><span class="pre">no</span></code>, and <code class="docutils literal notranslate"><span class="pre">off</span></code> as false (with abbreviated forms
+also accepted).</p></li>
+<li><p>Most <code class="docutils literal notranslate"><span class="pre">debug</span></code> flags use only <code class="docutils literal notranslate"><span class="pre">true</span></code> (case-insensitive) as the true value.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">generate_sftlf</span></code> treats <code class="docutils literal notranslate"><span class="pre">true</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, and <code class="docutils literal notranslate"><span class="pre">yes</span></code> as true.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-synthetic-plots</span></code> accepts a broader set of truthy and falsy values
 such as <code class="docutils literal notranslate"><span class="pre">true</span></code>, <code class="docutils literal notranslate"><span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">yes</span></code>, <code class="docutils literal notranslate"><span class="pre">on</span></code>, <code class="docutils literal notranslate"><span class="pre">false</span></code>, <code class="docutils literal notranslate"><span class="pre">0</span></code>, and <code class="docutils literal notranslate"><span class="pre">off</span></code> for
@@ -479,14 +481,12 @@ higher EOF number than the default of 1.</p></td>
 <h2>zi-pcmdi-enso<a class="headerlink" href="#zi-pcmdi-enso" title="Link to this heading"></a></h2>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p><code class="docutils literal notranslate"><span class="pre">pcmdi_diags</span></code> is currently in a beta release and is undergoing active development. <code class="docutils literal notranslate"><span class="pre">zi-pcmdi-enso</span></code> is not yet supported and should be treated as unavailable.</p>
+<p><code class="docutils literal notranslate"><span class="pre">pcmdi_diags</span></code> is currently in a beta release and is undergoing active development.</p>
 </div>
 <section id="id6">
 <h3>Purpose<a class="headerlink" href="#id6" title="Link to this heading"></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">zi-pcmdi-enso</span></code> contains argument parsing, observation preparation helpers,
-driver command generation, and output validation logic for ENSO diagnostics.
-However, the current <code class="docutils literal notranslate"><span class="pre">main()</span></code> implementation exits immediately with an error
-message stating that the command is not yet supported.</p>
+driver command generation, and output validation logic for ENSO diagnostics.</p>
 </section>
 <section id="current-status">
 <h3>Current status<a class="headerlink" href="#current-status" title="Link to this heading"></a></h3>
