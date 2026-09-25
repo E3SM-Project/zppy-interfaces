@@ -3,6 +3,7 @@ import glob
 import json
 import os
 import re
+import shutil
 import sys
 import time
 from collections import OrderedDict
@@ -21,7 +22,14 @@ logger = _setup_child_logger(__name__)
 # Classes #####################################################################
 class MeanClimateParameters(object):
     def __init__(self, args: Dict[str, str]):
-        self.regions: List[str] = args["regions"].split(",")
+        regions = args.get("regions")
+        if not regions:
+            raise ValueError("--regions is required but was not provided.")
+        self.regions: List[str] = [
+            region.strip() for region in regions.split(",") if region.strip()
+        ]
+        if not self.regions:
+            raise ValueError("--regions must contain at least one region.")
 
 
 class MeanClimateMetricsCollector:
@@ -38,6 +46,11 @@ class MeanClimateMetricsCollector:
         self.regions = regions
         self.variables = variables
         self.fig_format = fig_format
+        if len(model_info) != 4:
+            raise ValueError(
+                f"model_info must have 4 parts (mip, exp, model, relm), "
+                f"got {len(model_info)}: {model_info}"
+            )
         self.mip, self.exp, self.model, self.relm = model_info
         self.case_id = case_id
         self.input_template = input_template
@@ -53,7 +66,7 @@ class MeanClimateMetricsCollector:
 
     def _collect_figures(self):
         fig_sets = OrderedDict()
-        fig_sets["CLIM_patttern"] = ["graphics", "*"]
+        fig_sets["CLIM_pattern"] = ["graphics", "*"]
 
         for fset, (fig_type, prefix) in fig_sets.items():
             for region in self.regions:
@@ -68,6 +81,11 @@ class MeanClimateMetricsCollector:
                         )
                         fpaths = sorted(glob.glob(search_path))
 
+                        if not fpaths:
+                            logger.warning(
+                                f"No figures found for var={var}, region={region}, "
+                                f"season={season}: {search_path}"
+                            )
                         for fpath in fpaths:
                             refname = os.path.basename(fpath).split("_")[0]
                             filname = f"{refname}_{region}_{season}.{self.fig_format}"
@@ -78,7 +96,7 @@ class MeanClimateMetricsCollector:
                             )
                             os.makedirs(outpath, exist_ok=True)
                             outfile = os.path.join(outpath, filname)
-                            os.rename(fpath, outfile)
+                            _move_output(fpath, outfile)
 
     def _collect_diags(self):
         inpath = self.input_template.replace("%(metric_type)", self.diag_metric)
@@ -91,9 +109,9 @@ class MeanClimateMetricsCollector:
         fpaths = sorted(glob.glob(os.path.join(inpath, "*/*/*/*/*/*/*.nc")))
 
         for fpath in fpaths:
-            filname = fpath.split("/")[-1]
+            filname = os.path.basename(fpath)
             outfile = os.path.join(outpath, filname)
-            os.rename(fpath, outfile)
+            _move_output(fpath, outfile)
 
     def _collect_metrics(self):
         inpath = self.input_template.replace("%(metric_type)", self.diag_metric)
@@ -106,13 +124,28 @@ class MeanClimateMetricsCollector:
         fpaths = sorted(glob.glob(os.path.join(inpath, "*.json")))
 
         for fpath in fpaths:
-            refname = os.path.basename(fpath).split("_")[:2]
-            filname = f"{refname[0]}.{refname[1]}.{self.model_name}.{self.case_id}.json"
+            parts = os.path.basename(fpath).split("_")
+            if len(parts) < 2:
+                raise ValueError(
+                    f"Unexpected metrics filename format (need at least 2 '_'-separated "
+                    f"parts): {os.path.basename(fpath)}"
+                )
+            filname = f"{parts[0]}.{parts[1]}.{self.model_name}.{self.case_id}.json"
             outfile = os.path.join(outpath, filname)
-            os.rename(fpath, outfile)
+            _move_output(fpath, outfile)
 
 
 # Functions ###################################################################
+def _move_output(source: str, destination: str) -> None:
+    """Move an output across filesystems without overwriting directories."""
+    if os.path.isdir(destination):
+        raise IsADirectoryError(f"Destination is a directory: {destination}")
+    if os.path.exists(destination):
+        logger.warning(f"Destination already exists, replacing: {destination}")
+        os.remove(destination)
+    shutil.move(source, destination)
+
+
 def main():
     args: Dict[str, str] = _get_args()
     core_parameters = CoreParameters(args)
@@ -134,25 +167,27 @@ def main():
         try:
             results = run_parallel_jobs(lstcmd, core_parameters.num_workers)
             for i, (stdout, stderr, return_code) in enumerate(results):
-                print(f"\nCommand {i + 1} finished:")
-                print(f"STDOUT: {stdout}")
-                print(f"STDERR: {stderr}")
-                print(f"Return code: {return_code}")
+                logger.info(f"Command {i + 1} finished:")
+                logger.info(f"STDOUT: {stdout}")
+                logger.info(f"STDERR: {stderr}")
+                logger.info(f"Return code: {return_code}")
         except RuntimeError as e:
-            print(f"Execution failed: {e}")
+            logger.error(f"Execution failed: {e}")
+            raise
     elif len(lstcmd) > 0:
         try:
             results = run_serial_jobs(lstcmd)
             for i, (stdout, stderr, return_code) in enumerate(results):
-                print(f"\nCommand {i + 1} finished:")
-                print(f"STDOUT: {stdout}")
-                print(f"STDERR: {stderr}")
-                print(f"Return code: {return_code}")
+                logger.info(f"Command {i + 1} finished:")
+                logger.info(f"STDOUT: {stdout}")
+                logger.info(f"STDERR: {stderr}")
+                logger.info(f"Return code: {return_code}")
         except RuntimeError as e:
-            print(f"Execution failed: {e}")
+            logger.error(f"Execution failed: {e}")
+            raise
     else:
-        print("no jobs to run,continue....")
-    print("successfully finish all jobs....")
+        raise RuntimeError("No mean-climate diagnostic commands were generated.")
+    logger.info("successfully finished all jobs.")
     # time delay to ensure process completely finished
     time.sleep(5)
     # orgnize diagnostic output
@@ -254,4 +289,15 @@ def generate_mean_clim_cmds(variables, obs_dic, case_id):
                 ]
             )
             commands.append(cmd)
+        else:
+            logger.warning(
+                f"Variable '{var_key}' not found in obs_dic; "
+                f"no mean_climate command will be generated for it."
+            )
+    if not commands:
+        raise ValueError(
+            "No mean-climate commands could be generated from the requested "
+            f"variables. Requested variables: {variables}; available catalogue "
+            f"variables: {list(obs_dic)}"
+        )
     return commands

@@ -188,7 +188,7 @@ class SyntheticMetricsPlotter:
         # Variables (preserve original behavior unless filters are provided)
         var_list = list(merge_lib.var_list)
         var_unit_list = list(merge_lib.var_unit_list)
-        if self.clim_vars is not None:
+        if self.clim_vars:
             name_to_unit = dict(zip(merge_lib.var_list, merge_lib.var_unit_list))
             missing = [v for v in self.clim_vars if v not in name_to_unit]
             if missing:
@@ -200,7 +200,7 @@ class SyntheticMetricsPlotter:
 
         # Regions (preserve order)
         regions = list(merge_lib.regions)
-        if self.clim_regions is not None:
+        if self.clim_regions:
             missing_r = [r for r in self.clim_regions if r not in merge_lib.regions]
             if missing_r:
                 logger.warning(
@@ -316,12 +316,8 @@ class SyntheticMetricsPlotter:
             )
 
         # --- Collections (optional config) ---
-        enso_collections = self.metric_dict.get("collection", [])
-        if not isinstance(enso_collections, (list, tuple)):
-            logger.warning(
-                f"[enso] 'collection' should be list/tuple; got {type(enso_collections).__name__}. Using empty list."
-            )
-            enso_collections = []
+        # Resolved per-stat inside the loop below, as the JSON structure is
+        # metric_dict["enso_metric"][stat]["collection"].
 
         # --- Validate metric entry ---
         if metric not in self.metric_dict or not isinstance(
@@ -340,13 +336,24 @@ class SyntheticMetricsPlotter:
             return
 
         # --- Main loop over stats ---
+        successful_stats = []
+        failed_stats = []
         for stat in self.metric_dict[metric].keys():
             metric_dict = diag_vars_all.get(stat, {})
             if not metric_dict:
                 logger.warning(
                     f"[enso] No variables configured for stat='{stat}'. Skipping."
                 )
+                failed_stats.append(stat)
                 continue
+
+            enso_collections = self.metric_dict[metric][stat].get("collection", [])
+            if not isinstance(enso_collections, (list, tuple)):
+                logger.warning(
+                    f"[enso] 'collection' for stat='{stat}' should be list/tuple; "
+                    f"got {type(enso_collections).__name__}. Using empty list."
+                )
+                enso_collections = []
 
             logger.debug(
                 f"[enso] stat='{stat}', enso_mips={enso_mips}, collections={enso_collections}"
@@ -358,21 +365,95 @@ class SyntheticMetricsPlotter:
                 dict_json_path = reader.run()
             except Exception as e:
                 logger.exception(f"[enso] Reader failed for stat='{stat}': {e}")
+                failed_stats.append(stat)
                 continue
 
             if not dict_json_path:
                 logger.warning(
                     f"[enso] Reader returned empty path for stat='{stat}'. Skipping plot."
                 )
+                failed_stats.append(stat)
                 continue
 
             try:
-                enso_plot_driver(
+                plotted = enso_plot_driver(
                     metric, stat, dict_json_path, self.parameter, self.figure_format
                 )
+                if not plotted:
+                    raise RuntimeError(
+                        f"No supported ENSO plot type configured for stat='{stat}'."
+                    )
+                successful_stats.append(stat)
                 logger.debug(f"[enso] Plotted stat='{stat}' successfully.")
             except Exception as e:
                 logger.exception(f"[enso] Plot driver failed for stat='{stat}': {e}")
+                failed_stats.append(stat)
+
+        if not successful_stats:
+            raise RuntimeError(
+                "No ENSO synthetic metrics plots were generated. "
+                f"Failed or skipped stats: {failed_stats}"
+            )
+        if failed_stats:
+            logger.warning(
+                "[enso] Generated plots for %s; failed or skipped stats: %s",
+                successful_stats,
+                failed_stats,
+            )
+
+
+def _prepare_mean_climate_portrait_variables(
+    df_dict,
+    seasons,
+    region,
+    stat,
+    var_list,
+    var_unit_list,
+):
+    var_names = sorted(var_list.copy())
+    name_to_unit = dict(zip(var_list, var_unit_list))
+    season_data = {}
+    season_var_sets = []
+
+    for season in seasons:
+        if season not in df_dict or region not in df_dict[season]:
+            logger.warning(
+                "[mean_climate] Missing data for season=%s region=%s; "
+                "skipping portrait plot for stat=%s.",
+                season,
+                region,
+                stat,
+            )
+            return {}, [], []
+
+        data_dict, available_vars, _ = drop_vars(
+            df_dict[season][region].copy(),
+            var_names.copy(),
+            [name_to_unit[v] for v in var_names],
+        )
+        season_data[season] = data_dict
+        season_var_sets.append(set(available_vars))
+
+    common_vars = [var for var in var_names if all(var in s for s in season_var_sets)]
+    skipped_vars = [var for var in var_names if var not in common_vars]
+    if skipped_vars:
+        logger.warning(
+            "[mean_climate] Variables unavailable for all seasons in "
+            "region=%s stat=%s and will be skipped: %s",
+            region,
+            stat,
+            skipped_vars,
+        )
+    if not common_vars:
+        logger.warning(
+            "[mean_climate] No variables available for portrait plot "
+            "region=%s stat=%s; skipping.",
+            region,
+            stat,
+        )
+        return {}, [], []
+
+    return season_data, common_vars, [name_to_unit[v] for v in common_vars]
 
 
 def mean_climate_plot_driver(
@@ -406,15 +487,22 @@ def mean_climate_plot_driver(
                         metric, region, stat
                     )
                 )
-                var_names = sorted(var_list.copy())
-                # label information
-                var_units = []
-                for i, var in enumerate(var_names):
-                    index = var_list.index(var)
-                    var_units.append(var_unit_list[index])
+                season_data, var_names, var_units = (
+                    _prepare_mean_climate_portrait_variables(
+                        df_dict,
+                        metric_dict["season"],
+                        region,
+                        stat,
+                        var_list,
+                        var_unit_list,
+                    )
+                )
+                if not season_data:
+                    continue
+
                 data_nor = dict()
                 for season in metric_dict["season"]:
-                    data_dict = df_dict[season][region].copy()
+                    data_dict = season_data[season]
                     if stat == "cor_xy":
                         data_nor[season] = data_dict[var_names].to_numpy().T
                     else:
@@ -607,6 +695,7 @@ def enso_plot_driver(metric, stat, dict_json_path, parameter, fig_format):
     metrics_collections = metric_dict["collection"]
     mips = [parameter["cmip_name"].split(".")[0]] + parameter["model_name"]
 
+    plotted = False
     for mtype in metric_dict["type"]:
         if mtype == "portrait":
             logger.info(f"Processing Portrait Plots for {metric} {stat}...")
@@ -629,8 +718,9 @@ def enso_plot_driver(metric, stat, dict_json_path, parameter, fig_format):
                 figure_name=figure_name,
                 reduced_set=True,
             )
+            plotted = True
 
-    return
+    return plotted
 
 
 def archive_data(
@@ -852,6 +942,9 @@ def drop_vars(data_dict, var_names, var_units=None):
     protected_columns = {"model", "run", "model_run", "num_runs"}
     columns_to_drop = []
 
+    missing_columns = [var for var in var_names if var not in data_dict.columns]
+    columns_to_drop.extend(missing_columns)
+
     for column in data_dict.columns:
         if column in protected_columns:
             continue
@@ -860,7 +953,7 @@ def drop_vars(data_dict, var_names, var_units=None):
             columns_to_drop.append(column)
 
     # Drop columns from DataFrame
-    data_dict = data_dict.drop(columns=columns_to_drop)
+    data_dict = data_dict.drop(columns=columns_to_drop, errors="ignore")
 
     # Update var_names and var_units if applicable
     updated_var_names = [v for v in var_names if v not in columns_to_drop]

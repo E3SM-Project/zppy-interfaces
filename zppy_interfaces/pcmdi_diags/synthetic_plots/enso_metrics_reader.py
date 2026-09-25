@@ -23,22 +23,32 @@ class EnsoMetricsReader:
 
     def run(self):
         """Collect paths to ENSO metrics JSON files and return the mapping."""
+        if not self.mips:
+            raise ValueError(
+                "mips is empty; cannot retrieve ENSO metrics. "
+                "Check that cmip_name and model_name are configured."
+            )
+        if not self.metrics_collections:
+            raise ValueError(
+                "metrics_collections is empty; cannot retrieve ENSO metrics. "
+                "Check that 'collection' is configured in the metric_dict."
+            )
         for mip in self.mips:
-            self.dict_json_path[mip] = {}
+            collected_paths = {}
             for metrics_collection in self.metrics_collections:
-                if "cmip" in mip:
-                    self.dict_json_path[mip][metrics_collection] = (
-                        self._get_cmip_json_path(mip, metrics_collection)
-                    )
+                if "cmip" in mip.lower():
+                    json_path = self._get_cmip_json_path(mip, metrics_collection)
                 else:
-                    self.dict_json_path[mip][metrics_collection] = (
-                        self._get_test_json_path(mip, metrics_collection)
-                    )
+                    json_path = self._get_test_json_path(mip, metrics_collection)
 
-            if len(self.dict_json_path[mip]) < 1:
-                raise FileNotFoundError(
-                    f"No Synthetic ENSO Metrics Data for {mip}, aborting..."
-                )
+                if not json_path or not os.path.isfile(json_path):
+                    raise FileNotFoundError(
+                        f"No ENSO metrics file was collected for mip '{mip}' and "
+                        f"collection '{metrics_collection}'."
+                    )
+                collected_paths[metrics_collection] = json_path
+
+            self.dict_json_path[mip] = collected_paths
 
         return self.dict_json_path
 
@@ -51,43 +61,61 @@ class EnsoMetricsReader:
             metrics_collection,
             f"{mip.lower()}_{self.parameter['cmip_name'].split('.')[1]}_{metrics_collection}_*.json",
         )
-        matches = glob.glob(path)
+        matches = sorted(glob.glob(path))
         if not matches:
             raise FileNotFoundError(
                 f"CMIP metrics file not found for {mip} and {metrics_collection}"
             )
-        return matches[0]
+        return matches[-1]
 
     def _get_test_json_path(self, mip, metrics_collection):
-        for i, model_name in enumerate(self.parameter["model_name"]):
-            model_path = self.parameter["test_path"].replace(
-                "put_model_here", model_name
+        model_names = self.parameter.get("model_name", [])
+        if mip not in model_names:
+            raise ValueError(
+                f"Test model '{mip}' is not present in configured model_name values: "
+                f"{model_names}"
             )
-            model_files = find_latest_file_list(
+
+        model_path = self.parameter["test_path"].replace("put_model_here", mip)
+        model_files = sorted(
+            find_latest_file_list(
                 path=f"{model_path}/{metrics_collection}",
                 file_pattern="*.json",
                 var_pattern=self.var_pattern,
                 time_pattern=self.time_pattern,
             )
-            logger.info(f"{model_path}/{metrics_collection}")
-            if not model_files or not os.path.exists(model_files[0]):
-                raise FileNotFoundError(
-                    f"No Synthetic ENSO Metrics Data For {mip} {model_name}, Aborting."
-                )
-
-            for json_path in model_files:
-                with open(json_path) as ff:
-                    data_json = json.load(ff)
-
-            old_key = list(data_json["RESULTS"]["model"].keys())[0]
-
-            data_json["RESULTS"]["model"][mip] = data_json["RESULTS"]["model"].pop(
-                old_key
+        )
+        logger.info(f"{model_path}/{metrics_collection}")
+        if not model_files or not os.path.isfile(model_files[0]):
+            raise FileNotFoundError(
+                f"No Synthetic ENSO Metrics Data For {mip}, Aborting."
+            )
+        if len(model_files) > 1:
+            raise ValueError(
+                f"Expected one ENSO metrics file for {mip} and "
+                f"{metrics_collection}, found {len(model_files)}: {model_files}"
             )
 
-            with open(json_path, "w", encoding="utf8") as ff:
-                json.dump(
-                    data_json, ff, indent=4, separators=(",", ": "), sort_keys=True
+        json_path = model_files[0]
+        with open(json_path) as ff:
+            data_json = json.load(ff)
+
+        results_block = data_json.get("RESULTS")
+        model_block = (
+            results_block.get("model") if isinstance(results_block, dict) else None
+        )
+        if not isinstance(model_block, dict) or not model_block:
+            raise KeyError(f"Expected non-empty 'RESULTS.model' dict in {json_path}")
+        if mip not in model_block:
+            if len(model_block) != 1:
+                raise KeyError(
+                    f"Expected one model key in 'RESULTS.model' for {mip} in "
+                    f"{json_path}; found {list(model_block)}"
                 )
+            old_key = next(iter(model_block))
+            model_block[mip] = model_block.pop(old_key)
+
+        with open(json_path, "w", encoding="utf8") as ff:
+            json.dump(data_json, ff, indent=4, separators=(",", ": "), sort_keys=True)
 
         return json_path
