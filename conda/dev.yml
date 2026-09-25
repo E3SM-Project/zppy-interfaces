@@ -25,6 +25,12 @@ dependencies:
   - pcmdi_metrics>=3.9.3
   - xarray >=2023.02.0
   - xcdat >=0.7.3,<1.0
+  # Used in zppy bash scripts
+  # zppy-interfaces doesn't use NCO directly,
+  # but it is useful to have in a dev environment,
+  # such as when called from zppy.
+  # ========================
+  - nco <5.4.0
   # Testing
   # =======================
   - pytest
