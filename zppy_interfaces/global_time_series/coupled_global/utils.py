@@ -1,4 +1,5 @@
 import csv
+import glob
 import importlib.resources as imp_res
 import multiprocessing as mp
 import os
@@ -129,11 +130,28 @@ def get_ts_file_paths(
         y2: int = min(y1 + num_years - 1, parameters.year2)
         chunk_dir: str = directory
         if y2 - y1 + 1 != num_years:
-            parent: str = os.path.dirname(os.path.normpath(directory))
-            chunk_dir = os.path.join(parent, f"{y2 - y1 + 1}yr") + "/"
+            chunk_dir = _chunk_length_dir(directory, y2 - y1 + 1)
         file_path_list.append(f"{chunk_dir}{var_name}_{y1:04d}01_{y2:04d}12.nc")
         y1 += num_years
     return file_path_list
+
+
+def _chunk_length_dir(directory: str, num_years: int) -> str:
+    # `.../ts/monthly/5yr/` -> `.../ts/monthly/{num_years}yr/`
+    parent: str = os.path.dirname(os.path.normpath(directory))
+    return os.path.join(parent, f"{num_years}yr") + "/"
+
+
+def get_trailing_ts_files(directory: str, parameters: Parameters) -> List[str]:
+    """Files of the final, shorter chunk, for all variables, if there is one."""
+    num_years: int = int(parameters.ts_num_years_str)
+    num_full: int = (parameters.year2 - parameters.year1 + 1) // num_years
+    y1: int = parameters.year1 + num_full * num_years
+    y2: int = parameters.year2
+    if y1 > y2:
+        return []
+    chunk_dir: str = _chunk_length_dir(directory, y2 - y1 + 1)
+    return sorted(glob.glob(f"{chunk_dir}*_{y1:04d}01_{y2:04d}12.nc"))
 
 
 def get_variable_files(
@@ -534,7 +552,18 @@ class DatasetWrapper(object):
                         logger.info(f"{file_path} does not exist.")
             self.dataset = xcdat.open_mfdataset(file_path_list, center_times=True)
         else:
-            self.dataset = xcdat.open_mfdataset(f"{directory}*.nc", center_times=True)
+            trailing_files: List[str] = (
+                get_trailing_ts_files(directory, parameters) if parameters else []
+            )
+            if trailing_files:
+                self.dataset = xcdat.open_mfdataset(
+                    sorted(glob.glob(f"{directory}*.nc")) + trailing_files,
+                    center_times=True,
+                )
+            else:
+                self.dataset = xcdat.open_mfdataset(
+                    f"{directory}*.nc", center_times=True
+                )
         self.eamxx: bool = is_eamxx_data(self.dataset.data_vars)
         self.area_tuple: Optional[Tuple[Any, Any, Any]] = None
 
@@ -892,7 +921,9 @@ def set_var(
     valid_vars: List[str],
     invalid_vars: List[str],
     parameters: Optional[Parameters] = None,
+    file_parameters: Optional[Parameters] = None,
 ) -> List[Variable]:
+    # `file_parameters`: also read a final, shorter chunk on the legacy path
     new_var_list: List[Variable] = []
     if parameters and (var_list == []):
         return new_var_list
@@ -908,7 +939,9 @@ def set_var(
                     data_array, units = process_variable(var, directory, parameters)
                 else:
                     # Legacy fallback: use DatasetWrapper for backward compatibility
-                    dataset_wrapper = DatasetWrapper(directory)
+                    dataset_wrapper = DatasetWrapper(
+                        directory, parameters=file_parameters
+                    )
                     data_array, units = dataset_wrapper.globalAnnual(var)
                     del dataset_wrapper
 

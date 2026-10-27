@@ -41,6 +41,7 @@ def process_data(
             requested_variables.vars_original,
             valid_vars,
             invalid_vars,
+            file_parameters=parameters,
         )
         # Optionally read ohc
         logger.info("Reading ohc")

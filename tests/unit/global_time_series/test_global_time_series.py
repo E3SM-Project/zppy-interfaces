@@ -25,6 +25,7 @@ from zppy_interfaces.global_time_series.coupled_global.utils import (
     _land_csv_row_to_var,
     construct_generic_variables,
     get_data_dir,
+    get_trailing_ts_files,
     get_ts_file_paths,
     get_vars_original,
 )
@@ -254,6 +255,48 @@ def test_get_ts_file_paths():
     assert get_ts_file_paths(
         "TREFHT", "/case/post/atm/glb/ts/monthly/1yr/", parameters
     ) == ["/case/post/atm/glb/ts/monthly/1yr/TREFHT_199501_199512.nc"]
+
+
+def test_get_trailing_ts_files(tmp_path):
+    args: Dict[str, str] = {
+        "make_viewer": "True",
+        "case_dir": "/case",
+        "experiment_name": "exp",
+        "figstr": "exp",
+        "color": "Blue",
+        "ts_num_years": "5",
+        "results_dir": "results",
+        "regions": "glb",
+        "start_yr": "1995",
+        "end_yr": "2007",
+        "use_ocn": "False",
+        "input": "/input",
+        "input_subdir": "archive/atm/hist",
+        "moc_file": "None",
+        "plots_original": "None",
+        "nrows": "1",
+        "ncols": "1",
+        "plots_atm": "TREFHT",
+        "plots_ice": "None",
+        "plots_lnd": "None",
+        "plots_ocn": "None",
+    }
+    full_dir = tmp_path / "5yr"
+    short_dir = tmp_path / "3yr"
+    full_dir.mkdir()
+    short_dir.mkdir()
+    for name in ["FSNT_200501_200712.nc", "FLNT_200501_200712.nc"]:
+        (short_dir / name).write_text("")
+    # A file from another range in the same directory is not picked up
+    (short_dir / "FSNT_201001_201212.nc").write_text("")
+    directory = str(full_dir) + "/"
+    assert get_trailing_ts_files(directory, Parameters(args)) == [
+        f"{short_dir}/FLNT_200501_200712.nc",
+        f"{short_dir}/FSNT_200501_200712.nc",
+    ]
+
+    args["end_yr"] = "2004"
+    assert get_trailing_ts_files(directory, Parameters(args)) == []
 
 
 def test_Variable():
