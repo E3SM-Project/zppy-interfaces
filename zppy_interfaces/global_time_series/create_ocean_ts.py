@@ -78,6 +78,11 @@ def ocean_month(
                 f"{path_in}/*mpaso.hist.am.timeSeriesStatsMonthly.{year:04d}-??-??.nc"
             )
             files.extend(sorted(glob.glob(inFiles)))
+        if not files and year2 - year1 + 1 < ts_num_years:
+            logger.warning(
+                f"No MPAS-O files for the final, shorter chunk {year1}-{year2}; skipping it."
+            )
+            continue
         out = f"{path_out}/mpaso.glb.{year1:04d}01-{year2:04d}12.nc"
 
         # Create output file
