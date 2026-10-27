@@ -113,23 +113,38 @@ def get_vars_original(plots_original: List[str]) -> List[Variable]:
 # For plots_components
 
 
+def get_ts_file_paths(
+    var_name: str, directory: str, parameters: Parameters
+) -> List[str]:
+    """Expected time-series file paths for a variable, one per chunk.
+
+    `directory` is of the form `.../ts/monthly/{ts_num_years}yr/`. A final,
+    shorter chunk is written by zppy to the directory for its own length
+    (e.g. `.../ts/monthly/3yr/`).
+    """
+    file_path_list: List[str] = []
+    num_years: int = int(parameters.ts_num_years_str)
+    y1: int = parameters.year1
+    while y1 <= parameters.year2:
+        y2: int = min(y1 + num_years - 1, parameters.year2)
+        chunk_dir: str = directory
+        if y2 - y1 + 1 != num_years:
+            parent: str = os.path.dirname(os.path.normpath(directory))
+            chunk_dir = os.path.join(parent, f"{y2 - y1 + 1}yr") + "/"
+        file_path_list.append(f"{chunk_dir}{var_name}_{y1:04d}01_{y2:04d}12.nc")
+        y1 += num_years
+    return file_path_list
+
+
 def get_variable_files(
     var_name: str, directory: str, parameters: Parameters
 ) -> List[str]:
     """Get list of NetCDF files for a single variable."""
-    file_path_list: List[str] = []
-    num_years: int = int(parameters.ts_num_years_str)
-    y1: int = parameters.year1
-    y2: int = parameters.year1 + num_years - 1
-
-    while y2 <= parameters.year2:
-        file_path: str = f"{directory}{var_name}_{y1:04d}01_{y2:04d}12.nc"
-        if os.path.exists(file_path):
-            file_path_list.append(file_path)
-        y1 += num_years
-        y2 += num_years
-
-    return file_path_list
+    return [
+        file_path
+        for file_path in get_ts_file_paths(var_name, directory, parameters)
+        if os.path.exists(file_path)
+    ]
 
 
 def apply_scaling(
@@ -509,20 +524,14 @@ class DatasetWrapper(object):
         if var_list and parameters:
             file_path_list: List[str] = []
             for var in var_list:
-                num_years: int = int(parameters.ts_num_years_str)
-                y1: int = parameters.year1
-                y2: int = parameters.year1 + num_years - 1
-                while y2 <= parameters.year2:
-                    # `var.variable_name` will be of the form `FSNS`, `FLNS`, etc.
-                    file_path: str = (
-                        f"{directory}{var.variable_name}_{y1:04d}01_{y2:04d}12.nc"
-                    )
+                # `var.variable_name` will be of the form `FSNS`, `FLNS`, etc.
+                for file_path in get_ts_file_paths(
+                    var.variable_name, directory, parameters
+                ):
                     if os.path.exists(file_path):
                         file_path_list.append(file_path)
                     else:
                         logger.info(f"{file_path} does not exist.")
-                    y1 += num_years
-                    y2 += num_years
             self.dataset = xcdat.open_mfdataset(file_path_list, center_times=True)
         else:
             self.dataset = xcdat.open_mfdataset(f"{directory}*.nc", center_times=True)

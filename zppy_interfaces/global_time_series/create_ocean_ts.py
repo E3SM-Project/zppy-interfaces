@@ -67,10 +67,10 @@ def ocean_month(
     tunits = f"days since {start_yr:04d}-01-01 00:00:00"
 
     # Loop over year sets
-    for y in range(start_yr, end_yr, ts_num_years):
+    for y in range(start_yr, end_yr + 1, ts_num_years):
 
         year1 = y
-        year2 = y + ts_num_years - 1
+        year2 = min(y + ts_num_years - 1, end_yr)
         files = []
         for year in range(year1, year2 + 1):
             logger.info(f"year={year}")
