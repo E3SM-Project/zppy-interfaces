@@ -1,4 +1,5 @@
 import csv
+import glob
 import importlib.resources as imp_res
 import multiprocessing as mp
 import os
@@ -113,23 +114,55 @@ def get_vars_original(plots_original: List[str]) -> List[Variable]:
 # For plots_components
 
 
+def get_ts_file_paths(
+    var_name: str, directory: str, parameters: Parameters
+) -> List[str]:
+    """Expected time-series file paths for a variable, one per chunk.
+
+    `directory` is of the form `.../ts/monthly/{ts_num_years}yr/`. A final,
+    shorter chunk is written by zppy to the directory for its own length
+    (e.g. `.../ts/monthly/3yr/`).
+    """
+    file_path_list: List[str] = []
+    num_years: int = int(parameters.ts_num_years_str)
+    y1: int = parameters.year1
+    while y1 <= parameters.year2:
+        y2: int = min(y1 + num_years - 1, parameters.year2)
+        chunk_dir: str = directory
+        if y2 - y1 + 1 != num_years:
+            chunk_dir = _chunk_length_dir(directory, y2 - y1 + 1)
+        file_path_list.append(f"{chunk_dir}{var_name}_{y1:04d}01_{y2:04d}12.nc")
+        y1 += num_years
+    return file_path_list
+
+
+def _chunk_length_dir(directory: str, num_years: int) -> str:
+    # `.../ts/monthly/5yr/` -> `.../ts/monthly/{num_years}yr/`
+    parent: str = os.path.dirname(os.path.normpath(directory))
+    return os.path.join(parent, f"{num_years}yr") + "/"
+
+
+def get_trailing_ts_files(directory: str, parameters: Parameters) -> List[str]:
+    """Files of the final, shorter chunk, for all variables, if there is one."""
+    num_years: int = int(parameters.ts_num_years_str)
+    num_full: int = (parameters.year2 - parameters.year1 + 1) // num_years
+    y1: int = parameters.year1 + num_full * num_years
+    y2: int = parameters.year2
+    if y1 > y2:
+        return []
+    chunk_dir: str = _chunk_length_dir(directory, y2 - y1 + 1)
+    return sorted(glob.glob(f"{chunk_dir}*_{y1:04d}01_{y2:04d}12.nc"))
+
+
 def get_variable_files(
     var_name: str, directory: str, parameters: Parameters
 ) -> List[str]:
     """Get list of NetCDF files for a single variable."""
-    file_path_list: List[str] = []
-    num_years: int = int(parameters.ts_num_years_str)
-    y1: int = parameters.year1
-    y2: int = parameters.year1 + num_years - 1
-
-    while y2 <= parameters.year2:
-        file_path: str = f"{directory}{var_name}_{y1:04d}01_{y2:04d}12.nc"
-        if os.path.exists(file_path):
-            file_path_list.append(file_path)
-        y1 += num_years
-        y2 += num_years
-
-    return file_path_list
+    return [
+        file_path
+        for file_path in get_ts_file_paths(var_name, directory, parameters)
+        if os.path.exists(file_path)
+    ]
 
 
 def apply_scaling(
@@ -509,23 +542,28 @@ class DatasetWrapper(object):
         if var_list and parameters:
             file_path_list: List[str] = []
             for var in var_list:
-                num_years: int = int(parameters.ts_num_years_str)
-                y1: int = parameters.year1
-                y2: int = parameters.year1 + num_years - 1
-                while y2 <= parameters.year2:
-                    # `var.variable_name` will be of the form `FSNS`, `FLNS`, etc.
-                    file_path: str = (
-                        f"{directory}{var.variable_name}_{y1:04d}01_{y2:04d}12.nc"
-                    )
+                # `var.variable_name` will be of the form `FSNS`, `FLNS`, etc.
+                for file_path in get_ts_file_paths(
+                    var.variable_name, directory, parameters
+                ):
                     if os.path.exists(file_path):
                         file_path_list.append(file_path)
                     else:
                         logger.info(f"{file_path} does not exist.")
-                    y1 += num_years
-                    y2 += num_years
             self.dataset = xcdat.open_mfdataset(file_path_list, center_times=True)
         else:
-            self.dataset = xcdat.open_mfdataset(f"{directory}*.nc", center_times=True)
+            trailing_files: List[str] = (
+                get_trailing_ts_files(directory, parameters) if parameters else []
+            )
+            if trailing_files:
+                self.dataset = xcdat.open_mfdataset(
+                    sorted(glob.glob(f"{directory}*.nc")) + trailing_files,
+                    center_times=True,
+                )
+            else:
+                self.dataset = xcdat.open_mfdataset(
+                    f"{directory}*.nc", center_times=True
+                )
         self.eamxx: bool = is_eamxx_data(self.dataset.data_vars)
         self.area_tuple: Optional[Tuple[Any, Any, Any]] = None
 
@@ -883,7 +921,9 @@ def set_var(
     valid_vars: List[str],
     invalid_vars: List[str],
     parameters: Optional[Parameters] = None,
+    file_parameters: Optional[Parameters] = None,
 ) -> List[Variable]:
+    # `file_parameters`: also read a final, shorter chunk on the legacy path
     new_var_list: List[Variable] = []
     if parameters and (var_list == []):
         return new_var_list
@@ -899,7 +939,9 @@ def set_var(
                     data_array, units = process_variable(var, directory, parameters)
                 else:
                     # Legacy fallback: use DatasetWrapper for backward compatibility
-                    dataset_wrapper = DatasetWrapper(directory)
+                    dataset_wrapper = DatasetWrapper(
+                        directory, parameters=file_parameters
+                    )
                     data_array, units = dataset_wrapper.globalAnnual(var)
                     del dataset_wrapper
 
