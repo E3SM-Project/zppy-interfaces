@@ -1,0 +1,42 @@
+# Minimal zppy reproducer: global_time_series change_ohc / change_sea_level
+# fail when the ocean has a final, shorter chunk (1995) that atm lacks.
+# Rendered to ${WORK_DIR}/mre_zppy.cfg by setup.sh; see README.md.
+#
+# Reuses forsyth2's 2026-10-30 comprehensive_v3 data (linked by setup.sh):
+#   atm glb ts: 5yr chunks 1985-1989, 1990-1994 only ([ts] years = "1985:1995:5")
+#   MOC:        mocTimeSeries_1985-1995.nc from mpas_analysis
+#   MPAS-O:     raw monthly output through 1995 (read by create_ocean_ts)
+# Only global_time_series runs; setup.sh writes OK status files for its
+# ts / mpas_analysis dependencies.
+
+[default]
+case = "v3.LR.historical_0051"
+constraint = ""
+dry_run = "False"
+environment_commands = ""
+input = /lcrc/group/e3sm2/ac.wlin/E3SMv3/v3.LR.historical_0051
+input_subdir = archive/atm/hist
+output = "@WORK_DIR@/output/v3.LR.historical_0051"
+partition = "debug"
+qos = "regular"
+www = "@WWW_DIR@"
+
+[global_time_series]
+active = True
+climo_years = "1985-1989", "1990-1995",
+experiment_name = "v3.LR.historical_0051"
+figstr = "v3.LR.historical_0051"
+moc_file = "mocTimeSeries_1985-1995.nc"
+# Default plots_original, which includes change_ohc and change_sea_level
+ts_num_years = 5
+ts_years = "1985-1989", "1985-1995",
+walltime = "00:30:00"
+years = "1985-1995",
+
+  [[ buggy ]]
+  # zppy-interfaces as installed in ZI_ENV
+  environment_commands = "@ENV_COMMANDS@; python -c 'import zppy_interfaces; print(zppy_interfaces.__file__)'"
+
+  [[ fixed ]]
+  # Same env, but import zppy-interfaces from the checkout in ZI_SRC
+  environment_commands = "@ENV_COMMANDS@; export PYTHONPATH=@ZI_SRC@; python -c 'import zppy_interfaces; print(zppy_interfaces.__file__)'"

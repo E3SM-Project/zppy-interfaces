@@ -1,6 +1,9 @@
 from typing import Any, Dict, List
 
+import cftime
+import numpy as np
 import pytest
+import xarray
 
 from zppy_interfaces.global_time_series.coupled_global.eamxx_variables import (
     EAMXX_ALIASES,
@@ -17,6 +20,9 @@ from zppy_interfaces.global_time_series.coupled_global.plots_component import (
 )
 from zppy_interfaces.global_time_series.coupled_global.plots_original import (
     _get_exps as original_get_exps,
+)
+from zppy_interfaces.global_time_series.coupled_global.plots_original import (
+    _years_subset,
 )
 from zppy_interfaces.global_time_series.coupled_global.plotting import get_ylim
 from zppy_interfaces.global_time_series.coupled_global.utils import (
@@ -297,6 +303,23 @@ def test_get_trailing_ts_files(tmp_path):
 
     args["end_yr"] = "2004"
     assert get_trailing_ts_files(directory, Parameters(args)) == []
+
+
+def test_years_subset():
+    # Ocean has a final, shorter chunk (1995) that atmos does not
+    time = [cftime.DatetimeNoLeap(year, 7, 1) for year in range(1985, 1996)]
+    ohc = xarray.DataArray(np.arange(11.0), coords={"time": time}, dims="time")
+
+    subset = _years_subset(ohc, {"year": list(range(1985, 1995))})
+    assert [x.year for x in subset.coords["time"].values] == list(range(1985, 1995))
+    assert subset.values.tolist() == list(np.arange(10.0))
+
+    # No shared x-axis yet: keep every year
+    assert _years_subset(ohc, {}).sizes["time"] == 11
+
+    # Atmos has the final, shorter chunk but the ocean does not: unchanged,
+    # since `plot` already shortens the x-axis to match.
+    assert _years_subset(ohc, {"year": list(range(1985, 1997))}).sizes["time"] == 11
 
 
 def test_Variable():
