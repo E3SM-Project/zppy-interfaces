@@ -1,6 +1,7 @@
 from typing import Any, Dict, List
 
 import matplotlib as mpl
+import xarray
 
 from zppy_interfaces.global_time_series.coupled_global.utils import (
     DatasetWrapper,
@@ -49,7 +50,7 @@ def process_data(
             ohc_variable = Variable("ohc")
             dataset_wrapper = DatasetWrapper(exp["moc"])
             ohc_data_array, _ = dataset_wrapper.globalAnnual(ohc_variable)
-            exp["annual"]["ohc"] = ohc_data_array
+            exp["annual"]["ohc"] = _years_subset(ohc_data_array, exp["annual"])
             # Populate year key if not already present
             if "year" not in exp["annual"]:
                 years = ohc_data_array.coords["time"].values
@@ -62,7 +63,7 @@ def process_data(
             vol_variable = Variable("volume")
             dataset_wrapper = DatasetWrapper(exp["vol"])
             vol_data_array, _ = dataset_wrapper.globalAnnual(vol_variable)
-            exp["annual"]["volume"] = vol_data_array
+            exp["annual"]["volume"] = _years_subset(vol_data_array, exp["annual"])
             # Populate year key if not already present
             if "year" not in exp["annual"]:
                 years = vol_data_array.coords["time"].values
@@ -80,6 +81,18 @@ def process_data(
             f"globalAnnual could not be computed for these variables: {invalid_vars}"
         )
     return exps
+
+
+def _years_subset(
+    data_array: xarray.core.dataarray.DataArray, annual: Dict[str, Any]
+) -> xarray.core.dataarray.DataArray:
+    # The ocean may have a final, shorter chunk that atmos lacks,
+    # so keep only the years already on the shared x-axis.
+    if "year" not in annual:
+        return data_array
+    data_years: List[int] = [x.year for x in data_array.coords["time"].values]
+    keep: List[bool] = [year in annual["year"] for year in data_years]
+    return data_array.isel(time=keep)
 
 
 def _get_exps(parameters: Parameters) -> List[Dict[str, Any]]:

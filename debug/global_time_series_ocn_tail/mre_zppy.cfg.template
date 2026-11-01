@@ -1,0 +1,42 @@
+# zppy reproducer, rendered to ${WORK_DIR}/mre_zppy.cfg by setup.sh.
+# Runs only global_time_series on forsyth2's 2026-10-30 comprehensive_v3
+# data, which setup.sh links in. See README.md.
+
+[default]
+case = "v3.LR.historical_0051"
+input = /lcrc/group/e3sm2/ac.wlin/E3SMv3/v3.LR.historical_0051
+input_subdir = archive/atm/hist
+output = "@WORK_DIR@/output/v3.LR.historical_0051"
+partition = "debug"
+www = "/lcrc/group/e3sm/public_html/diagnostic_output/@USER@/zppy_mre_gts_ocn_tail"
+
+[global_time_series]
+active = True
+climo_years = "1985-1989", "1990-1995",
+environment_commands = "source /home/ac.forsyth2/miniforge3/etc/profile.d/conda.sh; conda activate test-zi-main-20261030_run1"
+experiment_name = "v3.LR.historical_0051"
+figstr = "v3.LR.historical_0051"
+moc_file = "mocTimeSeries_1985-1995.nc"
+ts_num_years = 5
+ts_years = "1985-1989", "1985-1995",
+walltime = "00:30:00"
+years = "1985-1995",
+
+  [[ buggy ]]
+
+  [[ fixed ]]
+  # Import zppy-interfaces from this checkout
+  environment_commands = "source /home/ac.forsyth2/miniforge3/etc/profile.d/conda.sh; conda activate test-zi-main-20261030_run1; export PYTHONPATH=@ZI_SRC@"
+
+# Uncomment to also produce the atm 1995 chunk; then both subtasks plot 1985-1995.
+# [ts]
+# active = True
+# environment_commands = "source /lcrc/soft/climate/e3sm-unified/load_latest_e3sm_unified_chrysalis.sh"
+# walltime = "00:30:00"
+#
+#   [[ atm_monthly_glb ]]
+#   frequency = "monthly"
+#   input_files = "eam.h0"
+#   mapping_file = "glb"
+#   vars = "FSNTOA,FLUT,FSNT,FLNT,FSNS,FLNS,SHFLX,QFLX,TAUX,TAUY,PRECC,PRECL,PRECSC,PRECSL,TS,TREFHT,CLDTOT,CLDHGH,CLDMED,CLDLOW,U,PSL"
+#   years = "1995-1995",
