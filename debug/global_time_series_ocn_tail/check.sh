@@ -1,13 +1,16 @@
 #!/bin/bash
 # Pass/fail for the zppy reproducer. zi-global-time-series exits 0 even when
-# a plot fails, so read the job logs rather than the .status files.
-# Exits 0 only if "buggy" reproduces the failure and "fixed" does not.
-WORK_DIR=${WORK_DIR:-/lcrc/group/e3sm/${USER}/zppy_mre_gts_ocn_tail}
-scripts=${WORK_DIR}/output/v3.LR.historical_0051/post/scripts
-cd "${scripts}" || exit 1
+# a plot fails, so read the job logs rather than the .status files, then
+# count the years plotted (count_years.py) with each zppy-interfaces.
+# Exits 0 only if the outcome matches the expectation for ATM_TAIL:
+#   ATM_TAIL=0: buggy fails; fixed passes, plotting 10 years (1985-1994)
+#   ATM_TAIL=1: both pass, plotting 11 years (1985-1995)
+# Settings and their defaults: see env.sh.
+source "$(dirname "$0")/env.sh"
+cd "${case_dir}/post/scripts" || exit 1
 
-echo "== status"
-grep -H . global_time_series_*.status
+echo "== status (ATM_TAIL=${ATM_TAIL})"
+grep -H . ./*.status | grep -v "OK$" || echo "all OK"
 
 declare -A failed
 for sub in buggy fixed; do
@@ -29,5 +32,21 @@ for sub in buggy fixed; do
   fi
 done
 
-echo "== expected: buggy FAILED with ['change_ohc', 'change_sea_level']; fixed all plots generated"
-[ "${failed[buggy]}" = yes ] && [ "${failed[fixed]}" = no ]
+declare -A years
+for sub in buggy fixed; do
+  pythonpath=""
+  [ "${sub}" = fixed ] && pythonpath=${ZI_SRC}
+  echo "== years read by ${sub} (zppy-interfaces from ${pythonpath:-the env})"
+  out=$(bash -c "${ENV_COMMANDS}; PYTHONPATH=${pythonpath} python ${here}/count_years.py ${case_dir}" 2>&1 \
+        | grep -E "^(x-axis|ohc|volume)")
+  echo "${out}"
+  years[${sub}]=$(echo "${out}" | grep -c "11 years (1985-1995)")
+done
+
+if [ "${ATM_TAIL}" = 1 ]; then
+  echo "== expected: buggy and fixed both pass, x-axis/ohc/volume all 11 years (1985-1995)"
+  [ "${failed[buggy]}" = no ] && [ "${failed[fixed]}" = no ] && [ "${years[buggy]}" = 3 ] && [ "${years[fixed]}" = 3 ]
+else
+  echo "== expected: buggy FAILED with ['change_ohc', 'change_sea_level']; fixed passes with 10 years (1985-1994)"
+  [ "${failed[buggy]}" = yes ] && [ "${failed[fixed]}" = no ] && [ "${years[fixed]}" = 0 ]
+fi

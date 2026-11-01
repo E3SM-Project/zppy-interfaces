@@ -2,22 +2,12 @@
 # Set up the zppy reproducer in WORK_DIR: link forsyth2's 2026-10-30
 # comprehensive_v3 data, mark global_time_series' dependencies as done,
 # and render mre_zppy.cfg. Safe to rerun; WORK_DIR/output is recreated.
-#
-# Environment variables (defaults are for Chrysalis):
-#   WORK_DIR      where output and the rendered cfg go
-#   WWW_DIR       where plots are published
-#   ENV_COMMANDS  commands that activate a zppy-interfaces env
-#   ZI_SRC        zppy-interfaces checkout used by the "fixed" subtask
+# Settings and their defaults: see env.sh.
 set -euo pipefail
-
-here=$(cd "$(dirname "$0")" && pwd)
-WORK_DIR=${WORK_DIR:-/lcrc/group/e3sm/${USER}/zppy_mre_gts_ocn_tail}
-WWW_DIR=${WWW_DIR:-/lcrc/group/e3sm/public_html/diagnostic_output/${USER}/zppy_mre_gts_ocn_tail}
-ENV_COMMANDS=${ENV_COMMANDS:-source /home/ac.forsyth2/miniforge3/etc/profile.d/conda.sh; conda activate test-zi-main-20261030_run1}
-ZI_SRC=${ZI_SRC:-$(cd "${here}/../.." && pwd)}
+source "$(dirname "$0")/env.sh"
 
 src=/lcrc/group/e3sm/ac.forsyth2/zppy_weekly_comprehensive_v3_output/zppy_main_branch_test_20261030_run1/v3.LR.historical_0051/post
-post=${WORK_DIR}/output/v3.LR.historical_0051/post
+post=${case_dir}/post
 
 # Start clean, so the ocean tail chunk is regenerated on every run
 rm -rf "${WORK_DIR}/output"
@@ -42,8 +32,11 @@ sed -e "s#@WORK_DIR@#${WORK_DIR}#g" \
     -e "s#@ENV_COMMANDS@#${ENV_COMMANDS}#g" \
     -e "s#@ZI_SRC@#${ZI_SRC}#g" \
     "${here}/mre_zppy.cfg.template" > "${WORK_DIR}/mre_zppy.cfg"
+if [ "${ATM_TAIL}" = 1 ]; then
+  cat "${here}/mre_zppy_atm_tail.cfg.part" >> "${WORK_DIR}/mre_zppy.cfg"
+fi
 
-echo "atm glb ts files: $(ls "${post}/atm/glb/ts/monthly/5yr/" | grep -c '\.nc$')"
+echo "ATM_TAIL=${ATM_TAIL}; atm glb ts files: $(ls "${post}/atm/glb/ts/monthly/5yr/" | grep -c '\.nc$')"
 echo "fixed subtask imports zppy-interfaces from: ${ZI_SRC} ($(git -C "${ZI_SRC}" rev-parse --abbrev-ref HEAD))"
 echo "Next: zppy -c ${WORK_DIR}/mre_zppy.cfg"
-echo "Then, after both jobs finish: WORK_DIR=${WORK_DIR} bash ${here}/check.sh"
+echo "Then, after the jobs finish: ATM_TAIL=${ATM_TAIL} bash ${here}/check.sh"
